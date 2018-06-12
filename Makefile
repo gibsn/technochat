@@ -7,6 +7,9 @@ export PATH
 
 all: technochat
 
+install: technochat
+	go install ./...
+
 technochat: bin/gb
 	gb build technochat
 
