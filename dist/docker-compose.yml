@@ -1,0 +1,49 @@
+version: "3.6"
+services:
+    redis:
+        container_name: "redis"
+        image: gibsn/redis
+        volumes:
+            - /docker/redis/data:/data
+        secrets:
+            - redis.conf
+        depends_on:
+            - technochat
+        ports:
+            - "6379:6379"
+
+    technochat:
+        container_name: "technochat"
+        image: gibsn/technochat
+        volumes:
+            - static:/static
+        ports:
+            - "8080:8080"
+    nginx:
+        container_name: "nginx"
+        image: gibsn/nginx
+        volumes:
+            - static:/static
+        secrets:
+            - server.key
+            - server.crt
+            - source: nginx.conf
+              target: /etc/nginx/nginx.conf
+        depends_on:
+            - technochat
+        ports:
+            - "80:80"
+            - "443:443"
+
+volumes:
+    static:
+
+secrets:
+    server.key:
+        file: ../certs/server.key
+    server.crt:
+        file: ../certs/server.crt
+    nginx.conf:
+        file: nginx.conf
+    redis.conf:
+        file: redis.conf
