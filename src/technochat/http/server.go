@@ -1,13 +1,20 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
+)
+
+const (
+	gracefulTime = 5 * time.Second
 )
 
 type Server struct {
-	addr string
+	addr   string
+	server *http.Server
 }
 
 type Response struct {
@@ -20,7 +27,8 @@ type TechnochatHandler func(*http.Request) (int, interface{}, error)
 
 func NewServer(addr string) *Server {
 	return &Server{
-		addr: addr,
+		addr:   addr,
+		server: &http.Server{Addr: addr, Handler: nil},
 	}
 }
 
@@ -36,7 +44,18 @@ func (s *Server) Init() {
 }
 
 func (s *Server) Routine() {
-	log.Fatal(http.ListenAndServe(s.addr, nil))
+	if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalln("fatal: http:", err)
+	}
+}
+
+func (s *Server) Shutdown() {
+	log.Println("http: shutting down")
+
+	ctx, _ := context.WithTimeout(context.Background(), gracefulTime)
+	if err := s.server.Shutdown(ctx); err != nil {
+		log.Println("error: http:", err)
+	}
 }
 
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {

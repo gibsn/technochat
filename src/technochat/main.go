@@ -3,34 +3,22 @@ package main
 import (
 	"flag"
 	"log"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"technochat/http"
 )
 
-type Technochat struct {
-	httpServer *http.Server
-}
+func wait() {
+	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
+	ch := make(chan os.Signal, len(signals))
+	signal.Notify(ch, signals...)
 
-func NewTechnochat(addr string) *Technochat {
-	return &Technochat{
-		httpServer: http.NewServer(addr),
-	}
-}
+	select {
+	case s := <-ch:
+		log.Println("technochat: got signal", s)
 
-func (t *Technochat) Init() {
-	log.Println("technochat: initialising")
-
-	t.httpServer.Init()
-
-	log.Println("technochat: successfully initialised")
-}
-
-func (t *Technochat) Routine() {
-	go t.httpServer.Routine()
-
-	for {
-		time.Sleep(1 * time.Minute)
 	}
 }
 
@@ -38,7 +26,19 @@ func main() {
 	addr := flag.String("l", ":8080", "addr:port to listen on")
 	flag.Parse()
 
-	technochat := NewTechnochat(*addr)
-	technochat.Init()
-	technochat.Routine()
+	httpServer := http.NewServer(*addr)
+
+	log.Println("technochat: initialising")
+
+	httpServer.Init()
+
+	log.Println("technochat: successfully initialised")
+	log.Println("technochat: starting")
+
+	go httpServer.Routine()
+
+	wait()
+	httpServer.Shutdown()
+
+	log.Println("technochat: exited")
 }
