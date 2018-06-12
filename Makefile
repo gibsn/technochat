@@ -10,6 +10,9 @@ all: technochat
 install: technochat
 	go install ./...
 
+test:
+	gb test -v
+
 technochat: bin/gb
 	gb build technochat
 
@@ -25,4 +28,4 @@ clean:
 	rm -rf vendor/pkg
 
 
-.PHONY: all clean
+.PHONY: all clean test install

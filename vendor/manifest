@@ -8,6 +8,18 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/google/uuid",
+			"repository": "https://github.com/google/uuid",
+			"revision": "dec09d789f3dba190787f8b4454c7d3c936fed9e",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mediocregopher/radix.v2",
+			"repository": "https://github.com/mediocregopher/radix.v2",
+			"revision": "94360be262532d465b7e4760c7a67195d3319a87",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/pkg/errors",
 			"repository": "https://github.com/pkg/errors",
 			"revision": "816c9085562cd7ee03e7f8188a1cfd942858cded",

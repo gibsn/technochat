@@ -1,17 +1,21 @@
 package redis
 
 import (
-	"github.com/mediocregopher/radix.v2"
+	"fmt"
+	// "github.com/mediocregopher/radix.v2"
 )
 
-// TODO
-func (db *DB) AddMessage(message string) (string, error) {
+type Redis struct {
 }
 
-// TODO
-func (db *DB) GetMessage(messageID string) (string, error) {
+func (r *Redis) AddMessage(message string) (string, error) {
+	return "", fmt.Errorf("not implemented")
 }
 
-// TODO
-func (db *DB) DeleteMessage(messageID string) error {
+func (r *Redis) GetMessage(messageID string) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
+func (r *Redis) DeleteMessage(messageID string) error {
+	return fmt.Errorf("not implemented")
 }
