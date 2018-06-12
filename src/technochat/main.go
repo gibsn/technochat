@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"technochat/db/redis"
 	"technochat/http"
 )
 
@@ -24,13 +25,16 @@ func wait() {
 
 func main() {
 	addr := flag.String("l", ":8080", "addr:port to listen on")
+	dbAddr := flag.String("d", "redis:6379", "addr:port of db")
 	flag.Parse()
 
 	httpServer := http.NewServer(*addr)
+	db := redis.NewRedis(*dbAddr)
 
 	log.Println("technochat: initialising")
 
 	httpServer.Init()
+	db.Init()
 
 	log.Println("technochat: successfully initialised")
 	log.Println("technochat: starting")
@@ -39,6 +43,7 @@ func main() {
 
 	wait()
 	httpServer.Shutdown()
+	db.Shutdown()
 
 	log.Println("technochat: exited")
 }

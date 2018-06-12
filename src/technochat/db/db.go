@@ -8,6 +8,7 @@ import (
 
 type DB interface {
 	Init()
+	Shutdown()
 
 	AddMessage(messageID, message string) error
 	GetMessage(messageID string) (string, error)
