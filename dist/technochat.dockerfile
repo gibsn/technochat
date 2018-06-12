@@ -11,8 +11,6 @@ COPY static ./static
 
 RUN make install
 
-RUN cp -r ./static /
-
 RUN groupadd -r technochat
 RUN useradd -r -g technochat -s /bin/nologin technochat
 

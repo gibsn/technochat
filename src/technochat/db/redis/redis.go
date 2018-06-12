@@ -28,7 +28,7 @@ func (r *Redis) Init() {
 
 	p, err := pool.New("tcp", r.addr, poolSize)
 	if err != nil {
-		log.Fatalln("redis: could not create now connection pool", err)
+		log.Fatalln("redis: could not create new connection pool:", err)
 	}
 
 	r.pool = p

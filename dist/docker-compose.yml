@@ -1,26 +1,35 @@
 version: "3.6"
 services:
     redis:
-        container_name: "redis"
+        build:
+            context: ../
+            dockerfile: dist/redis.dockerfile
+        container_name: redis
         image: gibsn/redis
         volumes:
-            - /docker/redis/data:/data
+            - /data
         secrets:
             - redis.conf
-        depends_on:
-            - technochat
         ports:
-            - "6379:6379"
+            - 6379:6379
 
     technochat:
-        container_name: "technochat"
+        build:
+            context: ../
+            dockerfile: dist/technochat.dockerfile
+        container_name: technochat
         image: gibsn/technochat
         volumes:
-            - static:/static
+            - static:/go/src/technochat/static
+        depends_on:
+            - redis
         ports:
-            - "8080:8080"
+            - 8080:8080
     nginx:
-        container_name: "nginx"
+        build:
+            context: ../
+            dockerfile: dist/nginx.dockerfile
+        container_name: nginx
         image: gibsn/nginx
         volumes:
             - static:/static
@@ -32,8 +41,8 @@ services:
         depends_on:
             - technochat
         ports:
-            - "80:80"
-            - "443:443"
+            - 80:80
+            - 443:443
 
 volumes:
     static:
