@@ -7,7 +7,7 @@ services:
         container_name: redis
         image: gibsn/redis
         volumes:
-            - /data
+            - redis_data:/data
         secrets:
             - redis.conf
         ports:
@@ -19,8 +19,6 @@ services:
             dockerfile: dist/technochat.dockerfile
         container_name: technochat
         image: gibsn/technochat
-        volumes:
-            - static:/go/src/technochat/static
         depends_on:
             - redis
         ports:
@@ -31,8 +29,6 @@ services:
             dockerfile: dist/nginx.dockerfile
         container_name: nginx
         image: gibsn/nginx
-        volumes:
-            - static:/static
         secrets:
             - server.key
             - server.crt
@@ -45,7 +41,7 @@ services:
             - 443:443
 
 volumes:
-    static:
+    redis_data:
 
 secrets:
     server.key:
