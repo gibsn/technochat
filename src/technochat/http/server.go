@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"technochat/db"
 )
 
 const (
@@ -13,7 +15,9 @@ const (
 )
 
 type Server struct {
-	addr   string
+	addr string
+
+	db     db.DB
 	server *http.Server
 }
 
@@ -25,9 +29,10 @@ type Response struct {
 
 type TechnochatHandler func(*http.Request) (int, interface{}, error)
 
-func NewServer(addr string) *Server {
+func NewServer(addr string, db db.DB) *Server {
 	return &Server{
 		addr:   addr,
+		db:     db,
 		server: &http.Server{Addr: addr, Handler: nil},
 	}
 }
@@ -72,7 +77,6 @@ func getRealRemoteAddr(r *http.Request) string {
 
 func respond(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		api := r.URL.EscapedPath()
 		remoteAddr := getRealRemoteAddr(r)
 
 		var (
@@ -86,13 +90,13 @@ func respond(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 		if err != nil {
 			switch resp.Code {
 			case http.StatusBadRequest:
-				log.Printf("%s: bad request from %s: %v\n", api, remoteAddr, err)
+				log.Printf("info: http: bad request from %s: %v\n", remoteAddr, err)
 				resp.Body = err.Error()
 			case http.StatusForbidden:
-				log.Printf("%s: forbidden for %s: %v\n", api, remoteAddr, err)
+				log.Printf("info: http: forbidden for %s: %v\n", remoteAddr, err)
 				resp.Body = err.Error()
 			case http.StatusInternalServerError:
-				log.Printf("%s: internal server error for %s: %v\n", api, remoteAddr, err)
+				log.Printf("error: http: internal server error for %s: %v\n", remoteAddr, err)
 				resp.Body = http.StatusText(resp.Code)
 			default:
 				resp.Body = http.StatusText(resp.Code)

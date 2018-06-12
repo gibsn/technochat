@@ -12,18 +12,14 @@ type MessageViewRequest struct {
 }
 
 type MessageViewResponse struct {
-	Text string `"json:text"`
+	Text string `json:"text"`
 }
 
 func NewMessageViewRequest(r *http.Request) (*MessageViewRequest, error) {
 	req := &MessageViewRequest{}
 
-	if err := r.ParseForm(); err != nil {
-		return nil, err
-	}
-
 	req.method = r.Method
-	req.id = r.PostFormValue("id")
+	req.id = r.URL.Query().Get("id")
 
 	return req, nil
 }
@@ -40,7 +36,6 @@ func (req *MessageViewRequest) Validate() error {
 	return nil
 }
 
-// TODO
 func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 	req, err := NewMessageViewRequest(r)
 	if err != nil {
@@ -51,5 +46,14 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	return http.StatusNotImplemented, nil, err
+	message, err := s.db.GetMessage(req.id)
+	if err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
+	if err := s.db.DeleteMessage(req.id); err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
+	return http.StatusOK, message, nil
 }

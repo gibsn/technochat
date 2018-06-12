@@ -10,7 +10,7 @@ type DB interface {
 	Init()
 	Shutdown()
 
-	AddMessage(messageID, message string) error
+	AddMessage(messageID, message string, ttl int) error
 	GetMessage(messageID string) (string, error)
 	DeleteMessage(messageID string) error
 }

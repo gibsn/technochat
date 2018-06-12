@@ -40,8 +40,10 @@ func (r *Redis) Shutdown() {
 	log.Println("redis: shutting down")
 }
 
-func (r *Redis) AddMessage(messageID, message string) error {
-	if err := r.pool.Cmd("HSET", "links", messageID, message).Err; err != nil {
+func (r *Redis) AddMessage(messageID, message string, ttl int) error {
+	key := "links:" + messageID
+
+	if err := r.pool.Cmd("SET", key, message, "EX", ttl).Err; err != nil {
 		return fmt.Errorf("could not add message: %s", err)
 	}
 
@@ -49,7 +51,9 @@ func (r *Redis) AddMessage(messageID, message string) error {
 }
 
 func (r *Redis) GetMessage(messageID string) (string, error) {
-	resp := r.pool.Cmd("HGET", "links", messageID)
+	key := "links:" + messageID
+
+	resp := r.pool.Cmd("GET", key)
 	if resp.Err != nil {
 		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, resp.Err)
 	}
@@ -63,7 +67,9 @@ func (r *Redis) GetMessage(messageID string) (string, error) {
 }
 
 func (r *Redis) DeleteMessage(messageID string) error {
-	if err := r.pool.Cmd("HDEL", "links", messageID).Err; err != nil {
+	key := "links:" + messageID
+
+	if err := r.pool.Cmd("DEL", key).Err; err != nil {
 		return fmt.Errorf("could not delete message with ID %s: %s", messageID, err)
 	}
 

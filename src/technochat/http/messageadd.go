@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"technochat/db"
 )
 
 const (
@@ -30,7 +32,7 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 		err error
 	)
 
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseMultipartForm(0); err != nil {
 		return nil, err
 	}
 
@@ -69,7 +71,6 @@ func (req *MessageAddRequest) Validate() error {
 	return nil
 }
 
-// TODO
 func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 	req, err := NewMessageAddRequest(r)
 	if err != nil {
@@ -80,5 +81,10 @@ func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	return http.StatusNotImplemented, nil, err
+	messageID, _ := db.NewMessageID()
+	if err := s.db.AddMessage(messageID, req.text, req.ttl); err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
+	return http.StatusOK, messageID, nil
 }

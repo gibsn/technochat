@@ -28,8 +28,8 @@ func main() {
 	dbAddr := flag.String("d", "redis:6379", "addr:port of db")
 	flag.Parse()
 
-	httpServer := http.NewServer(*addr)
 	db := redis.NewRedis(*dbAddr)
+	httpServer := http.NewServer(*addr, db)
 
 	log.Println("technochat: initialising")
 
