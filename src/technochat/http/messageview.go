@@ -12,7 +12,7 @@ type MessageViewRequest struct {
 }
 
 type MessageViewResponse struct {
-	Text string `json:text`
+	Text string `"json:text"`
 }
 
 func NewMessageViewRequest(r *http.Request) (*MessageViewRequest, error) {

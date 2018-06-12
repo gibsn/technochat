@@ -19,7 +19,7 @@ type MessageAddRequest struct {
 }
 
 type MessageAddResponse struct {
-	Link string `json:link`
+	Link string `json:"link"`
 }
 
 func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
