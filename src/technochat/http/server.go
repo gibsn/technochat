@@ -42,8 +42,12 @@ func (s *Server) Init() {
 
 	http.HandleFunc("/", s.index)
 
-	http.HandleFunc("/api/v1/message/add", respond(s.messageAdd))
-	http.HandleFunc("/api/v1/message/view", respond(s.messageView))
+	// web view
+	http.HandleFunc("/message/view", respondPage(s.messageView))
+
+	// API
+	http.HandleFunc("/api/v1/message/add", respondAPI(s.messageAdd))
+	http.HandleFunc("/api/v1/message/view", respondAPI(s.messageView))
 
 	log.Println("http: successfully initialised")
 }
@@ -75,7 +79,7 @@ func getRealRemoteAddr(r *http.Request) string {
 	}
 }
 
-func respond(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
+func respondAPI(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := getRealRemoteAddr(r)
 
@@ -105,5 +109,28 @@ func respond(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 
 		respMarshalled, _ := json.Marshal(resp)
 		w.Write(respMarshalled)
+	}
+}
+
+func respondPage(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		remoteAddr := getRealRemoteAddr(r)
+		code, body, err := h(r)
+
+		switch code {
+		case http.StatusOK:
+			w.Write([]byte(body.(string)))
+		case http.StatusBadRequest:
+			log.Printf("info: http: bad request from %s: %v\n", remoteAddr, err)
+			http.Error(w, err.Error(), code)
+		case http.StatusForbidden:
+			log.Printf("info: http: forbidden for %s: %v\n", remoteAddr, err)
+			http.Error(w, err.Error(), code)
+		case http.StatusInternalServerError:
+			log.Printf("error: http: internal server error for %s: %v\n", remoteAddr, err)
+			http.Error(w, http.StatusText(code), code)
+		default:
+			http.Error(w, http.StatusText(code), code)
+		}
 	}
 }
