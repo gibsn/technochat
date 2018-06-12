@@ -13,8 +13,8 @@
 
 .DS_store
 
-bin
-pkg
+/bin
+/pkg
 
 *.crt
 *.key
