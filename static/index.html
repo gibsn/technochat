@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Technochat</title>
+    </head>
+    <body>
+        <form action="/api/v1/message/add" method="post" enctype="multipart/form-data">
+            <p>
+                Text:
+            </p>
+            <p>
+                <textarea name="text" cols="72" rows="10" maxlength="255"></textarea>
+            </p>
+            <p>
+                TTL:
+                <input type="radio" checked name="ttl" value=86400> 1 day
+                <input type="radio" name="ttl" value=172800> 2 days
+                <input type="radio" name="ttl" value=604800> 1 week
+            </p>
+            <p>
+                <input type="submit" value="OK">
+            </p>
+        </form>
+    </body>
+</html>
