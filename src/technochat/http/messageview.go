@@ -3,6 +3,8 @@ package http
 import (
 	"fmt"
 	"net/http"
+
+	"technochat/db"
 )
 
 type MessageViewRequest struct {
@@ -48,10 +50,18 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 
 	message, err := s.db.GetMessage(req.id)
 	if err != nil {
+		if err != db.ErrNotFound {
+			return http.StatusNotFound, nil, err
+		}
+
 		return http.StatusInternalServerError, nil, err
 	}
 
 	if err := s.db.DeleteMessage(req.id); err != nil {
+		if err != db.ErrNotFound {
+			return http.StatusNotFound, nil, err
+		}
+
 		return http.StatusInternalServerError, nil, err
 	}
 

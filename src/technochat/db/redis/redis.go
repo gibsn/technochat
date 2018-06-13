@@ -5,6 +5,9 @@ import (
 	"log"
 
 	"github.com/mediocregopher/radix.v2/pool"
+	"github.com/mediocregopher/radix.v2/redis"
+
+	"technochat/db"
 )
 
 const (
@@ -54,7 +57,11 @@ func (r *Redis) GetMessage(messageID string) (string, error) {
 	key := "links:" + messageID
 
 	resp := r.pool.Cmd("GET", key)
-	if resp.Err != nil {
+	if err := resp.Err; err != nil {
+		if err == redis.ErrRespNil {
+			return "", db.ErrNotFound
+		}
+
 		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, resp.Err)
 	}
 
@@ -70,6 +77,10 @@ func (r *Redis) DeleteMessage(messageID string) error {
 	key := "links:" + messageID
 
 	if err := r.pool.Cmd("DEL", key).Err; err != nil {
+		if err == redis.ErrRespNil {
+			return db.ErrNotFound
+		}
+
 		return fmt.Errorf("could not delete message with ID %s: %s", messageID, err)
 	}
 
