@@ -40,8 +40,6 @@ func NewServer(addr string, db db.DB) *Server {
 func (s *Server) Init() {
 	log.Println("http: initialising")
 
-	http.HandleFunc("/", s.index)
-
 	// web view
 	http.HandleFunc("/message/view", respondPage(s.messageView))
 
@@ -65,10 +63,6 @@ func (s *Server) Shutdown() {
 	if err := s.server.Shutdown(ctx); err != nil {
 		log.Println("error: http:", err)
 	}
-}
-
-func (s *Server) index(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/static/index.html", http.StatusMovedPermanently)
 }
 
 func getRealRemoteAddr(r *http.Request) string {
