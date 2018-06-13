@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxTextLength = 255
+	maxTextLength = 1024
 	maxTTL        = 60 * 60 * 24 * 7 * 1 // 1 week
 )
 
