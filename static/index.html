@@ -10,33 +10,43 @@
                 $("#result_text").html('');
                 $("#result_link").html('');
 
-                $("form").submit(function(e) {
-                    $("#loading").show();
-                    e.preventDefault();
-
-                    var url = $(this).attr("action");
-                    var formData = new FormData($("form")[0]);
-                    var userText = $("#text").val();
-
-                    $.ajax({
-                        type: 'POST',
-                        url: url,
-                        data: formData,
-                        contentType: false,
-                        processData: false,
-                        success: function(json) {
-                            $("#text").val('');
-                            $("#loading").hide();
-                            $("#result_text").html(userText);
-                            $("#result_link").html('<a href="'+json.body+'">'+json.body+'</a>');
-                        },
-                        error: function(e) {
-                            $("#loading").hide();
-                            $("#result_text").html("Internal Server Error");
-                        }
-                    });
-                })
+                $("form").submit(onSubmit);
             })
+
+            function onSubmit(e) {
+                $("#loading").show();
+                e.preventDefault();
+
+                $.ajax({
+                    type: 'POST',
+                    url: $(this).attr("action"),
+                    data: new FormData($("form")[0]),
+                    contentType: false,
+                    processData: false,
+                    success: onSubmitSuccess,
+                    error: onSubmitError,
+                });
+            }
+
+            function onSubmitSuccess(json) {
+                var userText = $("#text").val();
+                $("#result_text").html(userText);
+
+                $("#text").val('');
+                $("#loading").hide();
+
+                if (json.code == 200) {
+                    var link = json.body.link;
+                    $("#result_link").html('<a href="'+link+'">'+link+'</a>');
+                } else {
+                    $("#result_link").html(json.body);
+                }
+            }
+
+            function onSubmitError(e) {
+                $("#loading").hide();
+                $("#result_text").html("Internal Server Error");
+            }
         </script>
     </head>
     <body>

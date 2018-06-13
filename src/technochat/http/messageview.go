@@ -65,5 +65,9 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 		return http.StatusInternalServerError, nil, err
 	}
 
-	return http.StatusOK, message, nil
+	resp := &MessageViewResponse{
+		Text: message,
+	}
+
+	return http.StatusOK, resp, nil
 }

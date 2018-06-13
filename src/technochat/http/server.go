@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -112,7 +113,7 @@ func respondPage(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 
 		switch code {
 		case http.StatusOK:
-			w.Write([]byte(body.(string)))
+			w.Write([]byte(fmt.Sprintf("%v", body)))
 		case http.StatusBadRequest:
 			log.Printf("info: http: bad request from %s: %v\n", remoteAddr, err)
 			http.Error(w, err.Error(), code)
