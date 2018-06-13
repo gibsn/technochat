@@ -22,9 +22,8 @@ type Server struct {
 }
 
 type Response struct {
-	Code  int         `json:"code,omitempty"`
-	Error string      `json:"error,omitempty"`
-	Body  interface{} `json:"body,omitempty"`
+	Code int         `json:"code,omitempty"`
+	Body interface{} `json:"body,omitempty"`
 }
 
 type TechnochatHandler func(*http.Request) (int, interface{}, error)

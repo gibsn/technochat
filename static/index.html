@@ -3,6 +3,34 @@
     <head>
         <meta charset="utf-8">
         <title>Technochat</title>
+        <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $("form").submit(function(e) {
+                    $("#loading").show();
+                    e.preventDefault();
+
+                    var url = $(this).attr("action")
+                    var formdata = new FormData($("form")[0]);
+
+                    $.ajax({
+                        type: 'POST',
+                        url: url,
+                        data: formdata,
+                        contentType: false,
+                        processData: false,
+                        success: function(json) {
+                            $("#loading").hide();
+                            $("#result").html(json.body)
+                        },
+                        error: function(e) {
+                            $("#loading").hide();
+                            $("#result").html("Internal Server Error")
+                        }
+                    });
+                })
+            })
+        </script>
     </head>
     <body>
         <form action="/api/v1/message/add" method="post" enctype="multipart/form-data">
@@ -22,5 +50,7 @@
                 <input type="submit" value="OK">
             </p>
         </form>
+        <div id="loading" style="display: none;">loading</div>
+        <div id="result"></div>
     </body>
 </html>
