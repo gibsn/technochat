@@ -6,26 +6,33 @@
         <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
         <script type="text/javascript">
             $(document).ready(function() {
+                $("#loading").html('');
+                $("#result_text").html('');
+                $("#result_link").html('');
+
                 $("form").submit(function(e) {
                     $("#loading").show();
                     e.preventDefault();
 
-                    var url = $(this).attr("action")
-                    var formdata = new FormData($("form")[0]);
+                    var url = $(this).attr("action");
+                    var formData = new FormData($("form")[0]);
+                    var userText = $("#text").val();
 
                     $.ajax({
                         type: 'POST',
                         url: url,
-                        data: formdata,
+                        data: formData,
                         contentType: false,
                         processData: false,
                         success: function(json) {
+                            $("#text").val('');
                             $("#loading").hide();
-                            $("#result").html(json.body)
+                            $("#result_text").html(userText);
+                            $("#result_link").html('<a href="'+json.body+'">'+json.body+'</a>');
                         },
                         error: function(e) {
                             $("#loading").hide();
-                            $("#result").html("Internal Server Error")
+                            $("#result_text").html("Internal Server Error");
                         }
                     });
                 })
@@ -33,12 +40,12 @@
         </script>
     </head>
     <body>
-        <form action="/api/v1/message/add" method="post" enctype="multipart/form-data">
+        <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
             <p>
                 Text:
             </p>
             <p>
-                <textarea name="text" cols="72" rows="10" maxlength="1024"></textarea>
+                <textarea id="text" name="text" cols="72" rows="10" maxlength="1024"></textarea>
             </p>
             <p>
                 TTL:
@@ -50,7 +57,9 @@
                 <input type="submit" value="OK">
             </p>
         </form>
-        <div id="loading" style="display: none;">loading</div>
+        <div id="loading">loading</div>
+        <div id="result_text"></div>
+        <div id="result_link"></div>
         <div id="result"></div>
     </body>
 </html>
