@@ -29,6 +29,8 @@ services:
             dockerfile: dist/nginx.dockerfile
         container_name: nginx
         image: gibsn/nginx
+        volumes:
+            - ../static:/static
         secrets:
             - server.key
             - server.crt
