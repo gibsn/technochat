@@ -48,6 +48,10 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
+	if r.UserAgent() == vkResolverUA {
+		return http.StatusForbidden, nil, fmt.Errorf("forbidden")
+	}
+
 	message, err := s.db.GetMessage(req.id)
 	if err != nil {
 		if err != db.ErrNotFound {

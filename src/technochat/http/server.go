@@ -15,6 +15,10 @@ const (
 	gracefulTime = 5 * time.Second
 )
 
+const (
+	vkResolverUA = "Mozilla/5.0 (compatible; vkShare; +http://vk.com/dev/Share)"
+)
+
 type Server struct {
 	addr string
 
