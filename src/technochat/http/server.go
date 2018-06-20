@@ -15,8 +15,12 @@ const (
 	gracefulTime = 5 * time.Second
 )
 
-const (
-	vkResolverUA = "Mozilla/5.0 (compatible; vkShare; +http://vk.com/dev/Share)"
+var (
+	messengerResolverUAs = [...]string{
+		"LPX", // ICQ
+		"Mozilla/5.0 (compatible; vkShare; +http://vk.com/dev/Share)", // VK
+		"TelegramBot (like TwitterBot)",                               // telegram
+	}
 )
 
 type Server struct {
@@ -75,6 +79,16 @@ func getRealRemoteAddr(r *http.Request) string {
 	} else {
 		return r.RemoteAddr
 	}
+}
+
+func isMessengerResolver(r *http.Request) bool {
+	for _, ua := range messengerResolverUAs {
+		if ua == r.UserAgent() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func respondAPI(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {

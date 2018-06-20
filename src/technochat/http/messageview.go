@@ -48,7 +48,7 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	if r.UserAgent() == vkResolverUA {
+	if isMessengerResolver(r) {
 		return http.StatusForbidden, nil, fmt.Errorf("forbidden")
 	}
 
