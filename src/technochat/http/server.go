@@ -48,9 +48,6 @@ func NewServer(addr string, db db.DB) *Server {
 func (s *Server) Init() {
 	log.Println("http: initialising")
 
-	// web view
-	http.HandleFunc("/message/view", respondPage(s.messageView))
-
 	// API
 	http.HandleFunc("/api/v1/message/add", respondAPI(s.messageAdd))
 	http.HandleFunc("/api/v1/message/view", respondAPI(s.messageView))
