@@ -87,7 +87,7 @@ func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 	}
 
 	resp := &MessageAddResponse{
-		Link: fmt.Sprintf("https://%s/message/view?id=%s", r.Host, messageID),
+		Link: fmt.Sprintf("https://%s/html/messageview.html?id=%s", r.Host, messageID),
 	}
 
 	return http.StatusOK, resp, nil
