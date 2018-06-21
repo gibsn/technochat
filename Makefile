@@ -11,10 +11,10 @@ install: technochat
 	go install ./...
 
 test:
-	gb test -v
+	bin/gb test -v
 
 technochat: bin/gb
-	gb build technochat
+	bin/gb build technochat
 
 bin/gb:
 	go build -o bin/gb github.com/constabulary/gb/cmd/gb
