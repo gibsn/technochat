@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 
 	"technochat/db"
@@ -66,7 +67,7 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 	}
 
 	resp := &MessageViewResponse{
-		Text: message,
+		Text: html.EscapeString(message),
 	}
 
 	return http.StatusOK, resp, nil
