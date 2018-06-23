@@ -51,6 +51,8 @@ func (s *Server) Init() {
 	// API
 	http.HandleFunc("/api/v1/message/add", respondAPI(s.messageAdd))
 	http.HandleFunc("/api/v1/message/view", respondAPI(s.messageView))
+	http.HandleFunc("/api/v1/chat/init", respondAPI(s.chatInit))
+	http.HandleFunc("/api/v1/chat/connect", s.chatConnect)
 
 	log.Println("http: successfully initialised")
 }

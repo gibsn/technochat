@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Technochat</title>
+        <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $("#loading").html('');
+                $("#result_text").html('');
+                $("#result_link").html('');
+
+                $("form").submit(onSubmit);
+            })
+
+            function onSubmit(e) {
+                $("#loading").show();
+                e.preventDefault();
+
+                var fd =new FormData($("form")[0]);
+                var obj = {};
+                fd.forEach(function(value, key){
+                    obj[key] = value;
+                });
+                console.log(obj)
+                console.log(fd)
+
+                $.ajax({
+                    type: 'POST',
+                    url: $(this).attr("action"),
+                    data: JSON.stringify(obj),
+                    contentType: "application/json",
+                    processData: false,
+                    success: onSubmitSuccess,
+                    error: onSubmitError,
+                });
+            }
+
+            function onSubmitSuccess(json) {
+                if (json.code == 200) {
+                    var id = json.body.id;
+                    var link = 'https://'+window.location.host+'/static/joinchat.html?id='+id
+                    $("#result_link").html('<a href="'+link+'">'+link+'</a>');
+                } else {
+                    $("#result_link").html(json.body);
+                }
+            }
+
+            function onSubmitError(e) {
+                $("#loading").hide();
+                $("#result_text").html("Internal Server Error");
+            }
+        </script>
+    </head>
+    <body>
+        <form id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
+            <p>
+                Max joins: <input type="number" name="max_users" step="1" value=2 min=2><br>
+                <input type="submit" value="Create Chat">
+            </p>
+        </form>
+        <div id="loading">loading</div>
+        <div id="result_text"></div>
+        <div id="result_link"></div>
+        <div id="result"></div>
+    </body>
+</html>
