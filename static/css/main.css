@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
+@import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
+body {
+  font-family: 'Ubuntu Mono', monospace;
+  background-color: #dddddd;
+  margin: 0;
+  box-sizing: border-box;
+}
+input,
+button {
+  font-family: 'Ubuntu Mono', monospace;
+}
+textarea {
+  font-size: 20px;
+  font-family: 'Ubuntu Mono', monospace;
+}
+.content {
+  text-align: center;
+  margin-top: 35px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.content .btn {
+  padding: 10px 40px;
+  background-color: transparent;
+  border: 1px solid #000000;
+  cursor: pointer;
+  font-size: 30px;
+  -webkit-transition: 0.4s ease-out;
+  -moz-transition: 0.4s ease-out;
+  -o-transition: 0.4s ease-out;
+  transition: 0.4s ease-out;
+}
+.content .btn:hover {
+  color: #dddddd;
+  background-color: #000000;
+}
+.content .logo h1 {
+  font-size: 60px;
+  text-transform: uppercase;
+  margin-bottom: 100px;
+  font-family: 'Press Start 2P', cursive;
+}
+.content .logo a {
+  color: #000000;
+  text-decoration: none;
+}
+.content p {
+  font-size: 25px;
+}
+.content #create_chat {
+  margin: 30px 0;
+}
+.content #create_chat a {
+  color: #000000;
+  text-decoration: none;
+  padding: 15px 40px;
+  font-size: 30px;
+  border: 1px solid #000000;
+  -webkit-transition: 0.4s ease-out;
+  -moz-transition: 0.4s ease-out;
+  -o-transition: 0.4s ease-out;
+  transition: 0.4s ease-out;
+}
+.content #create_chat a:hover {
+  color: #dddddd;
+  background-color: #000000;
+}
+.content .ttl {
+  margin-bottom: 20px;
+}
+.content .submit {
+  background-color: transparent;
+  color: #000000;
+  margin: 10px 0;
+}
+.content .link {
+  padding-bottom: 20px;
+}
+.content .link #result_link a {
+  text-decoration: none;
+  font-size: 24px;
+}
+.content .link #result_link input {
+  position: absolute;
+  left: -99999px;
+}
+.content .preview #result_text {
+  margin: 0;
+  word-break: break-all;
+}
+.content #message {
+  font-size: 25px;
+  word-break: break-all;
+}
+/* ---- radio buttons ---- */
+.container {
+  position: relative;
+  padding-left: 25px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+.container input:checked ~ .checkmark {
+  background-color: #000000;
+}
+.container input:checked ~ .checkmark:after {
+  display: block;
+}
+.container .checkmark:after {
+  top: 4px;
+  left: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: white;
+}
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 15px;
+  width: 15px;
+  background-color: #eee;
+  border-radius: 50%;
+}
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}

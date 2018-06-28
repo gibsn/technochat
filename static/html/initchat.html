@@ -3,6 +3,8 @@
     <head>
         <meta charset="utf-8">
         <title>Technochat</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" type="text/css" href="/css/chat.css">
         <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
         <script type="text/javascript">
             $(document).ready(function() {
@@ -55,7 +57,7 @@
     <body>
         <form id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
             <p>
-                Max joins: <input type="number" name="max_users" step="1" value=2 min=2><br>
+                Choose a number you want to connect: <input type="number" name="max_users" step="1" value=2 min=2><br>
                 <input type="submit" value="Create Chat">
             </p>
         </form>

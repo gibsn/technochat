@@ -22,7 +22,7 @@ function onMessageSubmitSuccess(addResponse) {
 
     if (addResponse.code == 200) {
         var link = addResponse.body.link;
-        $("#result_link").html('<a href="'+link+'">'+link+'</a>');
+        $("#result_link").html('<input id="to_copy" value="'+link+'">'+link+'</input>');
     } else {
         $("#result_link").html(addResponse.body);
     }
