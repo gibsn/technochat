@@ -1,5 +1,6 @@
 function onMessageSubmit(e) {
     $("#loading").show();
+    $("#copy_button").html("Copy link");
     e.preventDefault();
 
     $.ajax({
