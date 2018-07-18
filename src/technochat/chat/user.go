@@ -3,13 +3,17 @@ package chat
 import "github.com/gorilla/websocket"
 
 type User struct {
-	WS   *websocket.Conn
-	Name string
-	ID   int
+	WS            *websocket.Conn
+	Name          string
+	ID            int
+	send          chan WSMessage
+	terminateSend chan struct{}
 }
 
 func NewUser() *User {
-	return &User{}
+	return &User{
+		send: make(chan WSMessage),
+	}
 }
 
 func (u *User) SendEvent(event EventID, i interface{}) {

@@ -50,8 +50,6 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 	chat.AddChat(newChat)
 	log.Printf("info: chat: started a new chat %s for %d people", newChat.ID, newChat.RestJoins())
 
-	go newChat.HandleChatBroadcast()
-
 	resp := ChatInitResponse{
 		ID: newChat.ID,
 	}
@@ -92,9 +90,8 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 		msg := chat.WSMessage{}
 		if err := usr.WS.ReadJSON(&msg); err != nil {
 			log.Printf("error: chat: could not read message from user [%d/%s]: %v", usr.ID, usr.Name, err)
-			ch.DelUser(usr.ID)
-
 			ch.SendServerNotify("user " + usr.Name + " has left")
+			ch.DelUser(usr.ID)
 			break
 		}
 		msg.Name = usr.Name
