@@ -34,7 +34,7 @@ type Chat struct {
 	terminate chan struct{}
 
 	corresps   map[int]*User
-	correspsMx sync.Mutex
+	correspsMx sync.RWMutex
 
 	restJoins int
 }
@@ -81,14 +81,15 @@ func (c *Chat) AddUser(ws *websocket.Conn) *User {
 }
 
 func (c *Chat) DelUser(id int) {
-	c.correspsMx.Lock()
+	c.correspsMx.RLock()
 	corr := c.corresps[id]
-	c.correspsMx.Unlock()
+	c.correspsMx.RUnlock()
 
 	if corr == nil {
 		return
 	}
-	log.Printf("chat: deleting user id=%d name=%s", id, corr.Name)
+
+	log.Printf("info: chat: deleting user id=%d name=%s", id, corr.Name)
 
 	corr.terminateSend <- struct{}{}
 	corr.WS.Close()
@@ -120,17 +121,17 @@ func (c *Chat) HandleChatBroadcast() {
 		case <-c.terminate:
 			return
 		case msg := <-c.broadcast:
-			c.correspsMx.Lock()
+			c.correspsMx.RLock()
 			for _, usr := range c.corresps {
-				c.correspsMx.Unlock()
+				c.correspsMx.RUnlock()
 				select {
 				case usr.send <- msg:
 				default:
 					log.Printf("error: chat: cant send broadcast msg to user %s", usr.Name)
 				}
-				c.correspsMx.Lock()
+				c.correspsMx.RLock()
 			}
-			c.correspsMx.Unlock()
+			c.correspsMx.RUnlock()
 		case <-time.After(ChatAFKLifetime):
 			log.Printf("chat: no activity in chat for %s. chat will be terminated", ChatAFKLifetime)
 			DelChat(c.ID)
