@@ -1,6 +1,12 @@
 package chat
 
-import "github.com/gorilla/websocket"
+import (
+	"github.com/gorilla/websocket"
+)
+
+const (
+	userSendBufferSize = 10
+)
 
 type User struct {
 	WS            *websocket.Conn
@@ -12,7 +18,7 @@ type User struct {
 
 func NewUser() *User {
 	return &User{
-		send: make(chan WSMessage),
+		send: make(chan WSMessage, userSendBufferSize),
 	}
 }
 

@@ -63,13 +63,10 @@ func (c *Chat) AddUser(ws *websocket.Conn) *User {
 		return nil
 	}
 
-	name, id := c.ChatNames.GenerateNameID()
-	usr := &User{
-		WS:   ws,
-		Name: name,
-		ID:   id,
-		send: make(chan WSMessage),
-	}
+	usr := NewUser()
+	usr.WS = ws
+	usr.Name, usr.ID = c.ChatNames.GenerateNameID()
+
 	c.correspsMx.Lock()
 	c.corresps[usr.ID] = usr
 	c.correspsMx.Unlock()

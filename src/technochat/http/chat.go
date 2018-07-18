@@ -86,12 +86,13 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 	usr := ch.AddUser(ws)
 	usr.SendEvent(chat.EventConnInitOk, usr.Name)
 	ch.SendServerNotify("user " + usr.Name + " joined")
+
 	for {
 		msg := chat.WSMessage{}
 		if err := usr.WS.ReadJSON(&msg); err != nil {
 			log.Printf("error: chat: could not read message from user [%d/%s]: %v", usr.ID, usr.Name, err)
-			ch.SendServerNotify("user " + usr.Name + " has left")
 			ch.DelUser(usr.ID)
+			ch.SendServerNotify("user " + usr.Name + " has left")
 			break
 		}
 		msg.Name = usr.Name
