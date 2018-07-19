@@ -1,15 +1,117 @@
+@import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
+@import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
 body {
+  font-family: 'Ubuntu Mono', monospace;
+  background-color: #dddddd;
+  margin: 0;
+  box-sizing: border-box;
+}
+input,
+button {
+  font-family: 'Ubuntu Mono', monospace;
+}
+textarea {
+  font-size: 20px;
+  font-family: 'Ubuntu Mono', monospace;
+}
+.wrapper {
+  padding-bottom: 200px;
+}
+.wrapper .header {
   display: flex;
-  min-height: 100vh;
-  flex-direction: column;
+  justify-content: center;
+  margin-top: 50px;
 }
-main {
-  flex: 1 0 auto;
+.wrapper .header .logo h1 {
+  font-size: 60px;
+  text-transform: uppercase;
+  font-family: 'Press Start 2P', cursive;
 }
-#chat-messages {
-  min-height: 10vh;
-  height: 60vh;
+.wrapper .header .logo a {
+  color: #000000;
+  text-decoration: none;
+}
+.wrapper .main {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.wrapper .main .chat_content {
+  background-color: #ffffff;
+}
+.wrapper .main .message_input {
+  display: flex;
+}
+.wrapper .main .message_input input {
+  flex: 1;
+  border: none;
+  font-size: inherit;
+  padding: 10px;
+  height: 30px;
+}
+.wrapper .main .message_input input:focus {
+  outline: none;
+}
+.wrapper .main .message_input .chat_button {
+  background-color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  width: 15%;
+  cursor: pointer;
+  justify-content: center;
+  z-index: 2;
+  -webkit-transition: 0.4s ease-out;
+  -moz-transition: 0.4s ease-out;
+  -o-transition: 0.4s ease-out;
+  transition: 0.4s ease-out;
+}
+.wrapper .main .message_input .chat_button:hover {
+  background-color: #000000;
+  color: white;
+}
+.wrapper .main .message_input .chat_button:focus {
+  outline: none;
+}
+.wrapper .main .group {
+  position: relative;
+}
+.wrapper .main .group .bar {
+  position: absolute;
   width: 100%;
-  overflow-y: scroll;
-  padding-bottom: 50px;
+  display: block;
+  bottom: 0;
+}
+.wrapper .chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px;
+  margin-right: 50px;
+  width: 200px;
+  border-right: 1px solid #ddd;
+  background-color: #eee;
+}
+.wrapper .chip:nth-child(n) {
+  border-bottom: 1px solid #ddd;
+}
+.bar:before,
+.bar:after {
+  content: '';
+  height: 2px;
+  width: 0;
+  bottom: 0;
+  position: absolute;
+  background: #cc26b6;
+  -webkit-transition: .5s ease all;
+  -moz-transition: .5s ease all;
+  transition: .5s ease all;
+}
+.bar:before {
+  left: 50%;
+}
+.bar:after {
+  right: 50%;
+}
+input:focus ~ .bar:before,
+input:focus ~ .bar:after {
+  width: 50%;
 }
