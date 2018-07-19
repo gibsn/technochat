@@ -1,37 +1,67 @@
 package chat
 
 import (
+	"log"
+
 	"github.com/gorilla/websocket"
+
+	"technochat/chat/user"
 )
 
-const (
-	userSendBufferSize = 10
-)
-
-type User struct {
-	WS            *websocket.Conn
-	Name          string
-	ID            int
-	send          chan WSMessage
-	terminateSend chan struct{}
-}
-
-func NewUser() *User {
-	return &User{
-		send: make(chan WSMessage, userSendBufferSize),
+func (c *Chat) AddUser(ws *websocket.Conn) *user.User {
+	if c.restJoins <= 0 {
+		return nil
 	}
+
+	usr := user.NewUser(ws)
+	usr.Name, usr.ID = c.ChatNames.GenerateNameID()
+
+	log.Printf("info: chat: new user [%d %s] in chat %s", usr.ID, usr.Name, c.ID)
+
+	c.correspsMx.Lock()
+	c.corresps[usr.ID] = usr
+	c.correspsMx.Unlock()
+	c.restJoins--
+
+	c.usersWG.Add(1)
+	c.userConnectedChan <- usr
+
+	return usr
 }
 
-func (u *User) SendEvent(event EventID, i interface{}) {
-	u.WS.WriteJSON(WSMessage{
-		Type: WSMsgTypeService,
-		Data: Event{event, i},
-	})
+func (c *Chat) DelUser(id int) {
+	c.correspsMx.Lock()
+
+	usr, ok := c.corresps[id]
+	if !ok {
+		c.correspsMx.Unlock()
+		return
+	}
+
+	log.Printf("info: chat: deleting user [%d, %s] in chat %s", usr.ID, usr.Name, c.ID)
+
+	delete(c.corresps, id)
+	c.correspsMx.Unlock()
+
+	c.userDisconnectedChan <- usr
+	c.usersWG.Done()
 }
 
-func SendEvent(ws *websocket.Conn, event EventID, i interface{}) {
-	ws.WriteJSON(WSMessage{
-		Type: WSMsgTypeService,
-		Data: Event{event, i},
-	})
+func (c *Chat) SubscribeUser(usr *user.User) {
+	go func() {
+		for msg := range usr.ReadStream() {
+			msg.Name = usr.Name
+			c.incomingChan <- msg
+		}
+	}()
+}
+
+func (c *Chat) ShutdownUsers() {
+	c.correspsMx.Lock()
+	for _, usr := range c.corresps {
+		usr.TriggerShutdown()
+	}
+	c.correspsMx.Unlock()
+
+	c.usersWG.Wait()
 }

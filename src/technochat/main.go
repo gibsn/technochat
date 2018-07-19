@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"technochat/db/redis"
 	"technochat/http"
@@ -24,6 +26,8 @@ func wait() {
 }
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	addr := flag.String("l", ":8080", "addr:port to listen on")
 	dbAddr := flag.String("d", "redis:6379", "addr:port of db")
 	flag.Parse()
