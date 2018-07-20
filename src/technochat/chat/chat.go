@@ -1,12 +1,16 @@
 package chat
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"technochat/chat/message"
+	"technochat/chat/user"
 )
 
 const (
@@ -18,8 +22,8 @@ const (
 )
 
 const (
-	pingTimer   time.Duration = 30 * time.Second
-	pingTimeout time.Duration = 1 * time.Second
+	incomingBufferSize  = 10
+	broadcastBufferSize = 10
 )
 
 var Upgrader = websocket.Upgrader{
@@ -30,10 +34,19 @@ type Chat struct {
 	ID        string
 	ChatNames ChatNames
 
-	broadcast chan WSMessage
-	terminate chan struct{}
+	triggerShutdown     sync.Once
+	triggerShutdownChan chan struct{}
+	shutdownChan        chan struct{}
+	WG                  sync.WaitGroup
 
-	corresps   map[int]*User
+	userConnectedChan    chan *user.User
+	userDisconnectedChan chan *user.User
+	usersWG              sync.WaitGroup
+
+	incomingChan  chan *message.WSMessage
+	broadcastChan chan *message.WSMessage
+
+	corresps   map[int]*user.User
 	correspsMx sync.RWMutex
 
 	restJoins int
@@ -45,116 +58,129 @@ type NewChatOpts struct {
 }
 
 func NewChat(opts NewChatOpts) *Chat {
-	return &Chat{
-		ID:        opts.ID,
-		corresps:  make(map[int]*User),
-		broadcast: make(chan WSMessage),
-		restJoins: opts.MaxJoins,
-		ChatNames: NewChatNames(),
+	c := &Chat{
+		ID:                   opts.ID,
+		corresps:             make(map[int]*user.User),
+		incomingChan:         make(chan *message.WSMessage, incomingBufferSize),
+		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
+		restJoins:            opts.MaxJoins,
+		ChatNames:            NewChatNames(),
+		triggerShutdownChan:  make(chan struct{}),
+		shutdownChan:         make(chan struct{}),
+		userConnectedChan:    make(chan *user.User),
+		userDisconnectedChan: make(chan *user.User),
 	}
+
+	c.WG.Add(2)
+	go c.handleUsers()
+	go c.handleCommunication()
+
+	return c
 }
 
 func (c *Chat) RestJoins() int {
 	return c.restJoins
 }
 
-func (c *Chat) AddUser(ws *websocket.Conn) *User {
-	if c.restJoins <= 0 {
-		return nil
-	}
-
-	usr := NewUser()
-	usr.WS = ws
-	usr.Name, usr.ID = c.ChatNames.GenerateNameID()
-
-	c.correspsMx.Lock()
-	c.corresps[usr.ID] = usr
-	c.correspsMx.Unlock()
-	c.restJoins--
-
-	go c.HandleUserSending(usr)
-
-	return usr
-}
-
-func (c *Chat) DelUser(id int) {
-	c.correspsMx.RLock()
-	corr := c.corresps[id]
-	c.correspsMx.RUnlock()
-
-	if corr == nil {
-		return
-	}
-
-	log.Printf("info: chat: deleting user id=%d name=%s", id, corr.Name)
-
-	corr.terminateSend <- struct{}{}
-	corr.WS.Close()
-
-	c.correspsMx.Lock()
-	delete(c.corresps, id)
-	c.correspsMx.Unlock()
-
-	if len(c.corresps) == 0 && c.restJoins == 0 {
-		DelChat(c.ID)
-	}
-}
-
 func (c *Chat) SendServerNotify(str string) {
-	c.SendAll(WSMessage{
-		Type: WSMsgTypeMessage,
+	msg := &message.WSMessage{
+		Type: message.WSMsgTypeMessage,
 		Name: "server",
 		Data: str,
+	}
+
+	if err := c.Broadcast(msg); err != nil {
+		log.Printf("error: chat: could not send server notification in chat %s: %v", c.ID, err)
+	}
+}
+
+func (c *Chat) broadcast(msg *message.WSMessage) {
+	c.correspsMx.RLock()
+	defer c.correspsMx.RUnlock()
+
+	for _, usr := range c.corresps {
+		c.correspsMx.RUnlock()
+		if err := usr.SendMessage(msg); err != nil {
+			log.Printf("errof: chat: could not send a message to user %s in chat %s: %v",
+				usr.Name, c.ID, err)
+		}
+
+		c.correspsMx.RLock()
+	}
+}
+
+func (c *Chat) Broadcast(msg *message.WSMessage) error {
+	select {
+	case c.broadcastChan <- msg:
+	default:
+		return fmt.Errorf("queue is full")
+	}
+
+	return nil
+}
+
+func (c *Chat) handleUsers() {
+	defer c.WG.Done()
+
+	for {
+		select {
+		case <-c.shutdownChan:
+			log.Printf("info: chat: closing users goroutine for chat [%s]", c.ID)
+			return
+
+		case connectedUser := <-c.userConnectedChan:
+			connectedUser.SendEvent(message.EventConnInitOk, connectedUser.Name)
+			c.SubscribeUser(connectedUser)
+			c.SendServerNotify("user " + connectedUser.Name + " has joined")
+
+		case disconnectedUser := <-c.userDisconnectedChan:
+			c.SendServerNotify("user " + disconnectedUser.Name + " has left")
+			if len(c.corresps) == 0 && c.restJoins == 0 {
+				log.Printf("info: chat: no users left in chat %s", c.ID)
+				c.TriggerShutdown()
+			}
+		}
+	}
+}
+
+func (c *Chat) handleCommunication() {
+	defer c.WG.Done()
+
+	for {
+		select {
+		case <-c.shutdownChan:
+			log.Printf("info: chat: closing communication goroutine for chat [%s]", c.ID)
+			return
+
+		case msg := <-c.incomingChan:
+			c.broadcast(msg)
+
+		case msg := <-c.broadcastChan:
+			c.broadcast(msg)
+
+		//TODO use NewTimer
+		case <-time.After(ChatAFKLifetime):
+			log.Printf("info: chat: no activity in chat %s for %s, shutting down", c.ID, ChatAFKLifetime)
+			c.SendServerNotify("closing chat due to inactivity for " + ChatAFKLifetime.String())
+			c.TriggerShutdown()
+		}
+	}
+}
+
+func (c *Chat) TriggerShutdown() {
+	c.triggerShutdown.Do(func() {
+		close(c.triggerShutdownChan)
 	})
 }
 
-func (c *Chat) SendAll(msg WSMessage) {
-	c.broadcast <- msg
-}
-
-func (c *Chat) HandleChatBroadcast() {
-	for {
-		select {
-		case <-c.terminate:
-			return
-		case msg := <-c.broadcast:
-			c.correspsMx.RLock()
-			for _, usr := range c.corresps {
-				c.correspsMx.RUnlock()
-				select {
-				case usr.send <- msg:
-				default:
-					log.Printf("error: chat: cant send broadcast msg to user %s", usr.Name)
-				}
-				c.correspsMx.RLock()
-			}
-			c.correspsMx.RUnlock()
-		case <-time.After(ChatAFKLifetime):
-			log.Printf("chat: no activity in chat for %s. chat will be terminated", ChatAFKLifetime)
-			DelChat(c.ID)
-		}
+func (c *Chat) Routine() {
+	select {
+	case <-c.triggerShutdownChan:
+		log.Printf("info: chat: triggered shutdown for chat [%s]", c.ID)
 	}
-}
 
-func (c *Chat) HandleUserSending(usr *User) {
-	for {
-		select {
-		case <-usr.terminateSend:
-			return
-		case msg := <-usr.send:
-			err := usr.WS.WriteJSON(msg)
-			if err != nil {
-				log.Printf("error: chat: cant send a message to user %s: %v", usr.Name, err)
-				c.DelUser(usr.ID)
-				return
-			}
-		case <-time.After(pingTimer):
-			err := usr.WS.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingTimeout))
-			if err != nil {
-				log.Printf("error: chat: cant send a ping message to user %s: %v", usr.Name, err)
-				c.DelUser(usr.ID)
-				return
-			}
-		}
-	}
+	c.ShutdownUsers()
+
+	close(c.shutdownChan)
+	c.WG.Wait()
 }

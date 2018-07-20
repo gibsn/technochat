@@ -23,29 +23,30 @@ func AddChat(c *Chat) {
 	chatsList.mx.Lock()
 	chatsList.chats[c.ID] = c
 	chatsList.mx.Unlock()
-	go c.HandleChatBroadcast()
 }
 
 func GetChat(id string) *Chat {
 	chatsList.mx.Lock()
 	defer chatsList.mx.Unlock()
+
 	return chatsList.chats[id]
 }
 
 func DelChat(id string) {
 	chatsList.mx.Lock()
-	c := chatsList.chats[id]
-	chatsList.mx.Unlock()
+	defer chatsList.mx.Unlock()
 
-	if c == nil {
+	c, ok := chatsList.chats[id]
+	if !ok {
 		return
 	}
 
-	log.Printf("info: chat: deleting chat id=%s", id)
+	log.Printf("info: chat: deleting chat [%s]", c.ID)
+	delete(chatsList.chats, c.ID)
+}
 
-	c.terminate <- struct{}{}
+func HandleChat(c *Chat) {
+	c.Routine()
 
-	chatsList.mx.Lock()
-	delete(chatsList.chats, id)
-	chatsList.mx.Unlock()
+	DelChat(c.ID)
 }

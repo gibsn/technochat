@@ -1,4 +1,4 @@
-package chat
+package message
 
 type TypeID int
 

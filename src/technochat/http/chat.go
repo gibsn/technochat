@@ -5,9 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"technochat/chat"
 
 	"github.com/google/uuid"
+
+	"technochat/chat"
 )
 
 type ChatInitRequest struct {
@@ -54,6 +55,8 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 		ID: newChat.ID,
 	}
 
+	go chat.HandleChat(newChat)
+
 	return http.StatusOK, resp, nil
 }
 
@@ -71,32 +74,18 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	chatIDStr := r.FormValue("id")
 
-	ch := chat.GetChat(chatIDStr)
-	if ch == nil {
+	c := chat.GetChat(chatIDStr)
+	if c == nil {
 		log.Printf("info: chat: chat %s does not exist", chatIDStr)
-		chat.SendEvent(ws, chat.EventConnInitNoSuchChat, nil)
 		return
 	}
-	if ch.RestJoins() <= 0 {
+	if c.RestJoins() <= 0 {
 		log.Printf("info: chat: maxUsers limit reached for chat %s", chatIDStr)
-		chat.SendEvent(ws, chat.EventConnInitMaxUsrsReached, nil)
 		return
 	}
 
-	usr := ch.AddUser(ws)
-	usr.SendEvent(chat.EventConnInitOk, usr.Name)
-	ch.SendServerNotify("user " + usr.Name + " joined")
+	usr := c.AddUser(ws)
+	usr.Routine()
 
-	for {
-		msg := chat.WSMessage{}
-		if err := usr.WS.ReadJSON(&msg); err != nil {
-			log.Printf("error: chat: could not read message from user [%d/%s]: %v", usr.ID, usr.Name, err)
-			ch.DelUser(usr.ID)
-			ch.SendServerNotify("user " + usr.Name + " has left")
-			break
-		}
-		msg.Name = usr.Name
-		//TODO: check types
-		ch.SendAll(msg)
-	}
+	c.DelUser(usr.ID)
 }
