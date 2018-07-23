@@ -1,0 +1,1 @@
+!function(t,n){t.pageTitleNotification=function(){var e={currentTitle:null,interval:null};return{on:function(i,l){e.interval||(e.currentTitle=n.title,e.interval=t.setInterval(function(){n.title=e.currentTitle===n.title?i:e.currentTitle},l||1e3))},off:function(){t.clearInterval(e.interval),e.interval=null,n.title=e.currentTitle}}}()}(window,document);
