@@ -46,6 +46,9 @@ new Vue({
     },
     methods: {
         addmsg: function(msg){
+            if (document.hidden) {
+                blinkTitle("TechnoChat", "New message!", 1200, true);
+            }
             this.chatContent += '<div class="chip" >'
                 + '<img src="' + this.roboHash(msg.username) + '">' // Avatar
                 + msg.username
