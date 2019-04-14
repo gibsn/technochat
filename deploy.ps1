@@ -7,5 +7,5 @@ if (!(Test-Path ./certs/server.key) -or -!(Test-Path ./certs/server.crt)) {
 docker-compose -f dist/docker-compose.yml build
 docker-compose -f dist/docker-compose.yml down
 docker-compose -f dist/docker-compose.yml up -d
-
+Read-Host
 echo "done"
