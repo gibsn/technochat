@@ -51,8 +51,8 @@
                          <span class="checkmark"></span>
                     </label>
                 </div>
-                <div class="submit">
-                    <input class="btn" type="submit" value="Generate">
+                <div class="button button__generate">
+                    <input type="submit" value="Generate">
                 </div>
             </form>
             <div id="loading">loading</div>
@@ -64,7 +64,9 @@
                 <p>Link: </p>
                 <div id="result_link"></div>
             </div>
-            <button class="btn" id="copy_button" onclick="copyLink('to_copy')">Copy link</button>
+            <div class="button button__copy">
+                <div id="copy_button" onclick="copyLink('to_copy')">Copy link</div>
+            </div>
         </div>
         </script>
     </body>

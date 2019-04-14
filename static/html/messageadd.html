@@ -22,9 +22,11 @@
     <body>
         <div class="content">
             <div class="logo">
-                <h1><a href="/">Technochat</a></h1>
+                <h1>
+                    <a href="/">Technochat</a>
+                </h1>
             </div>
-            <div id="create_chat">
+            <div class="button button__chat" id="create_chat">
                 <a href="/html/initchat.html">Create a new chat</a>
             </div>
             <p>or</p>
@@ -50,8 +52,8 @@
                         <span class="checkmark"></span>
                     </label>
                 </div>
-                <div class="submit">
-                    <input class="btn" type="submit" value="Generate">
+                <div class="button button__generate">
+                    <input type="submit" value="Generate">
                 </div>
             </form>
             <div id="loading">loading</div>
@@ -63,7 +65,9 @@
                 <p>Link: </p>
                 <div id="result_link"></div>
             </div>
-            <button class="btn" id="copy_button" onclick="copyLink('to_copy')">Copy link</button>
+            <div class="button button__copy">
+                <div id="copy_button" onclick="copyLink('to_copy')">Copy link</div>
+            </div>
         </div>
     </body>
 </html>

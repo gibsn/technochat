@@ -4,6 +4,7 @@ body {
   font-family: 'Ubuntu Mono', monospace;
   background-color: #dddddd;
   margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 input,
@@ -14,6 +15,13 @@ textarea {
   font-size: 20px;
   font-family: 'Ubuntu Mono', monospace;
 }
+p {
+  font-size: 25px;
+}
+a {
+  text-decoration: none;
+  color: inherit;
+}
 .content {
   text-align: center;
   margin-top: 35px;
@@ -22,8 +30,8 @@ textarea {
   flex-direction: column;
   align-items: center;
 }
-.content .btn {
-  padding: 10px 40px;
+.button {
+  display: inline-flex;
   background-color: transparent;
   border: 1px solid #000000;
   cursor: pointer;
@@ -33,68 +41,69 @@ textarea {
   -o-transition: 0.4s ease-out;
   transition: 0.4s ease-out;
 }
-.content .btn:hover {
+.button a {
+  padding: 10px 40px;
+}
+.button:hover {
   color: #dddddd;
   background-color: #000000;
 }
-.content .logo h1 {
+.button__generate input {
+  padding: 10px 40px;
+  font-size: 30px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+}
+.button__generate input:hover {
+  color: #dddddd;
+}
+.button__copy {
+  padding: 10px 40px;
+}
+.logo h1 {
   font-size: 60px;
   text-transform: uppercase;
   margin-bottom: 100px;
   font-family: 'Press Start 2P', cursive;
 }
-.content .logo a {
+.logo a {
   color: #000000;
   text-decoration: none;
 }
-.content p {
-  font-size: 25px;
-}
-.content #create_chat {
-  margin: 30px 0;
-}
-.content #create_chat a {
-  color: #000000;
-  text-decoration: none;
-  padding: 15px 40px;
-  font-size: 30px;
-  border: 1px solid #000000;
-  -webkit-transition: 0.4s ease-out;
-  -moz-transition: 0.4s ease-out;
-  -o-transition: 0.4s ease-out;
-  transition: 0.4s ease-out;
-}
-.content #create_chat a:hover {
-  color: #dddddd;
-  background-color: #000000;
-}
-.content .ttl {
+.ttl {
   margin-bottom: 20px;
 }
-.content .submit {
+.submit {
   background-color: transparent;
   color: #000000;
   margin: 10px 0;
 }
-.content .link {
+.link {
   padding-bottom: 20px;
 }
-.content .link #result_link a {
+.link #result_link a {
   text-decoration: none;
   font-size: 24px;
 }
-.content .link #result_link input {
+.link #result_link input {
   position: absolute;
   left: -99999px;
 }
-.content .preview #result_text {
+.preview #result_text {
   margin: 0;
   word-break: break-all;
 }
-.content #message {
+#message {
   font-size: 25px;
   word-break: break-all;
 }
+#result_link {
+  word-break: break-all;
+}
+
+
+
 /* ---- radio buttons ---- */
 .container {
   position: relative;
