@@ -21,6 +21,14 @@
                     var num = $(this).val().length;
 
                     $('#text-length').text(num);
+
+                });
+
+                $('#text').keydown(function(event) {
+                    var num = $(this).val().length;
+                    if (event.keyCode == 8) {
+                        $('#text-length').text(num);
+                    }
                 });
             });
         </script>
