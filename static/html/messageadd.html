@@ -16,7 +16,13 @@
                 $("#result_link").html('');
 
                 $("form").submit(onMessageSubmit);
-            })
+
+                $('#text').keyup(function() {
+                    var num = $(this).val().length;
+
+                    $('#text-length').text(num);
+                });
+            });
         </script>
     </head>
     <body>
@@ -30,10 +36,13 @@
                 <a href="/html/initchat.html">Create a new chat</a>
             </div>
             <p>or</p>
+
             <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
                 <p>leave a self-destructive message:</p>
-                
-                <textarea id="text" class="area__message" name="text" cols="72" rows="10" maxlength="1024" autofocus=true placeholder="Right here"></textarea>
+                <div class="text__symbols">Symbols:
+                    <span id="text-length">0</span>/1024
+                </div>
+                <textarea id="text" class="area__message" name="text" cols="72" rows="10" maxlength="1024" autofocus="true" placeholder="Right here"></textarea>
                 
                 <div class="ttl">
                     TTL:
