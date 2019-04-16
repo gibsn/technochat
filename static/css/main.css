@@ -15,8 +15,13 @@ textarea {
   font-size: 20px;
   font-family: 'Ubuntu Mono', monospace;
 }
+h1 {
+  font-size: 60px;
+  margin: 30px 0 45px;
+}
 p {
   font-size: 25px;
+  margin: 15px 0 20px;
 }
 a {
   text-decoration: none;
@@ -40,6 +45,7 @@ a {
   -moz-transition: 0.4s ease-out;
   -o-transition: 0.4s ease-out;
   transition: 0.4s ease-out;
+  outline: none;
 }
 .button a {
   padding: 10px 40px;
@@ -54,6 +60,7 @@ a {
   border: none;
   cursor: pointer;
   background: transparent;
+  outline: none;
 }
 .button__generate input:hover {
   color: #dddddd;
@@ -61,18 +68,18 @@ a {
 .button__copy {
   padding: 10px 40px;
 }
-.logo h1 {
-  font-size: 60px;
+.logo {
   text-transform: uppercase;
-  margin-bottom: 100px;
+  margin-bottom: 80px;
   font-family: 'Press Start 2P', cursive;
 }
-.logo a {
-  color: #000000;
-  text-decoration: none;
+.area__message {
+  padding: 5px;
+  outline-color: black;
+  outline-width: 2px;
 }
 .ttl {
-  margin-bottom: 20px;
+  margin: 15px 0 20px;
 }
 .submit {
   background-color: transparent;
@@ -80,29 +87,23 @@ a {
   margin: 10px 0;
 }
 .link {
-  padding-bottom: 20px;
+  margin-bottom: 20px;
 }
-.link #result_link a {
+.result__link {
+  word-break: break-word;
+}
+.result__link a {
   text-decoration: none;
   font-size: 24px;
 }
-.link #result_link input {
+.result__link input {
   position: absolute;
   left: -99999px;
 }
-.preview #result_text {
+.result__message {
   margin: 0;
-  word-break: break-all;
+  word-break: break-word;
 }
-#message {
-  font-size: 25px;
-  word-break: break-all;
-}
-#result_link {
-  word-break: break-all;
-}
-
-
 
 /* ---- radio buttons ---- */
 .container {

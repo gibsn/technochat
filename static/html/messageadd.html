@@ -26,17 +26,15 @@
                     <a href="/">Technochat</a>
                 </h1>
             </div>
-            <div class="button button__chat" id="create_chat">
+            <div id="create_chat" class="button button__chat">
                 <a href="/html/initchat.html">Create a new chat</a>
             </div>
             <p>or</p>
             <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
-                <p>
-                    leave a self-destructive message:
-                </p>
-                <p>
-                    <textarea id="text" name="text" cols="72" rows="10" maxlength="1024" autofocus=true placeholder="Right here"></textarea>
-                </p>
+                <p>leave a self-destructive message:</p>
+                
+                <textarea id="text" class="area__message" name="text" cols="72" rows="10" maxlength="1024" autofocus=true placeholder="Right here"></textarea>
+                
                 <div class="ttl">
                     TTL:
                     <label class="container">1 day
@@ -57,13 +55,13 @@
                 </div>
             </form>
             <div id="loading">loading</div>
-            <div class="preview">
-                <p>Your message:</p>
-                <p id="result_text"></p>
+            <div class="message">
+                <p>Your message: </p>
+                <p id="result_text" class="result__message"></p>
             </div>
             <div class="link">
                 <p>Link: </p>
-                <div id="result_link"></div>
+                <div id="result_link" class="result__link"></div>
             </div>
             <div class="button button__copy">
                 <div id="copy_button" onclick="copyLink('to_copy')">Copy link</div>

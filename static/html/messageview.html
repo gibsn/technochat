@@ -29,13 +29,13 @@
                 <h1><a href="/">Technochat</a></h1>
             </div>
             <p>Message: </p>
-            <div id=message></div>
+            <p id=message class="result__message"></p>
 
             <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
                 <p>Your answer: </p>
-                <p>
-                    <textarea id="text" name="text" cols="72" rows="10" maxlength="1024" placeholder="Right here"></textarea>
-                </p>
+
+                    <textarea id="text" class="area__message" name="text" cols="72" rows="10" maxlength="1024" placeholder="Right here"></textarea>
+
                 <div class="ttl">
                     TTL:
                     <label class="container">1 day
