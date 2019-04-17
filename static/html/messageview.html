@@ -18,6 +18,18 @@
 
                 $("form").submit(onMessageSubmit);
 
+                $('#text').keyup(function() {
+                    var num = $(this).val().length;
+                    $('#text-length').text(num);
+                });
+
+                $('#text').keydown(function(event) {
+                    var num = $(this).val().length;
+                    if (event.keyCode == 8) {
+                        $('#text-length').text(num);
+                    }
+                });
+
                 var queryParams = new URLSearchParams(window.location.search);
                 loadMessage(queryParams.get("id"), $("#message"));
             })
@@ -31,10 +43,13 @@
             <p>Message: </p>
             <div id=message></div>
 
-            <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
+            <form id="text_form" class="message__form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
                 <p>Your answer: </p>
                 <p>
-                    <textarea id="text" name="text" cols="72" rows="10" maxlength="1024" placeholder="Right here"></textarea>
+                    <textarea id="text" class="message__area" name="text" cols="72" rows="10" maxlength="1024" placeholder="Right here"></textarea>
+                    <div class="text__symbols">
+                        <span id="text-length">0</span>/1024
+                    </div>
                 </p>
                 <div class="ttl">
                     TTL:
