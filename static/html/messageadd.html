@@ -17,15 +17,25 @@
 
                 $("form").submit(onMessageSubmit);
 
-                $('#text').keyup(function() {
-                    var num = $(this).val().length;
-                    $('#text-length').text(num);
-                });
+                // $('#text').keyup(function() {
+                //     var num = $(this).val().length;
+                //     $('#text-length').text(num);
+                // });
 
-                $('#text').keydown(function(event) {
-                    var num = $(this).val().length;
-                    if (event.keyCode == 8) {
-                        $('#text-length').text(num);
+                // $('#text').keydown(function(event) {
+                //     var num = $(this).val().length;
+                //     if (event.keyCode == 8) {
+                //         $('#text-length').text(num);
+                //     }
+                // });
+
+                $('textarea').on('input', function() {
+                    var maxL = $(this).attr('maxlength');
+                    var currL = $(this).val().length;
+                    if (currL >= maxL) {
+                        alert('Too much symbols, bro');
+                    } else {
+                        $('#text-length').text(currL);
                     }
                 });
 
