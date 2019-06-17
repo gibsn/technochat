@@ -13,10 +13,14 @@
   }
   .logo {
     margin-bottom: 30px;
-    width: 330px;
-    word-break: break-all;
   }
   .area__message {
     width: 97%;
+  }
+}
+
+@media (max-width: 425px) {
+  h1 {
+    font-size: 28px;
   }
 }
