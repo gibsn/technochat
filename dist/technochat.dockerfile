@@ -7,7 +7,6 @@ WORKDIR /go/src/technochat
 COPY Makefile .
 COPY src ./src
 COPY vendor ./vendor
-COPY static ./static
 
 RUN make install
 

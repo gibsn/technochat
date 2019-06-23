@@ -25,10 +25,14 @@ services:
             - 8080:8080
     nginx:
         build:
+            args:
+                DEV: "True"
             context: ../
             dockerfile: dist/nginx.dockerfile
         container_name: nginx
         image: gibsn/nginx
+        volumes:
+            - ../static:/static
         secrets:
             - server.key
             - server.crt
