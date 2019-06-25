@@ -21,6 +21,9 @@
                 $('.button__generate').click(function() {
                     $('.message__box').css('display', 'block');
                     $(this).addClass('button__blured');
+                    $('html, body').animate({ 
+                        scrollTop: '500px'
+                    }, 1500);
                 });
 
                 var queryParams = new URLSearchParams(window.location.search);
