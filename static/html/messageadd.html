@@ -19,6 +19,10 @@
 
                 $('.button__generate').click(function() {
                     $('.message__box').css('display', 'block');
+                    $(this).addClass('button__blured');
+                    $('html, body').animate({ 
+                        scrollTop: '500px'
+                    }, 1500);
                 });
             })
         </script>
@@ -32,7 +36,7 @@
             </div>
 
             <form class="form" id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
-                <p>leave a self-destructive message:</p>
+                <p>Leave a self-destructive message:</p>
                 
                 <textarea id="text" class="area__message" name="text" maxlength="1024" autofocus="true" placeholder="Right here"></textarea>
                 
@@ -51,12 +55,14 @@
                         <span class="checkmark"></span>
                     </label>
                 </div>
+
                 <div class="button button__generate">
                     <input id="message_view" type="submit" value="Generate">
                 </div>
+
             </form>
             <div class="message__box" style="display: none;">
-                <div id="loading">loading</div>
+                <div id="loading" class="message__loading">loading</div>
                 <div class="message">
                     <p>Your message: </p>
                     <p id="result_text" class="result__message"></p>
@@ -69,6 +75,7 @@
                     <div id="copy_button" class="button__copy" onclick="copyLink('to_copy')">Copy link</div>
                 </div>
             </div>
+            <p>or</p>
             <div id="create_chat" class="button button__chat">
                 <a href="/html/initchat.html">Start a new chat</a>
             </div>

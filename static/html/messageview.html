@@ -20,6 +20,7 @@
 
                 $('.button__generate').click(function() {
                     $('.message__box').css('display', 'block');
+                    $(this).addClass('button__blured');
                 });
 
                 var queryParams = new URLSearchParams(window.location.search);
@@ -62,7 +63,7 @@
             <div class="message__box" style="display: none;">
                 <div id="loading">loading</div>
                 <div class="preview">
-                    <p>Check your message here: </p>
+                    <p>Your message: </p>
                     <p id="result_text" class="result__message"></p>
                 </div>
                 <div class="link">

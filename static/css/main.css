@@ -75,8 +75,8 @@ a {
 .button__copy {
   padding: 10px 40px;
 }
-.button__chat {
-  margin-top: 25px;
+.button__blured {
+  opacity: 0.5;
 }
 .logo {
   text-transform: uppercase;
@@ -104,6 +104,9 @@ a {
 }
 .link {
   margin-bottom: 20px;
+}
+.message__loading {
+  margin-top: 20px;
 }
 .result__link {
   word-break: break-word;
@@ -161,7 +164,7 @@ a {
   border-radius: 50%;
 }
 .checkmark:after {
-  content: "";
+  content: '';
   position: absolute;
   display: none;
 }
