@@ -1,19 +1,17 @@
-FROM golang:1.10
+FROM golang:1.13
 
 EXPOSE 8080
 
 WORKDIR /go/src/technochat
 
 COPY Makefile .
-COPY src ./src
-COPY vendor ./vendor
-COPY static ./static
+COPY ./ ./
 
-RUN make install
+RUN make technochat
 
 RUN groupadd -r technochat
 RUN useradd -r -g technochat -s /bin/nologin technochat
 
 USER technochat:technochat
 
-CMD ["technochat", "-l", "0.0.0.0:8080"]
+CMD ["./bin/technochat", "-l", "0.0.0.0:8080"]
