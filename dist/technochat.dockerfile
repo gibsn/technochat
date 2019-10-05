@@ -4,10 +4,10 @@ EXPOSE 8080
 
 WORKDIR /go/src/technochat
 
-COPY Makefile .
 COPY ./ ./
 
 RUN make technochat
+RUN find ./ ! -path "./bin*" ! -name "." ! -name ".." -delete
 
 RUN groupadd -r technochat
 RUN useradd -r -g technochat -s /bin/nologin technochat
