@@ -1,31 +1,28 @@
-GOPATH := $(GOPATH):$(PWD):$(PWD)/vendor
-export GOPATH
+MODULE_NAME=technochat
 
-PATH := $(PWD)/bin:$(PATH)
-export PATH
+TEST_FILES = $(shell find -L * -name '*_test.go' -not -path "vendor/*")
+TEST_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(TEST_FILES)))
 
+VET_FILES = $(shell find -L * -name '*.go' -not -path "vendor/*")
+VET_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(VET_FILES)))
 
 all: technochat
 
 install: technochat
 	go install ./...
 
+technochat:
+	go build -mod vendor -o bin/technochat technochat
+
 test:
-	bin/gb test -v
-
-technochat: bin/gb
-	bin/gb build technochat
-
-bin/gb:
-	go build -o bin/gb github.com/constabulary/gb/cmd/gb
+	go test -v $(TEST_PACKAGES)
 
 vet:
-	go tool vet ./src
+	go vet $(VET_PACKAGES)
 
 clean:
 	rm -rf bin/
 	rm -rf pkg/
-	rm -rf vendor/pkg
 
 
-.PHONY: all clean test install
+.PHONY: all clean test install vet technochat
