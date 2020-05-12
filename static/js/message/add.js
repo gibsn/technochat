@@ -18,8 +18,11 @@ function onMessageSubmitSuccess(addResponse) {
     var userText = $("#text").val();
     $("#result_text").html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
+
     $("#text").val('');
     $("#loading").hide();
+
+
 
     if (addResponse.code == 200) {
         var link = addResponse.body.link;
@@ -27,6 +30,10 @@ function onMessageSubmitSuccess(addResponse) {
     } else {
         $("#result_link").html(addResponse.body);
     }
+
+    $('html, body').animate({
+                        scrollTop: $('#copy_button').offset().top
+                    }, 1000);
 }
 
 function onMessageSubmitError(e) {
