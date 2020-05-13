@@ -1,23 +1,32 @@
 @media (max-width: 599px) {
-  h1 {
-    font-size: 50px;
-  }
-  p {
-    font-size: 24px;
-  }
-  .button {
-    font-size: 24px;
-  }
-  .button__generate input {
-    font-size: 24px;
-  }
-  .area__message {
-    width: 97%;
-  }
+    h1 {
+        font-size: 50px;
+    }
+
+    p {
+        font-size: 24px;
+    }
+
+    .button {
+        font-size: 24px;
+    }
+
+    .button__generate input {
+        font-size: 24px;
+    }
+
+    .area__message {
+        width: 97%;
+    }
 }
 
 @media (max-width: 425px) {
-  h1 {
-    font-size: 28px;
-  }
+    h1 {
+        font-size: 28px;
+    }
+
+    .expires {
+        width: 100%;
+        margin-right: 0;
+    }
 }

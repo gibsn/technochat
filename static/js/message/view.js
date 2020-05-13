@@ -1,5 +1,5 @@
 function loadMessage(messageID, messageBox) {
-    $.get("/api/v1/message/view?id="+messageID)
+    $.get('/api/v1/message/view?id='+messageID)
         .done(function(viewResponse) {
             if (viewResponse.code == 200) {
                 messageBox.html(viewResponse.body.text.replace(/(?:\r\n|\r|\n)/g, '<br>'))
@@ -8,6 +8,6 @@ function loadMessage(messageID, messageBox) {
             }
         })
         .fail(function(viewResponse) {
-            messageBox.html("Internal Server Error")
+            messageBox.html('Internal Server Error')
         });
 }

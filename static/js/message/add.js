@@ -15,20 +15,20 @@ function onMessageSubmit(e) {
 }
 
 function onMessageSubmitSuccess(addResponse) {
-    var userText = $("#text").val();
-    $("#result_text").html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
+    var userText = $('#text').val();
+    $('#result_text').html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
 
-    $("#text").val('');
-    $("#loading").hide();
+    $('#text').val('');
+    $('#loading').hide();
 
 
 
     if (addResponse.code == 200) {
         var link = addResponse.body.link;
-        $("#result_link").html('<input id="to_copy" value="'+link+'">'+link+'</input>');
+        $('#result_link').html('<input id="to_copy" value="'+link+'">'+link+'</input>');
     } else {
-        $("#result_link").html(addResponse.body);
+        $('#result_link').html(addResponse.body);
     }
 
     $('html, body').animate({
@@ -37,6 +37,6 @@ function onMessageSubmitSuccess(addResponse) {
 }
 
 function onMessageSubmitError(e) {
-    $("#loading").hide();
-    $("#result_text").html("Internal Server Error");
+    $('#loading').hide();
+    $('#result_text').html('Internal Server Error');
 }
