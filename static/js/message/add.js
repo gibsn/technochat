@@ -23,17 +23,16 @@ function onMessageSubmitSuccess(addResponse) {
     $('#loading').hide();
 
 
-
     if (addResponse.code == 200) {
         var link = addResponse.body.link;
-        $('#result_link').html('<input id="to_copy" value="'+link+'">'+link+'</input>');
+        $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
         $('#result_link').html(addResponse.body);
     }
 
     $('html, body').animate({
-                        scrollTop: $('#copy_button').offset().top
-                    }, 1000);
+        scrollTop: $('#copy_button').offset().top
+    }, 1000);
 }
 
 function onMessageSubmitError(e) {
