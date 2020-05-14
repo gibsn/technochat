@@ -12,6 +12,7 @@
 *.out
 
 .DS_store
+.idea
 
 /bin
 /pkg
