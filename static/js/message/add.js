@@ -1,17 +1,23 @@
 function onMessageSubmit(e) {
-    $("#loading").show();
-    $("#copy_button").html("Copy link");
+    $('#loading').show();
+    $('#copy_button').html('Copy link');
     e.preventDefault();
 
     $.ajax({
         type: 'POST',
-        url: $(this).attr("action"),
-        data: new FormData($("form")[0]),
+        url: $(this).attr('action'),
+        data: new FormData($('form')[0]),
         contentType: false,
         processData: false,
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
     });
+}
+
+function scrollToCopyButton() {
+    $('html, body').animate({
+        scrollTop: $('#copy_button').offset().top
+    }, 1000);
 }
 
 function onMessageSubmitSuccess(addResponse) {
@@ -30,12 +36,12 @@ function onMessageSubmitSuccess(addResponse) {
         $('#result_link').html(addResponse.body);
     }
 
-    $('html, body').animate({
-        scrollTop: $('#copy_button').offset().top
-    }, 1000);
+    scrollToCopyButton();
 }
 
 function onMessageSubmitError(e) {
     $('#loading').hide();
     $('#result_text').html('Internal Server Error');
+
+    scrollToCopyButton();
 }
