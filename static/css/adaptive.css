@@ -1,20 +1,32 @@
 @media (max-width: 599px) {
-  .content {
-    margin-top: 0;
-  }
-  .content p {
-    margin: 15px 0;
-  }
-  .content .logo h1 {
-    font-size: 1.8em;
-    margin-bottom: 20px;
-  }
-  .content #create_chat a {
-    font-size: 1.4em;
-  }
-  textarea {
-    width: 97%;
-    padding: 0;
-    border: none;
-  }
+    h1 {
+        font-size: 50px;
+    }
+
+    p {
+        font-size: 24px;
+    }
+
+    .button {
+        font-size: 24px;
+    }
+
+    .button__generate input {
+        font-size: 24px;
+    }
+
+    .area__message {
+        width: 97%;
+    }
+}
+
+@media (max-width: 425px) {
+    h1 {
+        font-size: 28px;
+    }
+
+    .expires {
+        width: 100%;
+        margin-right: 0;
+    }
 }

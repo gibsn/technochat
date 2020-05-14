@@ -1,141 +1,213 @@
 @import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
 @import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
+
 body {
-  font-family: 'Ubuntu Mono', monospace;
-  background-color: #dddddd;
-  margin: 0;
-  box-sizing: border-box;
+    font-family: 'Ubuntu Mono', monospace;
+    background-color: #dddddd;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
+
 input,
 button {
-  font-family: 'Ubuntu Mono', monospace;
+    font-family: 'Ubuntu Mono', monospace;
 }
+
 textarea {
-  font-size: 20px;
-  font-family: 'Ubuntu Mono', monospace;
+    font-size: 20px;
+    font-family: 'Ubuntu Mono', monospace;
 }
+
+h1 {
+    font-size: 60px;
+    margin: 30px 0 45px;
+}
+
+p {
+    font-size: 25px;
+    margin: 15px 0 20px;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
 .content {
-  text-align: center;
-  margin-top: 35px;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    text-align: center;
+    margin-top: 35px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 600px;
+    margin: 0 auto;
 }
-.content .btn {
-  padding: 10px 40px;
-  background-color: transparent;
-  border: 1px solid #000000;
-  cursor: pointer;
-  font-size: 30px;
-  -webkit-transition: 0.4s ease-out;
-  -moz-transition: 0.4s ease-out;
-  -o-transition: 0.4s ease-out;
-  transition: 0.4s ease-out;
+
+.button {
+    display: inline-flex;
+    background-color: transparent;
+    border: 1px solid #000000;
+    cursor: pointer;
+    font-size: 30px;
+    -webkit-transition: 0.4s ease-out;
+    -moz-transition: 0.4s ease-out;
+    -o-transition: 0.4s ease-out;
+    transition: 0.4s ease-out;
+    outline: none;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    -ms-border-radius: 2px;
+    -o-border-radius: 2px;
+    border-radius: 2px;
 }
-.content .btn:hover {
-  color: #dddddd;
-  background-color: #000000;
+
+.button a {
+    padding: 10px 40px;
 }
-.content .logo h1 {
-  font-size: 60px;
-  text-transform: uppercase;
-  margin-bottom: 100px;
-  font-family: 'Press Start 2P', cursive;
+
+.button:hover {
+    color: #dddddd;
+    background-color: #000000;
 }
-.content .logo a {
-  color: #000000;
-  text-decoration: none;
+
+.button__generate input {
+    padding: 10px 40px;
+    font-size: 30px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    outline: none;
 }
-.content p {
-  font-size: 25px;
+
+.button__generate input:hover {
+    color: #dddddd;
 }
-.content #create_chat {
-  margin: 30px 0;
+
+.button__copy {
+    padding: 10px 40px;
 }
-.content #create_chat a {
-  color: #000000;
-  text-decoration: none;
-  padding: 15px 40px;
-  font-size: 30px;
-  border: 1px solid #000000;
-  -webkit-transition: 0.4s ease-out;
-  -moz-transition: 0.4s ease-out;
-  -o-transition: 0.4s ease-out;
-  transition: 0.4s ease-out;
+
+.button__blured {
+    opacity: 0.5;
 }
-.content #create_chat a:hover {
-  color: #dddddd;
-  background-color: #000000;
+
+.logo {
+    text-transform: uppercase;
+    font-family: 'Press Start 2P', cursive;
 }
-.content .ttl {
-  margin-bottom: 20px;
+
+.form {
+    width: 100%;
 }
-.content .submit {
-  background-color: transparent;
-  color: #000000;
-  margin: 10px 0;
+
+.area__message {
+    width: 100%;
+    height: 200px;
+    box-sizing: border-box;
+    padding: 5px;
+    outline-color: black;
+    outline-width: 2px;
+    resize: none;
 }
-.content .link {
-  padding-bottom: 20px;
+
+.ttl {
+    margin: 15px 0 20px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
 }
-.content .link #result_link a {
-  text-decoration: none;
-  font-size: 24px;
+
+.expires {
+    padding-bottom: 10px;
+    margin-right: 10px;
 }
-.content .link #result_link input {
-  position: absolute;
-  left: -99999px;
+
+.submit {
+    background-color: transparent;
+    color: #000000;
+    margin: 10px 0;
 }
-.content .preview #result_text {
-  margin: 0;
-  word-break: break-all;
+
+.link {
+    margin-bottom: 20px;
 }
-.content #message {
-  font-size: 25px;
-  word-break: break-all;
+
+.message__loading {
+    margin-top: 20px;
 }
+
+.result__link {
+    word-break: break-word;
+}
+
+.result__link a {
+    text-decoration: none;
+    font-size: 24px;
+}
+
+.result__link input {
+    position: absolute;
+    left: -99999px;
+}
+
+.result__message {
+    margin: 0;
+    word-break: break-word;
+}
+
 /* ---- radio buttons ---- */
 .container {
-  position: relative;
-  padding-left: 25px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+    position: relative;
+    padding-left: 25px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
+
+.container + .container {
+    margin-left: 10px;
+}
+
 .container input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
 }
+
 .container input:checked ~ .checkmark {
-  background-color: #000000;
+    background-color: #000000;
 }
+
 .container input:checked ~ .checkmark:after {
-  display: block;
+    display: block;
 }
+
 .container .checkmark:after {
-  top: 4px;
-  left: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: white;
+    top: 4px;
+    left: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: white;
 }
+
 .checkmark {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 15px;
-  width: 15px;
-  background-color: #eee;
-  border-radius: 50%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 15px;
+    width: 15px;
+    background-color: #eee;
+    border-radius: 50%;
 }
+
 .checkmark:after {
-  content: "";
-  position: absolute;
-  display: none;
+    content: '';
+    position: absolute;
+    display: none;
 }
