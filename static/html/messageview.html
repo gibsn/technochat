@@ -16,7 +16,7 @@
             $('#result_text').html('');
             $('#result_link').html('');
 
-            $('form').submit(onMessageSubmit);
+            $('#text_form').submit(onMessageSubmit);
 
             $('.button__generate').on('click', function () {
                 $('.message__box').css('display', 'block');
@@ -35,8 +35,10 @@
     <p>Message: </p>
     <p id=message class="result__message"></p>
 
-    <form class="form" id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
-        <p>Your answer: </p>
+    <form class="form" id="text_form" action="/api/v1/message/add"
+          method="post" enctype="multipart/form-data" accept-charset="utf-8">
+
+        <p>Your reply: </p>
 
         <textarea id="text" class="area__message" name="text" maxlength="1024" placeholder="Right here"></textarea>
 

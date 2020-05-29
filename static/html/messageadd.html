@@ -15,7 +15,7 @@
             $('#result_text').html('');
             $('#result_link').html('');
 
-            $('form').submit(onMessageSubmit);
+            $('#text_form').submit(onMessageSubmit);
 
             $('.button__generate').on('click', function () {
                 $('.message__box').css('display', 'block');
@@ -31,7 +31,9 @@
         </h1>
     </div>
 
-    <form class="form" id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
+    <form class="form" id="text_form" action="/api/v1/message/add"
+          method="post" enctype="multipart/form-data" accept-charset="utf-8">
+
         <p>Leave a self-destructive message:</p>
 
         <textarea id="text" class="area__message" name="text" maxlength="1024" autofocus="true"
