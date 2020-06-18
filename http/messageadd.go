@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"unicode/utf8"
 
 	"technochat/db"
 )
@@ -55,8 +56,10 @@ func (req *MessageAddRequest) Validate() error {
 	if len(req.text) == 0 {
 		return fmt.Errorf("empty text")
 	}
-
-	if len(req.text) > maxTextLength {
+	if !utf8.ValidString(req.text) {
+		return fmt.Errorf("text must be a valid UTF8 string")
+	}
+	if utf8.RuneCountInString(req.text) > maxTextLength {
 		return fmt.Errorf("maximum text length of %d is allowed", maxTextLength)
 	}
 

@@ -6,7 +6,7 @@ function onMessageSubmit(e) {
     $.ajax({
         type: 'POST',
         url: $(this).attr('action'),
-        data: new FormData($('form')[0]),
+        data: new FormData($('#text_form')[0]),
         contentType: false,
         processData: false,
         success: onMessageSubmitSuccess,
@@ -33,7 +33,7 @@ function onMessageSubmitSuccess(addResponse) {
         var link = addResponse.body.link;
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
-        $('#result_link').html(addResponse.body);
+        $('#result_link').html("error: " + addResponse.body);
     }
 
     scrollToCopyButton();
