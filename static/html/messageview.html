@@ -12,11 +12,15 @@
     <script src="/js/message/view.js"></script>
     <script type="text/javascript">
         $(document).ready(function () {
-            $("#loading").html('');
-            $("#result_text").html('');
-            $("#result_link").html('');
+            $('#loading').html('');
+            $('#result_text').html('');
+            $('#result_link').html('');
 
-            $("form").submit(onMessageSubmit);
+            $('#text_form').submit(onMessageSubmit);
+
+            $('.button__generate').on('click', function () {
+                $('.message__box').css('display', 'block');
+            });
 
             $('#text').keyup(function () {
                 var num = $(this).val().length;
@@ -31,7 +35,7 @@
             });
 
             var queryParams = new URLSearchParams(window.location.search);
-            loadMessage(queryParams.get("id"), $("#message"));
+            loadMessage(queryParams.get('id'), $('#message'));
         })
     </script>
 </head>
@@ -41,17 +45,19 @@
         <h1><a href="/">Technochat</a></h1>
     </div>
     <p>Message: </p>
-    <div id=message></div>
+    <p id=message class="result__message"></p>
 
-    <form id="text_form" class="message__form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
-        <p>Your answer: </p>
-        <textarea id="text" class="message__area" name="text" cols="72" rows="10" maxlength="1024"
-                  placeholder="Right here"></textarea>
+    <form class="form" id="text_form" action="/api/v1/message/add"
+          method="post" enctype="multipart/form-data" accept-charset="utf-8">
+
+        <p>Your reply: </p>
+
+        <textarea id="text" class="area__message" name="text" maxlength="1024" placeholder="Right here"></textarea>
         <div class="text__symbols">
             <span id="text-length">0</span>/1024
         </div>
         <div class="ttl">
-            TTL:
+            <div class="expires">Expires in:</div>
             <label class="container">1 day
                 <input type="radio" checked name="ttl" value=86400>
                 <span class="checkmark"></span>
@@ -65,20 +71,24 @@
                 <span class="checkmark"></span>
             </label>
         </div>
-        <div class="submit">
-            <input class="btn" type="submit" value="Generate">
+        <div class="button button__generate">
+            <input type="submit" value="Generate">
         </div>
     </form>
-    <div id="loading">loading</div>
-    <div class="preview">
-        <p>Check your message here: </p>
-        <p id="result_text"></p>
+    <div class="message__box" style="display: none;">
+        <div id="loading">loading</div>
+        <div class="preview">
+            <p>Your message: </p>
+            <p id="result_text" class="result__message"></p>
+        </div>
+        <div class="link">
+            <p>Link: </p>
+            <div id="result_link" class="result__link"></div>
+        </div>
+        <div class="button">
+            <div id="copy_button" class="button__copy" onclick="copyLink('to_copy')">Copy link</div>
+        </div>
     </div>
-    <div class="link">
-        <p>Link: </p>
-        <div id="result_link"></div>
-    </div>
-    <button class="btn" id="copy_button" onclick="copyLink('to_copy')">Copy link</button>
 </div>
 </body>
 </html>
