@@ -20,29 +20,7 @@
             $('.button__generate').on('click', function () {
                 $('.message__box').css('display', 'block');
             });
-
-            // $('#text').keyup(function() {
-            //     var num = $(this).val().length;
-            //     $('#text-length').text(num);
-            // });
-
-            // $('#text').keydown(function(event) {
-            //     var num = $(this).val().length;
-            //     if (event.keyCode == 8) {
-            //         $('#text-length').text(num);
-            //     }
-            // });
-
-            $('textarea').on('input', function() {
-                var maxL = $(this).attr('maxlength');
-                var currL = $(this).val().length;
-                if (currL >= maxL) {
-                    alert('Too much symbols, bro');
-                } else {
-                    $('#text-length').text(currL);
-                }
-            });
-        })
+        });
     </script>
 </head>
 <body>
@@ -58,10 +36,12 @@
 
         <p>Leave a self-destructive message:</p>
 
-        <textarea id="text" class="area__message" name="text" maxlength="1024" autofocus="true"
-                  placeholder="Right here"></textarea>
-        <div class="text__symbols">
-            <span id="text-length">0</span>/1024
+        <div class="form__wrapper">
+            <textarea id="text" class="area__message" name="text" maxlength="1024" autofocus="true"
+                      placeholder="Right here"></textarea>
+            <div class="text__symbols">
+                <span id="text-length">0</span>/1024
+            </div>
         </div>
 
         <div class="ttl">

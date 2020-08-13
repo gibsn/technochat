@@ -42,3 +42,13 @@ function copyToClipboardAny(id) {
 
     return isCopied
 }
+
+$('#text').on('input', function () {
+    var maxL = $(this).attr('maxlength');
+    var currL = $(this).val().length;
+    if (currL >= maxL) {
+        alert('Too much symbols');
+    } else {
+        $('#text-length').text(currL);
+    }
+});

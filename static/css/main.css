@@ -113,7 +113,7 @@ a {
 }
 
 .ttl {
-    margin: 15px 0 20px;
+    margin: 20px 0;
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
@@ -157,28 +157,29 @@ a {
     word-break: break-word;
 }
 
-.content #message {
-  font-size: 25px;
-  word-break: break-all;
+.message__form {
+    position: relative;
 }
 
-.message__form {
-  position: relative;
-}
 .message__area {
-  resize: none;
-  outline: none;
+    resize: none;
+    outline: none;
 }
+
+.form__wrapper {
+    position: relative;
+}
+
 .text__symbols {
-  position: relative;
-  bottom: 30px;
-  color: #6d6d6d;
-  text-align: right;
-  background: white;
-  padding: 3px;
-  border: 1px solid #999999;
-  border-top: none;
+    position: absolute;
+    bottom: -15px;
+    color: #6d6d6d;
+    text-align: right;
+    background: transparent;
+    border-top: none;
+    right: 0;
 }
+
 /* ---- radio buttons ---- */
 .container {
     position: relative;
