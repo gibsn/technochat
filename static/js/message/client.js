@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // symbols counter
-    const maxLength = 10; // maximum number of symbols allowed
+    const maxLength = 1024; // maximum number of symbols allowed
 
     var textarea = document.querySelector('.js__textarea');
     var counter = document.querySelector('.js__counter');
