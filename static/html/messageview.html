@@ -41,11 +41,13 @@
         <p>Your reply: </p>
 
         <div class="form__wrapper">
-            <textarea id="text" class="area__message" name="text" maxlength="1024" placeholder="Right here"></textarea>
+            <textarea id="text" class="area__message js__textarea" name="text" maxlength="1024" autofocus="true"
+                      placeholder="Right here"></textarea>
             <div class="text__symbols">
-                <span id="text-length">0</span>/1024
+                <span class="js__counter">0</span>/<span class="js__counter-max"></span>
             </div>
         </div>
+
         <div class="ttl">
             <div class="expires">Expires in:</div>
             <label class="container">1 day
