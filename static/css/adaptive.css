@@ -18,6 +18,10 @@
     .area__message {
         width: 97%;
     }
+
+    .user__input {
+        width: 214px;
+    }
 }
 
 @media (max-width: 425px) {
