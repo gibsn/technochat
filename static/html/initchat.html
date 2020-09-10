@@ -45,7 +45,7 @@
                 var link = 'https://' + window.location.host + '/html/joinchat.html?id=' + id
                 $("#result_link").html('<a href="' + link + '">' + link + '</a>');
             } else {
-                $("#result_link").html(json.body);
+                $("#result_link").html("error: " + json.body);
             }
         }
 
