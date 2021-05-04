@@ -61,5 +61,4 @@ func (u *User) Routine() {
 	close(u.shutdownChan)
 
 	u.WG.Wait()
-	u.ws.Close()
 }

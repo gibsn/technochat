@@ -46,10 +46,9 @@ type Chat struct {
 	incomingChan  chan *message.WSMessage
 	broadcastChan chan *message.WSMessage
 
+	restJoins  int // how many available invitations are left
 	corresps   map[int]*user.User
 	correspsMx sync.RWMutex
-
-	restJoins int
 }
 
 type NewChatOpts struct {
@@ -80,7 +79,9 @@ func NewChat(opts NewChatOpts) *Chat {
 }
 
 func (c *Chat) RestJoins() int {
-	// TODO use mutex or atomic
+	c.correspsMx.RLock()
+	defer c.correspsMx.RUnlock()
+
 	return c.restJoins
 }
 
