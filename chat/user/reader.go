@@ -12,7 +12,6 @@ const (
 
 func (u *User) ReadStream() <-chan *message.WSMessage {
 	return u.read
-
 }
 
 func (u *User) reader() {
@@ -22,7 +21,10 @@ func (u *User) reader() {
 		for {
 			var msg message.WSMessage
 			if err := u.ws.ReadJSON(&msg); err != nil {
-				log.Printf("error: chat: could not read message from user [%d %s]: %v", u.ID, u.Name, err)
+				log.Printf("error: chat: could not read message from user [%d %s]: %v",
+					u.ID, u.Name, err,
+				)
+
 				q <- nil
 				return
 			}
@@ -44,8 +46,8 @@ func (u *User) reader() {
 				continue
 			}
 
+			// TODO possible write after close
 			u.read <- msg
 		}
 	}
-
 }

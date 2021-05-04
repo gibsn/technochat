@@ -66,20 +66,23 @@ func (s *Server) Routine() {
 func (s *Server) Shutdown() {
 	log.Println("http: shutting down")
 
-	ctx, _ := context.WithTimeout(context.Background(), gracefulTime)
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulTime)
+	defer cancel()
+
 	if err := s.server.Shutdown(ctx); err != nil {
 		log.Println("error: http:", err)
 	}
 }
 
 func getRealRemoteAddr(r *http.Request) string {
-	if xRealIp := r.Header.Get("X-Real-Ip"); xRealIp != "" {
-		return xRealIp
-	} else {
-		return r.RemoteAddr
+	if xRealIP := r.Header.Get("X-Real-Ip"); xRealIP != "" {
+		return xRealIP
 	}
+
+	return r.RemoteAddr
 }
 
+//nolint: deadcode, unused
 func isMessengerResolver(r *http.Request) bool {
 	for _, ua := range messengerResolverUAs {
 		if ua == r.UserAgent() {
@@ -99,8 +102,6 @@ func respondAPI(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 			err  error
 		)
 
-		w.Header().Add("Content-Type", "application/json")
-
 		resp.Code, resp.Body, err = h(r)
 		if err != nil {
 			switch resp.Code {
@@ -118,11 +119,22 @@ func respondAPI(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 			}
 		}
 
-		respMarshalled, _ := json.Marshal(resp)
-		w.Write(respMarshalled)
+		respMarshalled, err := json.Marshal(resp)
+		if err != nil {
+			log.Printf("error: http: could not marshal response for %s: %v", remoteAddr, err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+
+		if _, err := w.Write(respMarshalled); err != nil {
+			log.Printf("error: http: could not send response for %s: %v", remoteAddr, err)
+		}
 	}
 }
 
+//nolint: deadcode, unused
 func respondPage(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := getRealRemoteAddr(r)
@@ -130,7 +142,10 @@ func respondPage(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 
 		switch code {
 		case http.StatusOK:
-			w.Write([]byte(fmt.Sprintf("%v", body)))
+			if _, err = w.Write([]byte(fmt.Sprintf("%v", body))); err != nil {
+				log.Printf("error: http: could not send response for %s: %v", remoteAddr, err)
+				return
+			}
 		case http.StatusBadRequest:
 			log.Printf("info: http: bad request from %s: %v\n", remoteAddr, err)
 			http.Error(w, err.Error(), code)

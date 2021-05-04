@@ -71,7 +71,8 @@ func NewChat(opts NewChatOpts) *Chat {
 		userDisconnectedChan: make(chan *user.User),
 	}
 
-	c.WG.Add(2)
+	c.WG.Add(2) //nolint: gomnd
+
 	go c.handleUsers()
 	go c.handleCommunication()
 
@@ -79,6 +80,7 @@ func NewChat(opts NewChatOpts) *Chat {
 }
 
 func (c *Chat) RestJoins() int {
+	// TODO use mutex or atomic
 	return c.restJoins
 }
 
@@ -128,13 +130,19 @@ func (c *Chat) handleUsers() {
 			log.Printf("info: chat: closing users goroutine for chat [%s]", c.ID)
 			return
 
-		case connectedUser := <-c.userConnectedChan:
-			connectedUser.SendEvent(message.EventConnInitOk, connectedUser.Name)
-			c.SubscribeUser(connectedUser)
-			c.SendServerNotify("user " + connectedUser.Name + " has joined")
+		case newUser := <-c.userConnectedChan:
+			if err := newUser.SendEvent(message.EventConnInitOk, newUser.Name); err != nil {
+				log.Printf("error: could not greet a new user from %s: %v", newUser.Addr(), err)
+				newUser.TriggerShutdown()
+				return
+			}
+
+			c.SubscribeUser(newUser)
+			c.SendServerNotify("user " + newUser.Name + " has joined")
 
 		case disconnectedUser := <-c.userDisconnectedChan:
 			c.SendServerNotify("user " + disconnectedUser.Name + " has left")
+
 			if len(c.corresps) == 0 && c.restJoins == 0 {
 				log.Printf("info: chat: no users left in chat %s", c.ID)
 				c.TriggerShutdown()
@@ -174,10 +182,9 @@ func (c *Chat) TriggerShutdown() {
 }
 
 func (c *Chat) Routine() {
-	select {
-	case <-c.triggerShutdownChan:
-		log.Printf("info: chat: triggered shutdown for chat [%s]", c.ID)
-	}
+	<-c.triggerShutdownChan
+
+	log.Printf("info: chat: triggered shutdown for chat [%s]", c.ID)
 
 	c.ShutdownUsers()
 

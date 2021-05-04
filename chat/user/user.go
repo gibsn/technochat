@@ -34,11 +34,16 @@ func NewUser(ws *websocket.Conn) *User {
 		shutdownChan:        make(chan struct{}),
 	}
 
-	usr.WG.Add(2)
+	usr.WG.Add(2) //nolint: gomnd
+
 	go usr.reader()
 	go usr.sender()
 
 	return usr
+}
+
+func (u *User) Addr() string {
+	return u.ws.RemoteAddr().String()
 }
 
 func (u *User) TriggerShutdown() {
@@ -49,12 +54,12 @@ func (u *User) TriggerShutdown() {
 }
 
 func (u *User) Routine() {
-	select {
-	case <-u.triggerShutdownChan:
-		log.Printf("info: chat: triggered shutdown for user [%d %s]", u.ID, u.Name)
-	}
+	<-u.triggerShutdownChan
+
+	log.Printf("info: chat: triggered shutdown for user [%d %s]", u.ID, u.Name)
 
 	close(u.shutdownChan)
+
 	u.WG.Wait()
 	u.ws.Close()
 }

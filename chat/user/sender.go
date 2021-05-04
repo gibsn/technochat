@@ -32,7 +32,10 @@ func (u *User) SendMessage(msg *message.WSMessage) error {
 func (u *User) SendEvent(event message.EventID, i interface{}) error {
 	msg := &message.WSMessage{
 		Type: message.WSMsgTypeService,
-		Data: message.Event{event, i},
+		Data: message.Event{
+			EventID:   event,
+			EventData: i,
+		},
 	}
 
 	return u.SendMessage(msg)

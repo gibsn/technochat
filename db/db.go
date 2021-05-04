@@ -18,7 +18,7 @@ type DB interface {
 func NewMessageID() (string, error) {
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
-		return "", fmt.Errorf("could not generate messageID: %s", err)
+		return "", fmt.Errorf("could not generate messageID: %w", err)
 	}
 
 	return newUUID.String(), nil
