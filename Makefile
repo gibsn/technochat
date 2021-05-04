@@ -14,6 +14,13 @@ install: technochat
 technochat:
 	go build -mod vendor -o bin/technochat technochat
 
+bin/golangci-lint:
+	@echo "getting golangci-lint for $$(uname -m)/$$(uname -s)"
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.29.0
+
+lint: bin/golangci-lint
+	bin/golangci-lint run -v -c golangci.yml --new-from-rev=$(TARGET_BRANCH)
+
 test:
 	go test -v $(TEST_PACKAGES)
 
@@ -25,4 +32,4 @@ clean:
 	rm -rf pkg/
 
 
-.PHONY: all clean test install vet technochat
+.PHONY: all clean test install vet technochat lint lint_ci
