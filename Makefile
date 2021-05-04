@@ -6,6 +6,8 @@ TEST_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(TEST_FILES)))
 VET_FILES = $(shell find -L * -name '*.go' -not -path "vendor/*")
 VET_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(VET_FILES)))
 
+TARGET_BRANCH ?= master
+
 all: technochat
 
 install: technochat

@@ -151,6 +151,8 @@ issues:
         - gosec
       text: "G108:"
 
+  new-from-rev: ${TARGET_BRANCH}
+
 output:
   format: tab
 
