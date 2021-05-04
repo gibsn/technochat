@@ -34,4 +34,4 @@ clean:
 	rm -rf pkg/
 
 
-.PHONY: all clean test install vet technochat lint lint_ci
+.PHONY: all clean test install vet technochat lint
