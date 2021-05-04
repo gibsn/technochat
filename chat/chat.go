@@ -156,23 +156,28 @@ func (c *Chat) handleCommunication() {
 	defer c.WG.Done()
 
 	for {
-		select {
-		case <-c.shutdownChan:
-			log.Printf("info: chat: closing communication goroutine for chat [%s]", c.ID)
-			return
+		afkTimer := time.NewTimer(ChatAFKLifetime)
 
+		select {
 		case msg := <-c.incomingChan:
 			c.broadcast(msg)
 
 		case msg := <-c.broadcastChan:
 			c.broadcast(msg)
 
-		//TODO use NewTimer
-		case <-time.After(ChatAFKLifetime):
+		case <-c.shutdownChan:
+			log.Printf("info: chat: closing communication goroutine for chat [%s]", c.ID)
+			return
+
+		case <-afkTimer.C:
 			log.Printf("info: chat: no activity in chat %s for %s, shutting down", c.ID, ChatAFKLifetime)
 			c.SendServerNotify("closing chat due to inactivity for " + ChatAFKLifetime.String())
 			c.TriggerShutdown()
+
+			return
 		}
+
+		afkTimer.Stop()
 	}
 }
 

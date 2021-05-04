@@ -15,7 +15,7 @@ const (
 )
 
 const (
-	pingTimer   time.Duration = 30 * time.Second
+	pingPeriod  time.Duration = 30 * time.Second
 	pingTimeout time.Duration = 1 * time.Second
 )
 
@@ -43,23 +43,31 @@ func (u *User) SendEvent(event message.EventID, i interface{}) error {
 func (u *User) sender() {
 	defer u.WG.Done()
 
+	pingTimer := time.NewTimer(pingPeriod)
+
 	for {
 		select {
 		case <-u.shutdownChan:
 			log.Printf("info: chat: closing sender goroutine for user [%d %s]", u.ID, u.Name)
 			return
+
 		case msg := <-u.send:
 			if err := u.ws.WriteJSON(msg); err != nil {
 				log.Printf("error: chat: could not send a message to user %s: %v", u.Name, err)
 				u.TriggerShutdown()
 			}
-		//TODO use NewTimer
-		case <-time.After(pingTimer):
-			timeout := time.Now().Add(pingTimeout)
-			if err := u.ws.WriteControl(websocket.PingMessage, nil, timeout); err != nil {
+
+		case <-pingTimer.C:
+			deadline := time.Now().Add(pingTimeout)
+
+			if err := u.ws.WriteControl(websocket.PingMessage, nil, deadline); err != nil {
 				log.Printf("error: chat: could not send a ping message to user %s: %v", u.Name, err)
 				u.TriggerShutdown()
+
+				continue
 			}
+
+			pingTimer = time.NewTimer(pingPeriod)
 		}
 	}
 }
