@@ -10,23 +10,6 @@
     <script src="/js/message/util.js"></script>
     <script src="/js/message/add.js"></script>
     <script src="/js/message/view.js"></script>
-    <script src="/js/message/client.js"></script>
-    <script type="text/javascript">
-        $(document).ready(function () {
-            $('#loading').html('');
-            $('#result_text').html('');
-            $('#result_link').html('');
-
-            $('#text_form').submit(onMessageSubmit);
-
-            $('.button__generate').on('click', function () {
-                $('.message__box').css('display', 'block');
-            });
-
-            var queryParams = new URLSearchParams(window.location.search);
-            loadMessage(queryParams.get('id'), $('#message'));
-        });
-    </script>
 </head>
 <body>
 <div class="content">

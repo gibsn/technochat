@@ -11,3 +11,8 @@ function loadMessage(messageID, messageBox) {
             messageBox.html('Internal Server Error')
         });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    var queryParams = new URLSearchParams(window.location.search);
+    loadMessage(queryParams.get('id'), $('#message'));
+});

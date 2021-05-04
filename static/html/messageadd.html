@@ -9,20 +9,6 @@
     <script src="/js/lib/jquery-2.1.1.min.js"></script>
     <script src="/js/message/util.js"></script>
     <script src="/js/message/add.js"></script>
-    <script src="/js/message/client.js"></script>
-    <script type="text/javascript">
-        $(document).ready(function () {
-            $('#loading').hide();
-            $('#result_text').html('');
-            $('#result_link').html('');
-
-            $('#text_form').submit(onMessageSubmit);
-
-            $('.button__generate').on('click', function () {
-                $('.message__box').css('display', 'block');
-            });
-        });
-    </script>
 </head>
 <body>
 <div class="content">
@@ -41,7 +27,7 @@
             <textarea id="text" class="area__message js__textarea" name="text" autofocus="true"
                       placeholder="Right here"></textarea>
             <div class="text__symbols">
-                <span class="js__counter">0</span>/<span class="js__counter-max"></span>
+                <span class="js__counter"></span>/<span class="js__counter-max"></span>
             </div>
         </div>
 
