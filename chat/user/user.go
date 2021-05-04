@@ -19,7 +19,6 @@ type User struct {
 	send chan *message.WSMessage
 
 	triggerShutdownOnce sync.Once
-	triggerShutdownChan chan struct{}
 	shutdownChan        chan struct{}
 
 	WG sync.WaitGroup
@@ -27,11 +26,10 @@ type User struct {
 
 func NewUser(ws *websocket.Conn) *User {
 	usr := &User{
-		ws:                  ws,
-		read:                make(chan *message.WSMessage, userReadBufferSize),
-		send:                make(chan *message.WSMessage, userSendBufferSize),
-		triggerShutdownChan: make(chan struct{}),
-		shutdownChan:        make(chan struct{}),
+		ws:           ws,
+		read:         make(chan *message.WSMessage, userReadBufferSize),
+		send:         make(chan *message.WSMessage, userSendBufferSize),
+		shutdownChan: make(chan struct{}),
 	}
 
 	usr.WG.Add(2) //nolint: gomnd
@@ -48,17 +46,13 @@ func (u *User) Addr() string {
 
 func (u *User) TriggerShutdown() {
 	u.triggerShutdownOnce.Do(func() {
-		close(u.read)
-		close(u.triggerShutdownChan)
+		log.Printf("info: chat: triggered shutdown for user [%d %s]", u.ID, u.Name)
+		close(u.shutdownChan)
 	})
 }
 
 func (u *User) Routine() {
-	<-u.triggerShutdownChan
-
-	log.Printf("info: chat: triggered shutdown for user [%d %s]", u.ID, u.Name)
-
-	close(u.shutdownChan)
+	<-u.shutdownChan
 
 	u.WG.Wait()
 }
