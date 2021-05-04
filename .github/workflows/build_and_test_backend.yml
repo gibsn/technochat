@@ -21,7 +21,9 @@ jobs:
       run: make technochat
       
     - name: Lint
-      run: make lint_ci
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: v1.29
       
     - name: Test
       run: make test
