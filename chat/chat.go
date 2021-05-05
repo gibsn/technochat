@@ -70,7 +70,7 @@ func NewChat(opts NewChatOpts) *Chat {
 		userDisconnectedChan: make(chan *user.User),
 	}
 
-	c.WG.Add(2) //nolint: gomnd
+	c.WG.Add(2)
 
 	go c.handleUsers()
 	go c.handleCommunication()

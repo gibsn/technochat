@@ -32,7 +32,7 @@ func NewUser(ws *websocket.Conn) *User {
 		shutdownChan: make(chan struct{}),
 	}
 
-	usr.WG.Add(2) //nolint: gomnd
+	usr.WG.Add(2)
 
 	go usr.reader()
 	go usr.sender()
