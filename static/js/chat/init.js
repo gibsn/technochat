@@ -1,3 +1,5 @@
+$.getScript("/js/util.js");
+
 function onSubmit(e) {
     $("#loading").show();
     e.preventDefault();
@@ -7,7 +9,6 @@ function onSubmit(e) {
     fd.forEach(function (value, key) {
         obj[key] = value;
     });
-    console.log(fd)
 
     $.ajax({
         type: 'POST',
@@ -21,24 +22,40 @@ function onSubmit(e) {
 }
 
 function onSubmitSuccess(json) {
+    $("#loading").hide();
+
+    $("#link_box").show();
+    $("#button_box").show();
+
     if (json.code == 200) {
         var id = json.body.id;
         var link = 'https://' + window.location.host + '/html/joinchat.html?id=' + id
-        $("#result_link").html('<a href="' + link + '">' + link + '</a>');
+        $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
         $("#result_link").html("error: " + json.body);
     }
+
+    scrollToCopyButton();
 }
 
 function onSubmitError(e) {
     $("#loading").hide();
-    $("#result_text").html("Internal Server Error");
+    $("#result_link").html("Internal Server Error");
+
+    $("#link_box").show();
+    $("#button_box").show();
+
+    scrollToCopyButton();
 }
 
 function initPage() {
     $("#loading").html('');
-    $("#result_text").html('');
     $("#result_link").html('');
+
+    $("#link_box").hide();
+
+    $("#button_box").hide();
+    $("#copy_button").click(function() { copyLink("to_copy") });
 
     $("form").submit(onSubmit);
 }

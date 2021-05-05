@@ -1,3 +1,5 @@
+$.getScript("/js/util.js");
+
 function onMessageSubmit(e) {
     $('#loading').show();
     $('#copy_button').html('Copy link');
@@ -12,12 +14,6 @@ function onMessageSubmit(e) {
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
     });
-}
-
-function scrollToCopyButton() {
-    $('html, body').animate({
-        scrollTop: $('#copy_button').offset().top
-    }, 1000);
 }
 
 function onMessageSubmitSuccess(addResponse) {
