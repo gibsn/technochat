@@ -1,4 +1,4 @@
-const maxTextAreaLength = 1024;
+const maxTextAreaLength = 10;
 const initialTextAreaLength = 0;
 
 function onMessageSubmit(e) {
@@ -74,11 +74,18 @@ function initSymbolsCounter() {
         var currentLength = textarea.value.length;
         counter.innerHTML = currentLength;
 
-        if (currentLength >= maxTextAreaLength) {
-            counter.parentElement.style.color = 'red';
-        } else {
+        if (currentLength < maxTextAreaLength) {
             counter.parentElement.style.color = '#6d6d6d';
+            return
         }
+
+        counter.parentElement.style.color = 'red';
+
+        // on some platforms (like iOS) maxlength is disregarded so we
+        // have to do our own limitng with JS
+        // see https://github.com/gibsn/technochat/pull/62#issuecomment-687644035
+        textarea.value = textarea.value.substring(0, maxTextAreaLength);
+        counter.innerHTML = maxTextAreaLength;
     });
 
     // clear counter after the message has been submitted
