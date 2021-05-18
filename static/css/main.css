@@ -113,7 +113,7 @@ a {
 }
 
 .ttl {
-    margin: 15px 0 20px;
+    margin: 20px 0;
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
@@ -155,6 +155,29 @@ a {
 .result__message {
     margin: 0;
     word-break: break-word;
+}
+
+.message__form {
+    position: relative;
+}
+
+.message__area {
+    resize: none;
+    outline: none;
+}
+
+.form__wrapper {
+    position: relative;
+}
+
+.text__symbols {
+    position: absolute;
+    bottom: -15px;
+    color: #6d6d6d;
+    text-align: right;
+    background: transparent;
+    border-top: none;
+    right: 0;
 }
 
 /* ---- radio buttons ---- */

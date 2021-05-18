@@ -15,8 +15,12 @@
         font-size: 24px;
     }
 
-    .area__message {
-        width: 97%;
+    .content {
+        margin-top: 0;
+    }
+
+    .content p {
+        margin: 15px 0;
     }
 }
 
