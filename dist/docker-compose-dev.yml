@@ -4,7 +4,7 @@ services:
         build:
             context: ../
             dockerfile: dist/redis.dockerfile
-        container_name: redis
+        container_name: techno_redis
         image: gibsn/redis
         volumes:
             - redis_data:/data
@@ -17,7 +17,7 @@ services:
         build:
             context: ../
             dockerfile: dist/technochat.dockerfile
-        container_name: technochat
+        container_name: techno_api
         image: gibsn/technochat
         depends_on:
             - redis
@@ -29,7 +29,7 @@ services:
                 DEV: "True"
             context: ../
             dockerfile: dist/nginx.dockerfile
-        container_name: nginx
+        container_name: techno_nginx
         image: gibsn/nginx
         volumes:
             - ../static:/static
