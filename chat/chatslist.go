@@ -5,7 +5,6 @@ import (
 	"sync"
 )
 
-var chatsListMutex sync.Mutex
 var chatsList = newChatsList()
 
 type ChatsList struct {

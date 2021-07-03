@@ -18,11 +18,9 @@ func wait() {
 	ch := make(chan os.Signal, len(signals))
 	signal.Notify(ch, signals...)
 
-	select {
-	case s := <-ch:
-		log.Println("technochat: got signal", s)
+	s := <-ch
 
-	}
+	log.Println("info: got signal", s)
 }
 
 func main() {

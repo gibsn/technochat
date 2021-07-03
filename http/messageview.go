@@ -45,7 +45,7 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	if err := req.Validate(); err != nil {
+	if err = req.Validate(); err != nil {
 		return http.StatusBadRequest, nil, err
 	}
 

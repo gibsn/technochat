@@ -2,6 +2,7 @@ package chat
 
 import "math/rand"
 
+//nolint: golint
 type ChatNames struct {
 	usedNames map[int]bool
 }
@@ -32,11 +33,12 @@ var RandomNames = [...]string{
 	"Huskar", "Invoker", "Io", "Jakiro", "Juggernaut", "Keeper of the Light", "Kunkka",
 	"Legion Commander", "Leshrac", "Lich", "Lifestealer", "Lina", "Lion", "Lone Druid",
 	"Luna", "Lycan", "Magnus", "Medusa", "Meepo", "Mirana", "Morphling", "Naga Siren",
-	"Nature’s Prophet", "Necrophos", "Night Stalker", "Nyx Assassin", "Ogre Magi", "Omniknight", "Oracle",
-	"Outworld Devourer", "Phantom Assassin", "Phantom Lancer", "Phoenix", "Puck", "Pudge", "Pugna",
-	"Queen of Pain", "Razor", "Riki", "Rubick", "Sand King", "Shadow Demon", "Shadow Fiend", "Shadow Shaman",
-	"Silencer", "Skywrath Mage", "Slardar", "Slark", "Sniper", "Spectre", "Spirit Breaker", "Storm Spirit",
-	"Sven", "Techies", "Templar Assassin", "Terrorblade", "Tidehunter", "Timbersaw", "Tinker",
-	"Tiny", "Treant Protector", "Troll Warlord", "Tusk", "Undying", "Ursa", "Vengeful Spirit", "Venomancer",
-	"Viper", "Visage", "Warlock", "Weaver", "Windranger", "Winter Wyvern", "Witch Doctor", "Wraith King", "Zeus",
+	"Nature’s Prophet", "Necrophos", "Night Stalker", "Nyx Assassin", "Ogre Magi", "Omniknight",
+	"Oracle", "Outworld Devourer", "Phantom Assassin", "Phantom Lancer", "Phoenix", "Puck",
+	"Pudge", "Pugna", "Queen of Pain", "Razor", "Riki", "Rubick", "Sand King", "Shadow Demon",
+	"Shadow Fiend", "Shadow Shaman", "Silencer", "Skywrath Mage", "Slardar", "Slark", "Sniper",
+	"Spectre", "Spirit Breaker", "Storm Spirit", "Sven", "Techies", "Templar Assassin",
+	"Terrorblade", "Tidehunter", "Timbersaw", "Tinker", "Tiny", "Treant Protector",
+	"Troll Warlord", "Tusk", "Undying", "Ursa", "Vengeful Spirit", "Venomancer", "Viper", "Visage",
+	"Warlock", "Weaver", "Windranger", "Winter Wyvern", "Witch Doctor", "Wraith King", "Zeus",
 }

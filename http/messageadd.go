@@ -33,7 +33,7 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 		err error
 	)
 
-	if err := r.ParseMultipartForm(0); err != nil {
+	if err = r.ParseMultipartForm(0); err != nil {
 		return nil, err
 	}
 
@@ -43,6 +43,7 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 	if i, err = strconv.Atoi(r.PostFormValue("ttl")); err != nil {
 		return nil, fmt.Errorf("could not get ttl: %s", err)
 	}
+
 	req.ttl = i
 
 	return req, nil
@@ -80,11 +81,15 @@ func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	if err := req.Validate(); err != nil {
+	if err = req.Validate(); err != nil {
 		return http.StatusBadRequest, nil, err
 	}
 
-	messageID, _ := db.NewMessageID()
+	messageID, err := db.NewMessageID()
+	if err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
 	if err := s.db.AddMessage(messageID, req.text, req.ttl); err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
