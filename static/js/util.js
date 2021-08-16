@@ -63,4 +63,3 @@ function scrollToCopyButton() {
         scrollTop: $('#copy_button').offset().top
     }, 1000);
 }
-
