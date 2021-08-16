@@ -42,3 +42,24 @@ function copyToClipboardAny(id) {
 
     return isCopied
 }
+
+function copyLink(id) {
+    if (document.getElementById(id) == null) {
+        return;
+    }
+
+    var copyFunc = copyToClipboardAny;
+    if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+        copyFunc = copyToClipboardIOS;
+    }
+
+    if (copyFunc(id)) {
+        $("#copy_button").html("Copied!");
+    }
+}
+
+function scrollToCopyButton() {
+    $('html, body').animate({
+        scrollTop: $('#copy_button').offset().top
+    }, 1000);
+}

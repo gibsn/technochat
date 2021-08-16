@@ -22,6 +22,10 @@
     .content p {
         margin: 15px 0;
     }
+
+    .user__input {
+        width: 214px;
+    }
 }
 
 @media (max-width: 425px) {

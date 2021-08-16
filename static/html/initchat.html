@@ -1,69 +1,37 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Technochat</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" type="text/css" href="/css/chat.css">
-        <script src="/js/lib/jquery-2.1.1.min.js"></script>
-        <script type="text/javascript">
-            $(document).ready(function() {
-                $("#loading").html('');
-                $("#result_text").html('');
-                $("#result_link").html('');
+<head>
+    <meta charset="utf-8">
+    <title>Technochat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/adaptive.css">
+    <script src="/js/lib/jquery-2.1.1.min.js"></script>
+    <script src="/js/chat/init.js"></script>
+</head>
+<body>
+<div class="content">
+    <div class="logo">
+        <h1>
+            <a href="/">Technochat</a>
+        </h1>
+    </div>
 
-                $("form").submit(onSubmit);
-            })
-
-            function onSubmit(e) {
-                $("#loading").show();
-                e.preventDefault();
-
-                var fd =new FormData($("form")[0]);
-                var obj = {};
-                fd.forEach(function(value, key){
-                    obj[key] = value;
-                });
-                console.log(obj)
-                console.log(fd)
-
-                $.ajax({
-                    type: 'POST',
-                    url: $(this).attr("action"),
-                    data: JSON.stringify(obj),
-                    contentType: "application/json",
-                    processData: false,
-                    success: onSubmitSuccess,
-                    error: onSubmitError,
-                });
-            }
-
-            function onSubmitSuccess(json) {
-                if (json.code == 200) {
-                    var id = json.body.id;
-                    var link = 'https://'+window.location.host+'/html/joinchat.html?id='+id
-                    $("#result_link").html('<a href="'+link+'">'+link+'</a>');
-                } else {
-                    $("#result_link").html(json.body);
-                }
-            }
-
-            function onSubmitError(e) {
-                $("#loading").hide();
-                $("#result_text").html("Internal Server Error");
-            }
-        </script>
-    </head>
-    <body>
-        <form id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
-            <p>
-                Choose a number you want to connect: <input type="number" name="max_users" step="1" value=2 min=2><br>
-                <input type="submit" value="Create Chat">
-            </p>
-        </form>
-        <div id="loading">loading</div>
-        <div id="result_text" class="result__text"></div>
-        <div id="result_link" class="result__link"></div>
-        <div id="result"></div>
-    </body>
+    <form class="user__form" id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
+        <p>Set how many times your chat can be joined:</p>
+        <input class="user__input" type="number" name="max_users" step="1" value=2 min=2>
+        <div class="button button__generate">
+            <input type="submit" value="Create Chat">
+        </div>
+    </form>
+    <div id="loading">loading</div>
+    <div id="link_box" class="link">
+        <p>Link: </p>
+        <div id="result_link" class="result__link result__link--chat"></div>
+    </div>
+    <div id="button_box" class="button">
+        <div id="copy_button" class="button__copy">Copy link</div>
+    </div>
+</div>
+</body>
 </html>

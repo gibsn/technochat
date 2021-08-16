@@ -14,6 +14,10 @@ button {
     font-family: 'Ubuntu Mono', monospace;
 }
 
+input:focus {
+    border-color: #000000;
+}
+
 textarea {
     font-size: 20px;
     font-family: 'Ubuntu Mono', monospace;
@@ -107,7 +111,7 @@ a {
     height: 200px;
     box-sizing: border-box;
     padding: 5px;
-    outline-color: black;
+    outline-color: #000000;
     outline-width: 2px;
     resize: none;
 }
@@ -233,4 +237,28 @@ a {
     content: '';
     position: absolute;
     display: none;
+}
+
+/*-----------------------
+chat styles
+-----------------------*/
+
+.user__input {
+    width: 245px;
+    box-sizing: border-box;
+    padding: 10px;
+    margin-bottom: 20px;
+    outline-color: #000000;
+}
+
+.user__form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.result__link--chat a {
+    font-size: 16px;
+    text-decoration: underline;
 }
