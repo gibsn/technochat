@@ -68,10 +68,11 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	defer ws.Close()
 
-	if err := r.ParseForm(); err != nil {
+	if err = r.ParseForm(); err != nil {
 		log.Printf("error: chat: could not parse form: %v", err)
 		return
 	}
+
 	chatIDStr := r.FormValue("id")
 
 	c := chat.GetChat(chatIDStr)
@@ -84,7 +85,18 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usr := c.AddUser(ws)
+	usr, err := c.AddUser(ws)
+	if err != nil {
+		level := "error"
+
+		if err == chat.ErrInvitationQuotaExceeded {
+			level = "warning"
+		}
+
+		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDStr, err)
+		return
+	}
+
 	usr.Routine()
 
 	c.DelUser(usr.ID)

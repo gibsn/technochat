@@ -8,10 +8,15 @@ import (
 	"technochat/chat/user"
 )
 
-func (c *Chat) AddUser(ws *websocket.Conn) *user.User {
+func (c *Chat) AddUser(ws *websocket.Conn) (*user.User, error) {
+	c.correspsMx.Lock()
 	if c.restJoins <= 0 {
-		return nil
+		c.correspsMx.Unlock()
+		return nil, ErrInvitationQuotaExceeded
 	}
+
+	c.restJoins--
+	c.correspsMx.Unlock()
 
 	usr := user.NewUser(ws)
 	usr.Name, usr.ID = c.ChatNames.GenerateNameID()
@@ -21,12 +26,11 @@ func (c *Chat) AddUser(ws *websocket.Conn) *user.User {
 	c.correspsMx.Lock()
 	c.corresps[usr.ID] = usr
 	c.correspsMx.Unlock()
-	c.restJoins--
 
 	c.usersWG.Add(1)
 	c.userConnectedChan <- usr
 
-	return usr
+	return usr, nil
 }
 
 func (c *Chat) DelUser(id int) {
