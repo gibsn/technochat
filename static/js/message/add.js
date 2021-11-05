@@ -29,6 +29,7 @@ async function onMessageSubmit(e) {
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
         key: encryptionRes.key,
+        iv: encryptionRes.iv,
     });
 }
 
@@ -41,7 +42,8 @@ function onMessageSubmitSuccess(addResponse) {
 
     if (addResponse.code == 200) {
         let link = addResponse.body.link;
-        link += '#key=' + this.key;
+        link += '#key=' + encodeURIComponent(this.key);
+        link += '&iv=' + encodeURIComponent(this.iv);
 
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
@@ -108,7 +110,6 @@ function initSymbolsCounter() {
         counter.parentElement.style.color = '#6d6d6d';
     });
 }
-
 
 
 document.addEventListener('DOMContentLoaded', () => {
