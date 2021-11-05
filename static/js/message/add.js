@@ -1,20 +1,34 @@
+import * as myCrypto from "/js/message/crypto.js";
+import * as util from "/js/util.js";
+
 const maxTextAreaLength = 1024;
 const initialTextAreaLength = 0;
 
 
-function onMessageSubmit(e) {
+async function onMessageSubmit(e) {
     $('#loading').show();
     $('#copy_button').html('Copy link');
     e.preventDefault();
 
+    // we encrypt the message so that no one
+    // with access to DB server could read it
+    let textForm = document.getElementById('text_form');
+    let encryptionRes = await myCrypto.encrypt(textForm[0].value);
+
+    // since we do not want to change the original form
+    // (hereby changing UI), we will edit a copy of the form
+    let textFormCopy = textForm.cloneNode(true);
+    textFormCopy[0].value = encryptionRes.encrypted;
+
     $.ajax({
         type: 'POST',
         url: $(this).attr('action'),
-        data: new FormData($('#text_form')[0]),
+        data: new FormData(textFormCopy),
         contentType: false,
         processData: false,
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
+        key: encryptionRes.key,
     });
 }
 
@@ -26,20 +40,22 @@ function onMessageSubmitSuccess(addResponse) {
     $('#loading').hide();
 
     if (addResponse.code == 200) {
-        var link = addResponse.body.link;
+        let link = addResponse.body.link;
+        link += '#key=' + this.key;
+
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
         $('#result_link').html("error: " + addResponse.body);
     }
 
-    scrollToCopyButton();
+    util.scrollToCopyButton();
 }
 
 function onMessageSubmitError(e) {
     $('#loading').hide();
     $('#result_text').html('Internal Server Error');
 
-    scrollToCopyButton();
+    util.scrollToCopyButton();
 }
 
 function initPage() {
@@ -52,6 +68,8 @@ function initPage() {
     $('.button__generate').on('click', function () {
         $('.message__box').css('display', 'block');
     });
+
+    $("#copy_button").click(function() { util.copyLink("to_copy") });
 }
 
 function initSymbolsCounter() {
@@ -92,9 +110,8 @@ function initSymbolsCounter() {
 }
 
 
-$.getScript("/js/util.js");
 
 document.addEventListener('DOMContentLoaded', () => {
-    initPage()
-    initSymbolsCounter()
+    initPage();
+    initSymbolsCounter();
 });

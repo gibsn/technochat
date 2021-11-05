@@ -43,7 +43,7 @@ function copyToClipboardAny(id) {
     return isCopied
 }
 
-function copyLink(id) {
+export function copyLink(id) {
     if (document.getElementById(id) == null) {
         return;
     }
@@ -58,7 +58,7 @@ function copyLink(id) {
     }
 }
 
-function scrollToCopyButton() {
+export function scrollToCopyButton() {
     $('html, body').animate({
         scrollTop: $('#copy_button').offset().top
     }, 1000);

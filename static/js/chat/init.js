@@ -1,4 +1,5 @@
-$.getScript("/js/util.js");
+import * as util from "/js/util.js";
+
 
 function onSubmit(e) {
     $("#loading").show();
@@ -35,7 +36,7 @@ function onSubmitSuccess(json) {
         $("#result_link").html("error: " + json.body);
     }
 
-    scrollToCopyButton();
+    util.scrollToCopyButton();
 }
 
 function onSubmitError(e) {
@@ -45,7 +46,7 @@ function onSubmitError(e) {
     $("#link_box").show();
     $("#button_box").show();
 
-    scrollToCopyButton();
+    util.scrollToCopyButton();
 }
 
 function initPage() {
@@ -55,7 +56,7 @@ function initPage() {
     $("#link_box").hide();
 
     $("#button_box").hide();
-    $("#copy_button").click(function() { copyLink("to_copy") });
+    $("#copy_button").click(function() { util.copyLink("to_copy") });
 
     $("form").submit(onSubmit);
 }
