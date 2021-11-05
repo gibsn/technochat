@@ -16,6 +16,8 @@ function base64ToArrayBuffer(sInBase64) {
     return bufArr.buffer;
 }
 
+// encrypt encrypts the given string 's' and returns the encrypted string,
+// key and iv, all base64 encoded
 export async function encrypt(s) {
     let key = await crypto.subtle.generateKey(alg, true, ['encrypt', 'decrypt']);
 
@@ -37,6 +39,8 @@ export async function encrypt(s) {
     }
 }
 
+// decrypt takes an encrypted string, key and iv, all are base64 encoded strings,
+// decrypts the given string and returns it as a string
 export async function decrypt(sInBase64, keyInBase64, ivInBase64) {
     let sRaw   = base64ToArrayBuffer(sInBase64);
     let keyRaw = base64ToArrayBuffer(keyInBase64);

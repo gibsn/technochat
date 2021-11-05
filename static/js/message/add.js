@@ -33,6 +33,7 @@ async function onMessageSubmit(e) {
         processData: false,
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
+        complete: () => { textFormCopy.remove(); },
         key: encryptionRes.key,
         iv: encryptionRes.iv,
     });
