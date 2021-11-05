@@ -1,4 +1,4 @@
-const alg = { name: 'AES-GCM', length: 256 };
+const alg = { name: 'AES-GCM', length: 128 };
 
 
 function arrayBufferToBase64(buf) {

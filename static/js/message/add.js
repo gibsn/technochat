@@ -2,6 +2,11 @@ import * as myCrypto from "/js/message/crypto.js";
 import * as util from "/js/util.js";
 
 const maxTextAreaLength = 1024;
+
+// say we have N bytes of text
+// AES-GCM will add 16 bytes
+// base64 encoding will increase size to ((4 * (N + 16) / 3) + 3) & ~3
+
 const initialTextAreaLength = 0;
 
 
