@@ -6,10 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/adaptive.css">
-    <script src="/js/lib/jquery-2.1.1.min.js"></script>
-    <script src="/js/message/util.js"></script>
-    <script src="/js/message/add.js"></script>
-    <script src="/js/message/view.js"></script>
+    <script src="/js/lib/jquery-3.6.0.min.js"></script>
+    <script type="module" src="/js/message/add.js"></script>
+    <script type="module" src="/js/message/view.js"></script>
 </head>
 <body>
 <div class="content">
@@ -62,7 +61,7 @@
             <div id="result_link" class="result__link"></div>
         </div>
         <div class="button">
-            <div id="copy_button" class="button__copy" onclick="copyLink('to_copy')">Copy link</div>
+            <div id="copy_button" class="button__copy">Copy link</div>
         </div>
     </div>
 </div>
