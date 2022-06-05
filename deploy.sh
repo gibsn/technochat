@@ -1,5 +1,6 @@
 #!/bin/bash
 
+DOCKER_COMPOSE="docker compose"
 DOCKER_COMPOSE_CFG="dist/docker-compose.yml"
 
 ARGS=("$@")
@@ -27,8 +28,8 @@ if [ ! -f certs/server.key ] || [ ! -f certs/server.crt ]; then
         -keyout certs/server.key -out certs/server.crt || exit
 fi
 
-docker-compose -f $DOCKER_COMPOSE_CFG build  || exit
-docker-compose -f $DOCKER_COMPOSE_CFG down   || exit
-docker-compose -f $DOCKER_COMPOSE_CFG up -d  || exit
+$DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG build  || exit
+$DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG down   || exit
+$DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG up -d  || exit
 
 echo "done"
