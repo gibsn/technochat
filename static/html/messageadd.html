@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/adaptive.css">
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/file-upload-with-preview/dist/file-upload-with-preview.min.css">
     <script src="/js/lib/jquery-3.6.0.min.js"></script>
     <script type="module" src="/js/message/add.js"></script>
+    <script src="https://unpkg.com/file-upload-with-preview/dist/file-upload-with-preview.iife.js"></script>
 </head>
 <body>
 <div class="content">
@@ -27,6 +29,14 @@
                       placeholder="Right here"></textarea>
             <div class="text__symbols">
                 <span class="js__counter"></span>/<span class="js__counter-max"></span>
+            </div>
+<!--            <div class="custom-file-container" data-upload-id="myFirstImage"></div>-->
+            <div class="uploader">
+                <label class="uploader__button">
+                    <span>Upload images</span>
+                    <input type="file" style="display: none;" id="file-input" multiple>
+                </label>
+                <div id="preview" class="uploader__preview"></div>
             </div>
         </div>
 
