@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"technochat/chat/message"
+	"github.com/gibsn/technochat/internal/chat/message"
 )
 
 type User struct {

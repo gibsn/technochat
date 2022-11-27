@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DOCKER_COMPOSE="docker compose"
-DOCKER_COMPOSE_CFG="dist/docker-compose.yml"
+DOCKER_COMPOSE_CFG="build/package/docker-compose.yml"
 
 ARGS=("$@")
 
@@ -15,7 +15,7 @@ print_help() {
 
 while [ "$1" != "" ]; do
     case $1 in
-        "--dev") DOCKER_COMPOSE_CFG="dist/docker-compose-dev.yml";;
+        "--dev") DOCKER_COMPOSE_CFG="build/package/docker-compose-dev.yml";;
         "--help") print_help; exit 0;;
     esac
     shift

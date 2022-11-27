@@ -1,7 +1,12 @@
 # github.com/google/uuid v0.0.0-20171129191014-dec09d789f3d
+## explicit
 github.com/google/uuid
 # github.com/gorilla/websocket v1.4.2
+## explicit; go 1.12
 github.com/gorilla/websocket
 # github.com/mediocregopher/radix.v2 v0.0.0-20180603022615-94360be26253
+## explicit
 github.com/mediocregopher/radix.v2/pool
 github.com/mediocregopher/radix.v2/redis
+# github.com/stretchr/testify v1.4.0
+## explicit

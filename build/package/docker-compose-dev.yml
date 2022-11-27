@@ -2,8 +2,8 @@ version: "3.6"
 services:
     redis:
         build:
-            context: ../
-            dockerfile: dist/redis.dockerfile
+            context: ../../
+            dockerfile: build/package/redis.dockerfile
         container_name: techno_redis
         image: gibsn/redis
         volumes:
@@ -15,8 +15,8 @@ services:
 
     technochat:
         build:
-            context: ../
-            dockerfile: dist/technochat.dockerfile
+            context: ../../
+            dockerfile: build/package/technochat.dockerfile
         container_name: techno_api
         image: gibsn/technochat
         depends_on:
@@ -27,8 +27,8 @@ services:
         build:
             args:
                 DEV: "True"
-            context: ../
-            dockerfile: dist/nginx.dockerfile
+            context: ../../
+            dockerfile: build/package/nginx.dockerfile
         container_name: techno_nginx
         image: gibsn/nginx
         volumes:
@@ -49,9 +49,9 @@ volumes:
 
 secrets:
     server.key:
-        file: ../certs/server.key
+        file: ../../certs/server.key
     server.crt:
-        file: ../certs/server.crt
+        file: ../../certs/server.crt
     nginx.conf:
         file: nginx.conf
     redis.conf:

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"technochat/db"
+	"github.com/gibsn/technochat/internal/db"
 )
 
 const (

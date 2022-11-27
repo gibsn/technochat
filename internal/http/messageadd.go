@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"technochat/db"
+	"github.com/gibsn/technochat/internal/db"
 )
 
 const (

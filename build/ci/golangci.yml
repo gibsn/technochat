@@ -21,7 +21,7 @@ run:
     - bin$
     - \.git$
     - static
-    - dist
+    - build
     - vendor$
 
   # which files to skip: they will be analyzed, but issues from them

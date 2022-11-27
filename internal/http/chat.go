@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"technochat/chat"
+	"github.com/gibsn/technochat/internal/chat"
 )
 
 type ChatInitRequest struct {

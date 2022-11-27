@@ -3,7 +3,7 @@ package user
 import (
 	"log"
 
-	"technochat/chat/message"
+	"github.com/gibsn/technochat/internal/chat/message"
 )
 
 const (

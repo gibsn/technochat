@@ -7,7 +7,7 @@ import (
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
 
-	"technochat/db"
+	"github.com/gibsn/technochat/internal/db"
 )
 
 const (

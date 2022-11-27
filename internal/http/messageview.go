@@ -5,7 +5,7 @@ import (
 	"html"
 	"net/http"
 
-	"technochat/db"
+	"github.com/gibsn/technochat/internal/db"
 )
 
 type MessageViewRequest struct {
