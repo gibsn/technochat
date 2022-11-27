@@ -8,10 +8,18 @@ import (
 	"github.com/mediocregopher/radix.v2/redis"
 
 	"technochat/db"
+	"technochat/entity"
 )
 
 const (
 	poolSize = 10
+)
+
+const (
+	msgKeyPrefix = "msg"
+
+	msgTextKey   = "text"
+	msgImagesKey = "imgs"
 )
 
 type Redis struct {
@@ -43,34 +51,58 @@ func (r *Redis) Shutdown() {
 	log.Println("redis: shutting down")
 }
 
-func (r *Redis) AddMessage(messageID, message string, ttl int) error {
-	key := "links:" + messageID
+func (r *Redis) AddMessage(message entity.Message) error {
+	key := "links:" + message.ID
 
-	if err := r.pool.Cmd("SET", key, message, "EX", ttl).Err; err != nil {
-		return fmt.Errorf("could not add message: %s", err)
+	if err := r.pool.Cmd(
+		"HMSET", key,
+		msgTextKey, message.Text,
+		msgImagesKey, message.Images.Encode(),
+		"EX", message.TTL,
+	).Err; err != nil {
+		return fmt.Errorf("could not add message: %w", err)
 	}
 
 	return nil
 }
 
-func (r *Redis) GetMessage(messageID string) (string, error) {
+func newMessageFromRedis(id string, redisResp map[string]string) (entity.Message, error) {
+	msg := entity.Message{
+		ID: id,
+	}
+
+	msg.Text = redisResp[msgTextKey]
+	msg.Images.Decode(redisResp[msgImagesKey])
+
+	if len(msg.Text) == 0 {
+		return entity.Message{}, fmt.Errorf("invalid message: text is missing")
+	}
+
+	return msg, nil
+}
+
+func (r *Redis) GetMessage(messageID string) (entity.Message, error) {
 	key := "links:" + messageID
 
-	resp := r.pool.Cmd("GET", key)
+	resp := r.pool.Cmd("HGETALL", key)
 	if err := resp.Err; err != nil {
 		if err == redis.ErrRespNil {
-			return "", db.ErrNotFound
+			return entity.Message{}, db.ErrNotFound
 		}
 
-		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, resp.Err)
+		return entity.Message{}, fmt.Errorf(
+			"could not get message with ID %s: %w", messageID, resp.Err,
+		)
 	}
 
-	message, err := resp.Str()
+	message, err := resp.Map()
 	if err != nil {
-		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, err)
+		return entity.Message{}, fmt.Errorf(
+			"could not get message with ID %s: %w", messageID, err,
+		)
 	}
 
-	return message, nil
+	return newMessageFromRedis(messageID, message)
 }
 
 func (r *Redis) DeleteMessage(messageID string) error {
@@ -81,7 +113,7 @@ func (r *Redis) DeleteMessage(messageID string) error {
 			return db.ErrNotFound
 		}
 
-		return fmt.Errorf("could not delete message with ID %s: %s", messageID, err)
+		return fmt.Errorf("could not delete message with ID %s: %w", messageID, err)
 	}
 
 	return nil

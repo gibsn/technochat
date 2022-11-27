@@ -15,7 +15,8 @@ type MessageViewRequest struct {
 }
 
 type MessageViewResponse struct {
-	Text string `json:"text"`
+	Text   string   `json:"text"`
+	Images []string `json:"imgs,omitempty"`
 }
 
 func NewMessageViewRequest(r *http.Request) (*MessageViewRequest, error) {
@@ -67,7 +68,8 @@ func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
 	}
 
 	resp := &MessageViewResponse{
-		Text: html.EscapeString(message),
+		Text:   html.EscapeString(message.Text),
+		Images: message.Images,
 	}
 
 	return http.StatusOK, resp, nil

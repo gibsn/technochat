@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"technochat/db"
+	"technochat/entity"
 )
 
 const (
 	maxTextLength = 2048
 	maxTTL        = 60 * 60 * 24 * 7 * 1 // 1 week
+	maxImages     = 5
 )
 
 type MessageAddRequest struct {
@@ -19,6 +20,7 @@ type MessageAddRequest struct {
 
 	text string
 	ttl  int
+	imgs entity.ImagesArray
 }
 
 type MessageAddResponse struct {
@@ -39,6 +41,7 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 
 	req.method = r.Method
 	req.text = r.PostFormValue("text")
+	req.imgs.Decode(r.PostFormValue("imgs"))
 
 	if i, err = strconv.Atoi(r.PostFormValue("ttl")); err != nil {
 		return nil, fmt.Errorf("could not get ttl: %s", err)
@@ -67,9 +70,15 @@ func (req *MessageAddRequest) Validate() error {
 	if req.ttl < 0 {
 		return fmt.Errorf("invalid TTL")
 	}
-
 	if req.ttl > maxTTL {
 		return fmt.Errorf("maximum TTL of %d is allowed", maxTTL)
+	}
+
+	if len(req.imgs) > maxImages {
+		return fmt.Errorf("maximum %d images allowed", maxImages)
+	}
+	if err := req.imgs.Validate(); err != nil {
+		return fmt.Errorf("invalid imgs: %w", err)
 	}
 
 	return nil
@@ -85,12 +94,17 @@ func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 		return http.StatusBadRequest, nil, err
 	}
 
-	messageID, err := db.NewMessageID()
+	messageID, err := entity.NewMessageID()
 	if err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
 
-	if err := s.db.AddMessage(messageID, req.text, req.ttl); err != nil {
+	if err := s.db.AddMessage(
+		entity.Message{
+			ID: messageID, Text: req.text,
+			Images: req.imgs, TTL: req.ttl,
+		},
+	); err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
 
