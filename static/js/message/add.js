@@ -9,6 +9,57 @@ const maxTextAreaLength = 1024;
 
 const initialTextAreaLength = 0;
 
+// const upload = new FileUploadWithPreview.FileUploadWithPreview('myFirstImage', {
+//     multiple: true,
+//     maxFileCount: 5,
+//     text: {
+//         browse: 'Choose',
+//         chooseFile: 'Choose images to upload',
+//         label: 'Max 5 images',
+//     },
+// });
+
+function previewImages() {
+
+    var $preview = $('#preview').empty();
+    if (this.files) $.each(this.files, readAndPreview);
+
+    function readAndPreview(i, file) {
+
+        if (!/\.(jpe?g|png|gif)$/i.test(file.name)) {
+            return alert(file.name + " is not an image");
+        }
+
+        var reader = new FileReader();
+
+        $(reader).on("load", function (e) {
+            $preview.append(`
+            <div class="uploader__thumb">
+                <img class="uploader__img" src="`+ e.target.result + `" title="` + file.name + `"/>
+                <span class="uploader__remove">
+                    <img src="/media/icons/close.svg" alt="">
+                </span>
+            </div>`);
+        });
+
+        reader.readAsDataURL(file);
+
+        $(document).on("click", ".uploader__remove", function () {
+            $(this).parent(".uploader__thumb").remove();
+        });
+
+    }
+
+}
+
+$('#file-input').on("change", previewImages);
+
+// var formData = new FormData();
+// formData.append("myFile", document.getElementById("files").files[0]);
+// var xhr = new XMLHttpRequest();
+// xhr.open("POST", "http://localhost:8080");
+// xhr.send(formData);
+
 
 async function onMessageSubmit(e) {
     $('#loading').show();
