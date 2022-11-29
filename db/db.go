@@ -1,25 +1,16 @@
 package db
 
-import (
-	"fmt"
-
-	"github.com/google/uuid"
-)
+import "technochat/entity"
 
 type DB interface {
 	Init()
 	Shutdown()
 
-	AddMessage(messageID, message string, ttl int) error
-	GetMessage(messageID string) (string, error)
+	AddMessage(message entity.Message) error
+	GetMessage(messageID string) (entity.Message, error)
 	DeleteMessage(messageID string) error
-}
 
-func NewMessageID() (string, error) {
-	newUUID, err := uuid.NewRandom()
-	if err != nil {
-		return "", fmt.Errorf("could not generate messageID: %w", err)
-	}
-
-	return newUUID.String(), nil
+	AddImage(image entity.Image) error
+	GetImage(imageID string) (entity.Image, error)
+	DeleteImage(imageID string) error
 }
