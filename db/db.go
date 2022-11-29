@@ -11,6 +11,6 @@ type DB interface {
 	DeleteMessage(messageID string) error
 
 	AddImage(image entity.Image) error
-	// GetImage(imageID string) (entity.Image, error)
-	// DeleteImage(imageID string) error
+	GetImage(imageID string) (entity.Image, error)
+	DeleteImage(imageID string) error
 }

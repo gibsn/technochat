@@ -5,7 +5,6 @@ import (
 
 	"github.com/mediocregopher/radix.v2/redis"
 
-	"technochat/db"
 	"technochat/entity"
 )
 
@@ -49,7 +48,7 @@ func (r *Redis) GetMessage(messageID string) (entity.Message, error) {
 	resp := r.pool.Cmd("HGETALL", key)
 	if err := resp.Err; err != nil {
 		if err == redis.ErrRespNil {
-			return entity.Message{}, db.ErrNotFound
+			return entity.Message{}, entity.ErrNotFound
 		}
 
 		return entity.Message{}, fmt.Errorf(
@@ -64,6 +63,11 @@ func (r *Redis) GetMessage(messageID string) (entity.Message, error) {
 		)
 	}
 
+	// redis may return empty response but no error
+	if len(message) == 0 {
+		return entity.Message{}, entity.ErrNotFound
+	}
+
 	return newMessageFromRedis(messageID, message)
 }
 
@@ -72,7 +76,7 @@ func (r *Redis) DeleteMessage(messageID string) error {
 
 	if err := r.pool.Cmd("DEL", key).Err; err != nil {
 		if err == redis.ErrRespNil {
-			return db.ErrNotFound
+			return entity.ErrNotFound
 		}
 
 		return fmt.Errorf("could not delete message with ID %s: %w", messageID, err)

@@ -3,14 +3,15 @@ package http
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"technochat/entity"
 )
 
 const (
-	imagePartName = "image"
-	ttlPartName   = "ttl"
+	ImagePartName = "image"
+	TTLPartName   = "ttl"
 )
 
 const (
@@ -42,12 +43,10 @@ func newImageAddRequest(r *http.Request) (*imageAddRequest, error) {
 
 	req.method = r.Method
 
-	imageBody, imageHeader, err := r.FormFile(imagePartName)
+	imageBody, _, err := r.FormFile(ImagePartName)
 	if err != nil {
 		return nil, fmt.Errorf("could not get image: %w", err)
 	}
-
-	fmt.Println(imageHeader)
 
 	imageBodyBytes, err := io.ReadAll(imageBody)
 	if err != nil {
@@ -56,7 +55,7 @@ func newImageAddRequest(r *http.Request) (*imageAddRequest, error) {
 
 	req.image = imageBodyBytes
 
-	if i, err = strconv.Atoi(r.FormValue(ttlPartName)); err != nil {
+	if i, err = strconv.Atoi(r.FormValue(TTLPartName)); err != nil {
 		return nil, fmt.Errorf("could not get ttl: %s", err)
 	}
 
@@ -98,6 +97,8 @@ func (s *Server) imageAdd(r *http.Request) (int, interface{}, error) {
 	}); err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
+
+	log.Printf("info: saved image of size '%d' with id '%s'", len(req.image), imageID)
 
 	resp := imageAddResponse{
 		ID: imageID,

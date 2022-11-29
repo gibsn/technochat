@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.15
+        go-version: 1.18
 
     - name: Build
       run: make technochat
@@ -23,7 +23,7 @@ jobs:
     - name: Lint
       uses: golangci/golangci-lint-action@v2
       with:
-        version: v1.29
+        version: v1.45
         only-new-issues: true
         skip-go-installation: true
       

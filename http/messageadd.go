@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"unicode/utf8"
@@ -13,6 +14,11 @@ const (
 	maxTextLength = 2048
 	maxTTL        = 60 * 60 * 24 * 7 * 1 // 1 week
 	maxImages     = 5
+)
+
+const (
+	TextPartName = "text"
+	ImgsPartName = "imgs"
 )
 
 type MessageAddRequest struct {
@@ -40,10 +46,10 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 	}
 
 	req.method = r.Method
-	req.text = r.PostFormValue("text")
-	req.imgs.Decode(r.PostFormValue("imgs"))
+	req.text = r.PostFormValue(TextPartName)
+	req.imgs.Decode(r.PostFormValue(ImgsPartName))
 
-	if i, err = strconv.Atoi(r.PostFormValue("ttl")); err != nil {
+	if i, err = strconv.Atoi(r.PostFormValue(TTLPartName)); err != nil {
 		return nil, fmt.Errorf("could not get ttl: %s", err)
 	}
 
@@ -53,7 +59,7 @@ func NewMessageAddRequest(r *http.Request) (*MessageAddRequest, error) {
 }
 
 func (req *MessageAddRequest) Validate() error {
-	if req.method != "POST" {
+	if req.method != http.MethodPost {
 		return fmt.Errorf("POST required")
 	}
 
@@ -107,6 +113,8 @@ func (s *Server) messageAdd(r *http.Request) (int, interface{}, error) {
 	); err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
+
+	log.Printf("info: saved message of size '%d' with id '%s'", len(req.text), messageID)
 
 	resp := &MessageAddResponse{
 		Link: fmt.Sprintf("https://%s/html/messageview.html?id=%s", r.Host, messageID),

@@ -18,7 +18,7 @@ technochat:
 
 bin/golangci-lint:
 	@echo "getting golangci-lint for $$(uname -m)/$$(uname -s)"
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.29.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.45.2
 
 lint: bin/golangci-lint
 	bin/golangci-lint run -v -c golangci.yml --new-from-rev=$(TARGET_BRANCH)
@@ -26,12 +26,15 @@ lint: bin/golangci-lint
 test:
 	go test -v $(TEST_PACKAGES)
 
+integration-test:
+	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
+	go test	-count=1 -timeout=10s -tags='integration_tests' ./...
+
 vet:
 	go vet $(VET_PACKAGES)
 
 clean:
 	rm -rf bin/
-	rm -rf pkg/
 
 
 .PHONY: all clean test install vet technochat lint

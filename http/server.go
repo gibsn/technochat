@@ -15,6 +15,13 @@ const (
 	gracefulTime = 5 * time.Second
 )
 
+const (
+	messageAddPath  = "/api/v1/message/add"
+	messageViewPath = "/api/v1/message/view"
+	imageAddPath    = "/api/v1/image/add"
+	imageViewPath   = "/api/v1/image/view"
+)
+
 var (
 	messengerResolverUAs = [...]string{
 		"LPX", // ICQ
@@ -36,6 +43,7 @@ type Response struct {
 }
 
 type TechnochatHandler func(*http.Request) (int, interface{}, error)
+type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
 func NewServer(addr string, db db.DB) *Server {
 	return &Server{
@@ -49,9 +57,10 @@ func (s *Server) Init() {
 	log.Println("http: initialising")
 
 	// API
-	http.HandleFunc("/api/v1/message/add", respondAPI(s.messageAdd))
-	http.HandleFunc("/api/v1/message/view", respondAPI(s.messageView))
-	http.HandleFunc("/api/v1/image/add", respondAPI(s.imageAdd))
+	http.HandleFunc(messageAddPath, respondAPI(s.messageAdd))
+	http.HandleFunc(messageViewPath, respondAPI(s.messageView))
+	http.HandleFunc(imageAddPath, respondAPI(s.imageAdd))
+	http.HandleFunc(imageViewPath, respondAPIRaw(s.imageView))
 	http.HandleFunc("/api/v1/chat/init", respondAPI(s.chatInit))
 	http.HandleFunc("/api/v1/chat/connect", s.chatConnect)
 
@@ -131,6 +140,32 @@ func respondAPI(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 
 		if _, err := w.Write(respMarshalled); err != nil {
 			log.Printf("error: http: could not send response for %s: %v", remoteAddr, err)
+		}
+	}
+}
+func respondAPIRaw(h TechnochatHandlerRaw) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		remoteAddr := getRealRemoteAddr(r)
+
+		code, resp, err := h(r)
+		switch code {
+		case http.StatusOK:
+			w.Header().Add("Content-Type", "application/octet-stream")
+
+			if _, err = w.Write(resp); err != nil {
+				log.Printf("error: http: could not send response for %s: %v", remoteAddr, err)
+			}
+		case http.StatusBadRequest:
+			log.Printf("info: http: bad request from %s: %v\n", remoteAddr, err)
+			http.Error(w, err.Error(), code)
+		case http.StatusForbidden:
+			log.Printf("info: http: forbidden for %s: %v\n", remoteAddr, err)
+			http.Error(w, err.Error(), code)
+		case http.StatusInternalServerError:
+			log.Printf("error: http: internal server error for %s: %v\n", remoteAddr, err)
+			http.Error(w, http.StatusText(code), code)
+		default:
+			http.Error(w, http.StatusText(code), code)
 		}
 	}
 }
