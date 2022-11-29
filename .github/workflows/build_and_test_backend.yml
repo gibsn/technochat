@@ -1,4 +1,4 @@
-name: "Build backend, run linters and unit tests"
+name: "Build backend, run linters, unit and integration tests"
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ '*' ]
 
 jobs:
-  build-test-lint:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -17,15 +17,28 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Build
-      run: make technochat
-      
     - name: Lint
       uses: golangci/golangci-lint-action@v2
       with:
         version: v1.45
         only-new-issues: true
         skip-go-installation: true
-      
-    - name: Test
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.18
+
+    - name: Run unit-tests
       run: make test
+
+    - name: Prepare for integration tests
+      run: ./deploy.sh
+
+    - name: Run integration tests
+      run: make integration-test
