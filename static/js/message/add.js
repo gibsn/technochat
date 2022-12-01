@@ -9,6 +9,9 @@ const maxTextAreaLength = 1024;
 
 const initialTextAreaLength = 0;
 
+const fileInputId = 'file-input'
+const textInputId = 'text_form'
+
 // const upload = new FileUploadWithPreview.FileUploadWithPreview('myFirstImage', {
 //     multiple: true,
 //     maxFileCount: 5,
@@ -19,13 +22,53 @@ const initialTextAreaLength = 0;
 //     },
 // });
 
+function previewImages() {
+    var $preview = $('#preview').empty();
+    if (this.files) $.each(this.files, readAndPreview);
 
-// var formData = new FormData();
-// formData.append("myFile", document.getElementById("files").files[0]);
-// var xhr = new XMLHttpRequest();
-// xhr.open("POST", "http://localhost:8080");
-// xhr.send(formData);
+    function readAndPreview(i, file) {
 
+        if (!/\.(jpe?g|png|gif)$/i.test(file.name)) {
+            return alert(file.name + " is not an image");
+        }
+
+        var reader = new FileReader();
+
+        $(reader).on("load", function (e) {
+            $preview.append(`
+            <div class="uploader__thumb">
+                <img class="uploader__img" src="`+ e.target.result + `" title="` + file.name + `"/>
+                <span class="uploader__remove">
+                    <img src="/media/icons/close.svg" alt="">
+                </span>
+            </div>`);
+        });
+
+        reader.readAsDataURL(file);
+
+        $(document).on("click", ".uploader__remove", function () {
+            $(this).parent(".uploader__thumb").remove();
+        });
+
+    }
+
+}
+
+async function uploadImages(images, encrypt) {
+    let ids = []
+
+    for (let i = 0; i < images.length; i++) {
+        images[i].arrayBuffer().then(function(value) {
+            if (encrypt) {
+                // TODO encrypt
+            }
+            // TODO upload to backend
+            // TODO append id to ids
+        });
+    }
+
+    return ids
+}
 
 async function onMessageSubmit(e) {
     $('#loading').show();
@@ -44,6 +87,10 @@ async function onMessageSubmit(e) {
     // (hereby changing UI), we will edit a copy of the form
     let textFormCopy = textForm.cloneNode(true);
     textFormCopy[0].value = ArrayBufferToBase64(encrypted);
+
+    // encrypt, upload and append images to the form
+    let imgsIds = uploadImages(document.getElementById(fileInputId).files);
+    textFormCopy.append("imgs", imgsIds);
 
     $.ajax({
         type: 'POST',
@@ -91,7 +138,8 @@ function initPage() {
     $('#result_text').html('');
     $('#result_link').html('');
 
-    $('#text_form').submit(onMessageSubmit);
+    document.getElementById(fileInputId).addEventListener("change", previewImages);
+    document.getElementById(textInputId).addEventListener("submit", onMessageSubmit);
 
     const generateButton = document.getElementById('generate_button');
     const messageBox = document.getElementById('message_box');
@@ -135,7 +183,7 @@ function initSymbolsCounter() {
     });
 
     // clear counter after the message has been submitted
-    var textform = document.querySelector('#text_form');
+    var textform = document.getElementById(textInputId);
     textform.addEventListener('submit', function() {
         counter.innerHTML = initialTextAreaLength;
         counter.parentElement.style.color = '#6d6d6d';
