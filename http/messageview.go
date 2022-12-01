@@ -3,31 +3,33 @@ package http
 import (
 	"fmt"
 	"html"
+	"log"
 	"net/http"
-
-	"technochat/db"
+	"technochat/entity"
 )
 
-type MessageViewRequest struct {
+type messageViewRequest struct {
 	method string
 
 	id string
 }
 
 type MessageViewResponse struct {
-	Text string `json:"text"`
+	Text   string   `json:"text"`
+	Images []string `json:"imgs,omitempty"`
 }
 
-func NewMessageViewRequest(r *http.Request) (*MessageViewRequest, error) {
-	req := &MessageViewRequest{}
+func newMessageViewRequest(r *http.Request) *messageViewRequest {
+	req := &messageViewRequest{}
 
 	req.method = r.Method
 	req.id = r.URL.Query().Get("id")
 
-	return req, nil
+	return req
 }
 
-func (req *MessageViewRequest) Validate() error {
+func (req *messageViewRequest) Validate() error {
+	// TODO should be POST
 	if req.method != "GET" {
 		return fmt.Errorf("GET required")
 	}
@@ -40,34 +42,34 @@ func (req *MessageViewRequest) Validate() error {
 }
 
 func (s *Server) messageView(r *http.Request) (int, interface{}, error) {
-	req, err := NewMessageViewRequest(r)
-	if err != nil {
-		return http.StatusBadRequest, nil, err
-	}
+	req := newMessageViewRequest(r)
 
-	if err = req.Validate(); err != nil {
+	if err := req.Validate(); err != nil {
 		return http.StatusBadRequest, nil, err
 	}
 
 	message, err := s.db.GetMessage(req.id)
 	if err != nil {
-		if err != db.ErrNotFound {
+		if err == entity.ErrNotFound {
 			return http.StatusNotFound, nil, err
 		}
 
-		return http.StatusInternalServerError, nil, err
+		return http.StatusInternalServerError, nil, fmt.Errorf("could not fetch message: %w", err)
 	}
 
 	if err := s.db.DeleteMessage(req.id); err != nil {
-		if err != db.ErrNotFound {
+		if err == entity.ErrNotFound {
 			return http.StatusNotFound, nil, err
 		}
 
-		return http.StatusInternalServerError, nil, err
+		return http.StatusInternalServerError, nil, fmt.Errorf("could not delete message: %w", err)
 	}
 
+	log.Printf("info: deleted message of size '%d' with id '%s'", len(message.Text), req.id)
+
 	resp := &MessageViewResponse{
-		Text: html.EscapeString(message),
+		Text:   html.EscapeString(message.Text),
+		Images: message.Images,
 	}
 
 	return http.StatusOK, resp, nil
