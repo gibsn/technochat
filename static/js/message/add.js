@@ -12,6 +12,8 @@ const initialTextAreaLength = 0;
 const fileInputId = 'file-input'
 const textInputId = 'text_form'
 
+const imageUploadAPI = '/api/v1/image/add'
+
 // const upload = new FileUploadWithPreview.FileUploadWithPreview('myFirstImage', {
 //     multiple: true,
 //     maxFileCount: 5,
@@ -54,20 +56,56 @@ function previewImages() {
 
 }
 
-async function uploadImages(images, encrypt) {
-    let ids = []
+async function uploadImages(images, ttl, encrypter) {
+    let ids = [];
 
     for (let i = 0; i < images.length; i++) {
-        images[i].arrayBuffer().then(function(value) {
-            if encrypt {
-                // TODO encrypt
+        let imageBytes = await images[i].arrayBuffer();
+
+        if (encrypter) {
+            // TODO encrypt
+        }
+
+        let formData = new FormData();
+        formData.append("image", new Blob([imageBytes], {type: "application/octet-stream"}));
+        formData.append("ttl", ttl);
+
+        var resp;
+
+        try {
+            resp = await $.ajax({
+                type: 'POST',
+                url: imageUploadAPI,
+                data: formData,
+                contentType: false,
+                processData: false
+            });
+        } catch (errorResp) {
+            if (errorResp.status != 200) {
+                console.error("could not upload image: http status is", errorResp.status);
+                continue;
             }
-            // TODO upload to backend
-            // TODO append id to ids
-        });
+        }
+
+        if (resp.code != 200) {
+            console.error("could not upload image: code is", resp.code, "body is", resp.body);
+            continue;
+        }
+
+        ids.push(resp.body.id);
     }
 
     return ids
+}
+
+function getCurrentTTL() {
+    for (const checkmark of document.getElementsByName("ttl")) {
+        if (checkmark.cheked) {
+            return checkmark.value;
+        }
+    }
+
+    return 86400;
 }
 
 async function onMessageSubmit(e) {
@@ -86,7 +124,9 @@ async function onMessageSubmit(e) {
     textFormCopy[0].value = encryptionRes.encrypted;
 
     // encrypt, upload and append images to the form
-    let imgsIds = uploadImages(document.getElementById(fileInputId).files);
+    let ttl = getCurrentTTL();
+    let imgsIds = uploadImages(document.getElementById(fileInputId).files, ttl, null);
+
     textFormCopy.append("imgs", imgsIds);
 
     $.ajax({
