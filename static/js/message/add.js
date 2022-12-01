@@ -9,6 +9,9 @@ const maxTextAreaLength = 1024;
 
 const initialTextAreaLength = 0;
 
+const fileInputId = 'file-input'
+const textInputId = 'text_form'
+
 // const upload = new FileUploadWithPreview.FileUploadWithPreview('myFirstImage', {
 //     multiple: true,
 //     maxFileCount: 5,
@@ -20,7 +23,6 @@ const initialTextAreaLength = 0;
 // });
 
 function previewImages() {
-
     var $preview = $('#preview').empty();
     if (this.files) $.each(this.files, readAndPreview);
 
@@ -52,14 +54,21 @@ function previewImages() {
 
 }
 
-$('#file-input').on("change", previewImages);
+async function uploadImages(images, encrypt) {
+    let ids = []
 
-// var formData = new FormData();
-// formData.append("myFile", document.getElementById("files").files[0]);
-// var xhr = new XMLHttpRequest();
-// xhr.open("POST", "http://localhost:8080");
-// xhr.send(formData);
+    for (let i = 0; i < images.length; i++) {
+        images[i].arrayBuffer().then(function(value) {
+            if encrypt {
+                // TODO encrypt
+            }
+            // TODO upload to backend
+            // TODO append id to ids
+        });
+    }
 
+    return ids
+}
 
 async function onMessageSubmit(e) {
     $('#loading').show();
@@ -68,13 +77,17 @@ async function onMessageSubmit(e) {
 
     // we encrypt the message so that no one
     // with access to DB server could read it
-    let textForm = document.getElementById('text_form');
+    let textForm = document.getElementById(textInputId);
     let encryptionRes = await myCrypto.encrypt(textForm[0].value);
 
     // since we do not want to change the original form
     // (hereby changing UI), we will edit a copy of the form
     let textFormCopy = textForm.cloneNode(true);
     textFormCopy[0].value = encryptionRes.encrypted;
+
+    // encrypt, upload and append images to the form
+    let imgsIds = uploadImages(document.getElementById(fileInputId).files);
+    textFormCopy.append("imgs", imgsIds);
 
     $.ajax({
         type: 'POST',
@@ -122,7 +135,8 @@ function initPage() {
     $('#result_text').html('');
     $('#result_link').html('');
 
-    $('#text_form').submit(onMessageSubmit);
+    document.getElementById(fileInputId).addEventListener("change", previewImages);
+    document.getElementById(textInputId).addEventListener("submit", onMessageSubmit);
 
     $('.button__generate').on('click', function () {
         $('.message__box').css('display', 'block');
@@ -161,7 +175,7 @@ function initSymbolsCounter() {
     });
 
     // clear counter after the message has been submitted
-    var textform = document.querySelector('#text_form');
+    var textform = document.getElementById(textInputId);
     textform.addEventListener('submit', function() {
         counter.innerHTML = initialTextAreaLength;
         counter.parentElement.style.color = '#6d6d6d';
