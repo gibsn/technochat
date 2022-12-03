@@ -1,4 +1,4 @@
-import * as myCrypto from "/js/message/crypto.js";
+import {Decrypter, AESGCM128, Base64ToArrayBuffer} from "/js/message/crypto.js";
 
 async function loadMessage(msgId, key, iv, msgDiv) {
     $.get('/api/v1/message/view?id=' + msgId)
@@ -8,12 +8,16 @@ async function loadMessage(msgId, key, iv, msgDiv) {
                 return
             }
 
-            let encryptedMsg = viewResponse.body.text;
+            let encryptedMsg = Base64ToArrayBuffer(viewResponse.body.text);
 
             try {
-                let decryptedMsg = await myCrypto.decrypt(encryptedMsg, key, iv);
+                let decrypter = new Decrypter(new AESGCM128());
+                await decrypter.setup(Base64ToArrayBuffer(key), Base64ToArrayBuffer(iv));
+
+                let decryptedMsg = await decrypter.decryptToString(encryptedMsg);
                 msgDiv.html(decryptedMsg.replace(/(?:\r\n|\r|\n)/g, '<br>'))
-            } catch {
+            } catch (error) {
+                console.error(error);
                 msgDiv.html('Could not decrypt message, the link was possibly corrupted');
             }
         })
