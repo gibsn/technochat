@@ -1,11 +1,8 @@
-const alg = { name: 'AES-GCM', length: 128 };
-
-
-function arrayBufferToBase64(buf) {
+export function ArrayBufferToBase64(buf) {
     return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 
-function base64ToArrayBuffer(sInBase64) {
+export function Base64ToArrayBuffer(sInBase64) {
     let sRaw = atob(sInBase64);
     let bufArr = new Uint8Array(sRaw.length);
 
@@ -16,41 +13,83 @@ function base64ToArrayBuffer(sInBase64) {
     return bufArr.buffer;
 }
 
-// encrypt encrypts the given string 's' and returns the encrypted string,
-// key and iv, all base64 encoded
-export async function encrypt(s) {
-    let key = await crypto.subtle.generateKey(alg, true, ['encrypt', 'decrypt']);
-
-    let _alg = alg;
-    _alg.iv = crypto.getRandomValues(new Uint8Array(12));
-
-    let encrypted = await crypto.subtle.encrypt(_alg, key, new TextEncoder().encode(s));
-    let encryptedBase64 = arrayBufferToBase64(encrypted);
-
-    let keyExported = await crypto.subtle.exportKey("raw", key);
-    let keyBase64 = arrayBufferToBase64(keyExported);
-
-    let ivBase64 = arrayBufferToBase64(_alg.iv);
-
-    return {
-        "encrypted": encryptedBase64,
-        "key": keyBase64,
-        "iv": ivBase64,
+class EncryptionAlgorithm {
+    get params() {
+        throw new Error("params must be implemented");
     }
 }
 
-// decrypt takes an encrypted string, key and iv, all are base64 encoded strings,
-// decrypts the given string and returns it as a string
-export async function decrypt(sInBase64, keyInBase64, ivInBase64) {
-    let sRaw   = base64ToArrayBuffer(sInBase64);
-    let keyRaw = base64ToArrayBuffer(keyInBase64);
-    let ivRaw  = base64ToArrayBuffer(ivInBase64);
+export class AESGCM128 extends EncryptionAlgorithm {
+    get params() {
+        return { name: 'AES-GCM', length: 128 };
+    }
+}
 
-    let _alg = alg;
-    _alg.iv = ivRaw;
+export class Encrypter {
+    #_algParams;
+    #_encryptionParams;
 
-    let key = await crypto.subtle.importKey('raw', keyRaw, _alg, false, ['decrypt']);
-    let decrypted = await crypto.subtle.decrypt(_alg, key, sRaw);
+    #_key;
+    #_exportKey;
 
-    return new TextDecoder('utf-8').decode(decrypted);
+    constructor(alg) {
+        this._algParams = alg.params;
+        this._encryptionParams = alg.params;
+    }
+
+    async setup() {
+        this._key = await crypto.subtle.generateKey(this._algParams, true, ['encrypt', 'decrypt']);
+        this._exportKey = await crypto.subtle.exportKey("raw", this._key);
+
+        this._encryptionParams.iv = crypto.getRandomValues(new Uint8Array(12));
+    }
+
+    get exportKey() {
+        return this._exportKey;
+    }
+
+    get iv() {
+        return this._encryptionParams.iv;
+    }
+
+    // encryptString encrypts the given string and returns the encrypted ArrayBuffer
+    async encryptString(s) {
+        return this.encryptBytes(new TextEncoder().encode(s));
+    }
+
+    // encryptBytes encrypts the given ArrayBuffer and returns the encrypted ArrayBuffer
+    async encryptBytes(buf) {
+        return await crypto.subtle.encrypt(this._encryptionParams, this._key, buf);
+    }
+}
+
+export class Decrypter {
+    #_algParams;
+    #_importedKey;
+    #_decryptionParams;
+
+    constructor(alg) {
+        this._algParams = alg.params;
+        this._decryptionParams = alg.params;
+    }
+
+    async setup(key, iv) {
+        this._decryptionParams.iv = iv;
+        this._importedKey = await crypto.subtle.importKey(
+            'raw', key, this._decryptionParams, false, ['decrypt']
+        );
+    }
+
+    // decrypt takes an encrypted ArrayBuffer, decrypts and returns it as an ArrayBuffer
+    async decryptToBytes(buf) {
+        return crypto.subtle.decrypt(this._decryptionParams, this._importedKey, buf);
+    }
+
+    // decrypt takes an encrypted ArrayBuffer, decrypts and returns it as an ArrayBuffer
+    async decryptToString(buf) {
+        console.log(buf);
+        let decryptedBytes = await this.decryptToBytes(buf);
+
+        return new TextDecoder('utf-8').decode(decryptedBytes);
+    }
 }

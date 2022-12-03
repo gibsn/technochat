@@ -1,4 +1,4 @@
-import * as myCrypto from "/js/message/crypto.js";
+import {Encrypter, AESGCM128, ArrayBufferToBase64} from "/js/message/crypto.js";
 import * as util from "/js/util.js";
 
 const maxTextAreaLength = 1024;
@@ -17,13 +17,16 @@ async function onMessageSubmit(e) {
 
     // we encrypt the message so that no one
     // with access to DB server could read it
+    let encrypter = new Encrypter(new AESGCM128());
+    await encrypter.setup();
+
     let textForm = document.getElementById('text_form');
-    let encryptionRes = await myCrypto.encrypt(textForm[0].value);
+    let encrypted = await encrypter.encryptString(textForm[0].value);
 
     // since we do not want to change the original form
     // (hereby changing UI), we will edit a copy of the form
     let textFormCopy = textForm.cloneNode(true);
-    textFormCopy[0].value = encryptionRes.encrypted;
+    textFormCopy[0].value = ArrayBufferToBase64(encrypted);
 
     $.ajax({
         type: 'POST',
@@ -34,8 +37,8 @@ async function onMessageSubmit(e) {
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
         complete: () => { textFormCopy.remove(); },
-        key: encryptionRes.key,
-        iv: encryptionRes.iv,
+        key: ArrayBufferToBase64(encrypter.exportKey),
+        iv: ArrayBufferToBase64(encrypter.iv),
     });
 }
 
