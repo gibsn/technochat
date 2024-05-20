@@ -1,17 +1,23 @@
 package redis
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/mediocregopher/radix.v2/pool"
-	"github.com/mediocregopher/radix.v2/redis"
-
-	"technochat/db"
 )
 
 const (
 	poolSize = 10
+)
+
+const (
+	msgKeyPrefix   = "msg"
+	imageKeyPrefix = "img"
+
+	msgTextKey   = "text"
+	msgImagesKey = "imgs"
+
+	imgBodyKey = "body"
 )
 
 type Redis struct {
@@ -41,48 +47,4 @@ func (r *Redis) Init() {
 
 func (r *Redis) Shutdown() {
 	log.Println("redis: shutting down")
-}
-
-func (r *Redis) AddMessage(messageID, message string, ttl int) error {
-	key := "links:" + messageID
-
-	if err := r.pool.Cmd("SET", key, message, "EX", ttl).Err; err != nil {
-		return fmt.Errorf("could not add message: %s", err)
-	}
-
-	return nil
-}
-
-func (r *Redis) GetMessage(messageID string) (string, error) {
-	key := "links:" + messageID
-
-	resp := r.pool.Cmd("GET", key)
-	if err := resp.Err; err != nil {
-		if err == redis.ErrRespNil {
-			return "", db.ErrNotFound
-		}
-
-		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, resp.Err)
-	}
-
-	message, err := resp.Str()
-	if err != nil {
-		return "", fmt.Errorf("could not get message with ID %s: %s", messageID, err)
-	}
-
-	return message, nil
-}
-
-func (r *Redis) DeleteMessage(messageID string) error {
-	key := "links:" + messageID
-
-	if err := r.pool.Cmd("DEL", key).Err; err != nil {
-		if err == redis.ErrRespNil {
-			return db.ErrNotFound
-		}
-
-		return fmt.Errorf("could not delete message with ID %s: %s", messageID, err)
-	}
-
-	return nil
 }

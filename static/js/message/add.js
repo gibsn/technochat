@@ -9,6 +9,11 @@ const maxTextAreaLength = 1024;
 
 const initialTextAreaLength = 0;
 
+const fileInputId = 'file-input'
+const textInputId = 'text_form'
+
+const imageUploadAPI = '/api/v1/image/add'
+
 // const upload = new FileUploadWithPreview.FileUploadWithPreview('myFirstImage', {
 //     multiple: true,
 //     maxFileCount: 5,
@@ -19,13 +24,89 @@ const initialTextAreaLength = 0;
 //     },
 // });
 
+function previewImages() {
+    var $preview = $('#preview').empty();
+    if (this.files) $.each(this.files, readAndPreview);
 
-// var formData = new FormData();
-// formData.append("myFile", document.getElementById("files").files[0]);
-// var xhr = new XMLHttpRequest();
-// xhr.open("POST", "http://localhost:8080");
-// xhr.send(formData);
+    function readAndPreview(i, file) {
 
+        if (!/\.(jpe?g|png|gif)$/i.test(file.name)) {
+            return alert(file.name + " is not an image");
+        }
+
+        var reader = new FileReader();
+
+        $(reader).on("load", function (e) {
+            $preview.append(`
+            <div class="uploader__thumb">
+                <img class="uploader__img" src="`+ e.target.result + `" title="` + file.name + `"/>
+                <span class="uploader__remove">
+                    <img src="/media/icons/close.svg" alt="">
+                </span>
+            </div>`);
+        });
+
+        reader.readAsDataURL(file);
+
+        $(document).on("click", ".uploader__remove", function () {
+            $(this).parent(".uploader__thumb").remove();
+        });
+
+    }
+
+}
+
+async function uploadImages(images, ttl, encrypter) {
+    let ids = [];
+
+    for (let i = 0; i < images.length; i++) {
+        let imageBytes = await images[i].arrayBuffer();
+
+        if (encrypter) {
+            // TODO encrypt
+        }
+
+        let formData = new FormData();
+        formData.append("image", new Blob([imageBytes], {type: "application/octet-stream"}));
+        formData.append("ttl", ttl);
+
+        var resp;
+
+        try {
+            resp = await $.ajax({
+                type: 'POST',
+                url: imageUploadAPI,
+                data: formData,
+                contentType: false,
+                processData: false
+            });
+        } catch (errorResp) {
+            if (errorResp.status != 200) {
+                console.error("could not upload image: http status is", errorResp.status);
+                continue;
+            }
+        }
+
+        if (resp.code != 200) {
+            console.error("could not upload image: code is", resp.code, "body is", resp.body);
+            continue;
+        }
+
+        ids.push(resp.body.id);
+    }
+
+    return ids
+}
+
+function getCurrentTTL() {
+    for (const checkmark of document.getElementsByName("ttl")) {
+        if (checkmark.cheked) {
+            return checkmark.value;
+        }
+    }
+
+    return 86400;
+}
 
 async function onMessageSubmit(e) {
     $('#loading').show();
@@ -34,13 +115,19 @@ async function onMessageSubmit(e) {
 
     // we encrypt the message so that no one
     // with access to DB server could read it
-    let textForm = document.getElementById('text_form');
+    let textForm = document.getElementById(textInputId);
     let encryptionRes = await myCrypto.encrypt(textForm[0].value);
 
     // since we do not want to change the original form
     // (hereby changing UI), we will edit a copy of the form
     let textFormCopy = textForm.cloneNode(true);
     textFormCopy[0].value = encryptionRes.encrypted;
+
+    // encrypt, upload and append images to the form
+    let ttl = getCurrentTTL();
+    let imgsIds = uploadImages(document.getElementById(fileInputId).files, ttl, null);
+
+    textFormCopy.append("imgs", imgsIds);
 
     $.ajax({
         type: 'POST',
@@ -88,7 +175,8 @@ function initPage() {
     $('#result_text').html('');
     $('#result_link').html('');
 
-    $('#text_form').submit(onMessageSubmit);
+    document.getElementById(fileInputId).addEventListener("change", previewImages);
+    document.getElementById(textInputId).addEventListener("submit", onMessageSubmit);
 
     $('.button__generate').on('click', function () {
         $('.message__box').css('display', 'block');
@@ -127,7 +215,7 @@ function initSymbolsCounter() {
     });
 
     // clear counter after the message has been submitted
-    var textform = document.querySelector('#text_form');
+    var textform = document.getElementById(textInputId);
     textform.addEventListener('submit', function() {
         counter.innerHTML = initialTextAreaLength;
         counter.parentElement.style.color = '#6d6d6d';
