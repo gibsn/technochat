@@ -24,36 +24,47 @@ const imageUploadAPI = '/api/v1/image/add'
 //     },
 // });
 
+const imagesPreview = document.querySelector('#preview');
+
+function createDeleteButton(img) {
+    const deleteButton = document.createElement('span');
+    deleteButton.classList.add('upload__delete');
+    deleteButton.innerHTML = '&times;';
+
+    deleteButton.addEventListener('click', function() {
+        imagesPreview.removeChild(img.parentNode);
+    });
+
+    return deleteButton;
+}
+
 function previewImages() {
-    var $preview = $('#preview').empty();
-    if (this.files) $.each(this.files, readAndPreview);
+    const files = this.files;
 
-    function readAndPreview(i, file) {
+    if (files) {
+        imagesPreview.innerHTML = '';
 
-        if (!/\.(jpe?g|png|gif)$/i.test(file.name)) {
-            return alert(file.name + " is not an image");
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const imgContainer = document.createElement('div');
+                imgContainer.classList.add('upload__img');
+
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                imgContainer.appendChild(img);
+
+                const deleteButton = createDeleteButton(img);
+                imgContainer.appendChild(deleteButton);
+
+                imagesPreview.appendChild(imgContainer);
+            };
+
+            reader.readAsDataURL(file);
         }
-
-        var reader = new FileReader();
-
-        $(reader).on("load", function (e) {
-            $preview.append(`
-            <div class="uploader__thumb">
-                <img class="uploader__img" src="`+ e.target.result + `" title="` + file.name + `"/>
-                <span class="uploader__remove">
-                    <img src="/media/icons/close.svg" alt="">
-                </span>
-            </div>`);
-        });
-
-        reader.readAsDataURL(file);
-
-        $(document).on("click", ".uploader__remove", function () {
-            $(this).parent(".uploader__thumb").remove();
-        });
-
     }
-
 }
 
 async function uploadImages(images, ttl, encrypter) {
