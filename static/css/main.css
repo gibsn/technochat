@@ -262,59 +262,56 @@ chat styles
     text-decoration: underline;
 }
 
-.uploader {
-    margin: 30px auto 0;
-}
+/* images upload */
 
-.uploader__button {
+.upload {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 50px;
-    border-radius: 2px;
-    cursor: pointer;
-    border: 1px solid #000000;
-    font-size: 30px;
-    -webkit-transition: 0.4s ease-out;
-    -moz-transition: 0.4s ease-out;
-    -o-transition: 0.4s ease-out;
-    transition: 0.4s ease-out;
-    width: 300px;
-    margin: 0 auto;
+    margin: 20px;
 }
 
-.uploader__button:hover {
-    color: #dddddd;
+.upload input[type="file"] {
+    display: none;
+}
+
+.upload .upload__label {
+    padding: 10px 40px;
+}
+
+.upload .upload__label:hover {
     background-color: #000000;
 }
 
-.uploader__preview {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-gap: 20px;
-    margin-top: 30px;
+.upload .upload__preview {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    gap: 10px;
 }
 
-.uploader__img {
-    height: 100px;
+.upload .upload__preview img {
     width: 100px;
+    height: auto;
 }
 
-.uploader__thumb {
-    padding: 10px;
-    background-color: #ffffff;
-    border-radius: 2px;
-    position: relative;
-}
-
-.uploader__remove {
-    cursor: pointer;
+.upload__delete {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+    font-size: 28px;
+    line-height: 18px;
+    color: #000;
 }
 
-.uploader__remove img {
-    width: 30px;
-    height: 30px;
+.upload__delete:hover {
+    opacity: 0.7;
+}
+
+.upload__img {
+    position: relative;
+    padding: 10px;
+    border-radius: 10px;
+    background-color: #ffffff;
 }
