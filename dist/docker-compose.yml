@@ -11,7 +11,7 @@ services:
         secrets:
             - redis.conf
         ports:
-            - 6379:6379
+            - 6379
 
     technochat:
         build:
@@ -22,7 +22,7 @@ services:
         depends_on:
             - redis
         ports:
-            - 8080:8080
+            - 8080
     nginx:
         build:
             context: ../
