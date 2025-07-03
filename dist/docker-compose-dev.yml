@@ -53,6 +53,6 @@ secrets:
     server.crt:
         file: ../certs/server.crt
     nginx.conf:
-        file: nginx.conf
+        file: nginx_dev.conf
     redis.conf:
         file: redis.conf
