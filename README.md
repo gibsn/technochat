@@ -1,6 +1,14 @@
 # Technochat
 
 ## Set up automatic deploy
+Call `make setup_autodeploy`
+
+Define TG_BOT_TOKEN and TG_CHAT_ID in /etc/default/autodeploy_technochat:
+```
+TG_BOT_TOKEN=123456:ABCDEF...
+TG_CHAT_ID=-1001234567890
+```
+
 Move the contents of this repo to /opt/technochat:
 ```
 mkdir /opt/technochat
@@ -8,7 +16,7 @@ cp ./* /opt/technochat
 ```
 
 Copy autodeploy.sh and initialise systemd-service:
-``
+```
 sudo cp autodeploy.sh /opt/technochat/
 sudo chmod +x /opt/technochat/autodeploy.sh
 

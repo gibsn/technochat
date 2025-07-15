@@ -30,6 +30,16 @@ integration-test:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
 	go test	-count=1 -timeout=10s -tags='integration_tests' ./...
 
+setup_autodeploy:
+	mkdir -p /opt/technochat
+	cp ./* /opt/technochat
+	cp ./dist/autodeploy.sh /opt/technochat/
+	chmod +x /opt/technochat/autodeploy.sh
+	cp ./dist/autodeploy_technochat.service /etc/systemd/system/
+	cp ./dist/autodeploy_technochat.timer /etc/systemd/system/
+	systemctl daemon-reload
+	systemctl enable --now autodeploy_technochat.timer
+
 vet:
 	go vet $(VET_PACKAGES)
 
@@ -37,4 +47,4 @@ clean:
 	rm -rf bin/
 
 
-.PHONY: all clean test install vet technochat lint
+.PHONY: all clean test install vet technochat lint setup_autodeploy

@@ -34,11 +34,31 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Run unit-tests
+    - name: Run unit tests
       run: make test
 
-    - name: Prepare for integration tests
+    - name: Run smoke tests
       run: ./deploy.sh
+
+    - name: Make deploy.sh executable
+      run: chmod +x ./deploy.sh
+
+    - name: Run deploy.sh
+      run: |
+        sudo bash ./deploy.sh
+
+    - name: Wait for HTTPS server to respond on /
+      run: |
+        for i in {1..10}; do
+          if curl -kfs https://localhost/; then
+            echo "HTTPS server is up"
+            exit 0
+          fi
+          echo "Waiting for HTTPS server..."
+          sleep 3
+        done
+        echo "::error ::HTTPS server not responding after deploy"
+        exit 1
 
     - name: Run integration tests
       run: make integration-test
