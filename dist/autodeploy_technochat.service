@@ -6,5 +6,5 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/technochat
-ExecStart=/opt/technochat/deploy_technochat.sh
+ExecStart=/opt/technochat/dist/autodeploy_technochat.sh
 EnvironmentFile=/etc/default/deploy_technochat
