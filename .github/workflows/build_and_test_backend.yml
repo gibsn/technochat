@@ -37,15 +37,11 @@ jobs:
     - name: Run unit tests
       run: make test
 
-    - name: Run smoke tests
-      run: ./deploy.sh
-
     - name: Make deploy.sh executable
       run: chmod +x ./deploy.sh
 
-    - name: Run deploy.sh
-      run: |
-        sudo bash ./deploy.sh
+    - name: Run smoke tests
+      run: ./deploy.sh
 
     - name: Wait for HTTPS server to respond on /
       run: |
