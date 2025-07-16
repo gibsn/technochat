@@ -80,7 +80,7 @@ function initPage() {
         $('.message__box').css('display', 'block');
     });
 
-    $("#copy_button").click(function() { util.copyLink("to_copy") });
+    util.copyButton('copy_button', 'to_copy');
 }
 
 function initSymbolsCounter() {
