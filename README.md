@@ -8,4 +8,4 @@ TG_BOT_TOKEN=123456:ABCDEF...
 TG_CHAT_ID=-1001234567890
 ```
 
-Call `make setup_autodeploy`
+Call `make install_autodeploy`
