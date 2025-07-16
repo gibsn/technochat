@@ -4,6 +4,8 @@ BRANCH="master"
 DEPLOY_SCRIPT="./deploy.sh"
 
 git -c safe.directory=$(pwd) remote set-url origin https://${GITHUB_TOKEN}@github.com/gibsn/technochat.git
+
+git -c safe.directory=$(pwd) checkout "$BRANCH"
 git -c safe.directory=$(pwd) fetch origin "$BRANCH"
 
 LOCAL_HASH=$(git -c safe.directory=$(pwd) rev-parse "$BRANCH")
@@ -11,6 +13,7 @@ REMOTE_HASH=$(git -c safe.directory=$(pwd) rev-parse "origin/$BRANCH")
 
 if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
     git -c safe.directory=$(pwd) reset --hard "origin/$BRANCH"
+    chmod +x ./dist/autodeploy.sh
 
     COMMIT_MSG=$(git -c safe.directory=$(pwd) log -1 --pretty=%s "$REMOTE_HASH")
 

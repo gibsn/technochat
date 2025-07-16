@@ -32,8 +32,7 @@ integration-test:
 
 install_autodeploy:
 	mkdir -p /opt/technochat
-	cp -pr  . /opt/technochat
-	chmod -R 0666 /opt/technochat
+	cp -pr . /opt/technochat
 	chmod +x /opt/technochat/dist/autodeploy.sh
 	cp ./dist/autodeploy_technochat.service /etc/systemd/system/
 	cp ./dist/autodeploy_technochat.timer /etc/systemd/system/
