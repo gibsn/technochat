@@ -20,7 +20,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
         STATUS="❌ Deploy failed"
     fi
 
-    MESSAGE="$(date '+%Y-%m-%d %H:%M:%S') — $STATUS Commit: '$REMOTE_HASH', Message: '$COMMIT_MSG'"
+    MESSAGE="$(date '+%Y-%m-%d %H:%M:%S') — $STATUS. Commit: '$REMOTE_HASH', Message: '$COMMIT_MSG'"
 
     if [[ "$STATUS" == "✅ Deploy successful" ]]; then
         echo -e "$MESSAGE"
