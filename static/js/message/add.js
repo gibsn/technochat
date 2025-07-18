@@ -76,7 +76,7 @@ function initPage() {
 
     $('#text_form').submit(onMessageSubmit);
 
-    $('.button__generate').on('click', function () {
+    $('#generateButton').on('click', function () {
         $('.message__box').css('display', 'block');
     });
 
