@@ -1,6 +1,5 @@
 import * as util from "/js/util.js";
 
-
 function onSubmit(e) {
     $("#loading").show();
     e.preventDefault();
@@ -26,7 +25,10 @@ function onSubmitSuccess(json) {
     $("#loading").hide();
 
     $("#link_box").show();
-    $("#button_box").show();
+
+    const copyButtonView = document.getElementById("copy_button");
+
+    copyButtonView.style.display = "inline-flex";
 
     if (json.code == 200) {
         var id = json.body.id;
@@ -44,7 +46,10 @@ function onSubmitError(e) {
     $("#result_link").html("Internal Server Error");
 
     $("#link_box").show();
-    $("#button_box").show();
+
+    const copyButtonView = document.getElementById("copy_button");
+
+    copyButtonView.style.display = "inline-flex";
 
     util.scrollToCopyButton();
 }
@@ -55,8 +60,11 @@ function initPage() {
 
     $("#link_box").hide();
 
-    $("#button_box").hide();
-    $("#copy_button").click(function() { util.copyLink("to_copy") });
+    const copyButtonView = document.getElementById("copy_button");
+
+    copyButtonView.style.display = "none";
+
+    util.copyButton('copy_button', 'to_copy');
 
     $("form").submit(onSubmit);
 }

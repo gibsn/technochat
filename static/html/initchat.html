@@ -20,18 +20,20 @@
     <form class="user__form" id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
         <p>Set how many times your chat can be joined:</p>
         <input class="user__input" type="number" name="max_users" step="1" value=2 min=2>
-        <div class="button button__generate">
-            <input type="submit" value="Create Chat">
-        </div>
+
+        <button class="button">
+            Create chat
+        </button>
     </form>
     <div id="loading">loading</div>
     <div id="link_box" class="link">
         <p>Link: </p>
         <div id="result_link" class="result__link result__link--chat"></div>
     </div>
-    <div id="button_box" class="button">
-        <div id="copy_button" class="button__copy">Copy link</div>
-    </div>
+
+    <button class="button" id="copy_button">
+        Copy link
+    </button>
 </div>
 </body>
 </html>

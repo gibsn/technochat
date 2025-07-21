@@ -76,9 +76,14 @@ function initPage() {
 
     $('#text_form').submit(onMessageSubmit);
 
-    $('#generateButton').on('click', function () {
-        $('.message__box').css('display', 'block');
-    });
+    const generateButton = document.getElementById('generate_button');
+    const messageBox = document.getElementById('message_box');
+
+    if (generateButton) {
+        generateButton.addEventListener('click', () => {
+            messageBox.style.display = "block";
+        });
+    }
 
     util.copyButton('copy_button', 'to_copy');
 }
