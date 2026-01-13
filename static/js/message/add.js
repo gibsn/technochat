@@ -74,15 +74,14 @@ async function uploadImages(images, ttl, encrypter) {
         let imageBytes = await images[i].arrayBuffer();
 
         if (encrypter) {
-            // TODO encrypt
+            imageBytes = await encrypter.encryptBytes(imageBytes);
         }
 
         let formData = new FormData();
-        formData.append("image", new Blob([imageBytes], {type: "application/octet-stream"}));
+        formData.append("image", new Blob([imageBytes], { type: "application/octet-stream" }));
         formData.append("ttl", ttl);
 
-        var resp;
-
+        let resp;
         try {
             resp = await $.ajax({
                 type: 'POST',
@@ -92,13 +91,13 @@ async function uploadImages(images, ttl, encrypter) {
                 processData: false
             });
         } catch (errorResp) {
-            if (errorResp.status != 200) {
+            if (errorResp.status !== 200) {
                 console.error("could not upload image: http status is", errorResp.status);
                 continue;
             }
         }
 
-        if (resp.code != 200) {
+        if (resp.code !== 200) {
             console.error("could not upload image: code is", resp.code, "body is", resp.body);
             continue;
         }
@@ -106,12 +105,12 @@ async function uploadImages(images, ttl, encrypter) {
         ids.push(resp.body.id);
     }
 
-    return ids
+    return ids;
 }
 
 function getCurrentTTL() {
     for (const checkmark of document.getElementsByName("ttl")) {
-        if (checkmark.cheked) {
+        if (checkmark.checked) {
             return checkmark.value;
         }
     }
@@ -124,34 +123,30 @@ async function onMessageSubmit(e) {
     $('#copy_button').html('Copy link');
     e.preventDefault();
 
-    // we encrypt the message so that no one
-    // with access to DB server could read it
     let encrypter = new Encrypter(new AESGCM128());
     await encrypter.setup();
 
-    let textForm = document.getElementById('text_form');
-    let encrypted = await encrypter.encryptString(textForm[0].value);
+    const ttl = getCurrentTTL();
 
-    // since we do not want to change the original form
-    // (hereby changing UI), we will edit a copy of the form
-    let textFormCopy = textForm.cloneNode(true);
-    textFormCopy[0].value = ArrayBufferToBase64(encrypted);
+    const text = $('#text').val();
+    const encryptedText = await encrypter.encryptString(text);
 
-    // encrypt, upload and append images to the form
-    let ttl = getCurrentTTL();
-    let imgsIds = uploadImages(document.getElementById(fileInputId).files, ttl, null);
+    const imgsIds = await uploadImages(document.getElementById(fileInputId).files, ttl, encrypter);
 
-    textFormCopy.append("imgs", imgsIds);
+    const formData = new FormData();
+    formData.append("text", ArrayBufferToBase64(encryptedText));
+    formData.append("ttl", ttl);
+
+    formData.append("imgs", imgsIds.join(","));
 
     $.ajax({
         type: 'POST',
-        url: $(this).attr('action'),
-        data: new FormData(textFormCopy),
+        url: $('#text_form').attr('action'),
+        data: formData,
         contentType: false,
         processData: false,
         success: onMessageSubmitSuccess,
         error: onMessageSubmitError,
-        complete: () => { textFormCopy.remove(); },
         key: ArrayBufferToBase64(encrypter.exportKey),
         iv: ArrayBufferToBase64(encrypter.iv),
     });
@@ -164,7 +159,7 @@ function onMessageSubmitSuccess(addResponse) {
     $('#text').val('');
     $('#loading').hide();
 
-    if (addResponse.code == 200) {
+    if (addResponse.code === 200) {
         let link = addResponse.body.link;
         link += '#key=' + encodeURIComponent(this.key);
         link += '&iv=' + encodeURIComponent(this.iv);
@@ -189,8 +184,8 @@ function initPage() {
     $('#result_text').html('');
     $('#result_link').html('');
 
-    document.getElementById(fileInputId).addEventListener("change", previewImages);
-    document.getElementById(textInputId).addEventListener("submit", onMessageSubmit);
+    document.getElementById(fileInputId)?.addEventListener("change", previewImages);
+    document.getElementById(textInputId)?.addEventListener("submit", onMessageSubmit);
 
     const generateButton = document.getElementById('generate_button');
     const messageBox = document.getElementById('message_box');
