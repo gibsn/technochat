@@ -146,6 +146,12 @@ a {
     margin-top: 20px;
 }
 
+.result {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 .result__link {
     word-break: break-word;
 }
@@ -163,6 +169,17 @@ a {
 .result__message {
     margin: 0;
     word-break: break-word;
+}
+
+.result__images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.result__images img {
+    width: 100px;
+    height: auto;
 }
 
 .message__form {
@@ -318,4 +335,51 @@ chat styles
     padding: 10px;
     border-radius: 10px;
     background-color: #ffffff;
+}
+
+/* --- modal --- */
+.img-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 9999;
+}
+
+.img-modal.is-open {
+    display: block;
+}
+
+.img-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+}
+
+.img-modal__content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+}
+
+.img-modal__img {
+    max-width: 100%;
+    max-height: 100%;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.img-modal__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 0;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.55);
+    display: grid;
+    place-items: center;
 }

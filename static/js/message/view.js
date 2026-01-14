@@ -1,5 +1,31 @@
 import {Decrypter, AESGCM128, Base64ToArrayBuffer} from "/js/message/crypto.js";
 
+function setupImageModal() {
+    const modal = document.getElementById('img_modal');
+    const modalImg = document.getElementById('img_modal_img');
+    const closeBtn = document.getElementById('img_modal_close');
+    const backdrop = document.getElementById('img_modal_backdrop');
+
+    function open(url) {
+        modalImg.src = url;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function close() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        modalImg.src = '';
+    }
+
+    closeBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+
+    return { open, close };
+}
+
 async function loadAndDecryptImage(imgId, decrypter) {
     const resp = await fetch('/api/v1/image/view', {
         method: 'POST',
@@ -18,7 +44,7 @@ async function loadAndDecryptImage(imgId, decrypter) {
     return URL.createObjectURL(blob);
 }
 
-async function loadMessage(msgId, key, iv, msgDiv) {
+async function loadMessage(msgId, key, iv, msgDiv, modal) {
     $.get('/api/v1/message/view?id=' + msgId)
         .done(async function (viewResponse) {
             if (viewResponse.code !== 200) {
@@ -48,8 +74,10 @@ async function loadMessage(msgId, key, iv, msgDiv) {
 
                         img.src = url;
                         img.loading = 'lazy';
-                        img.style.maxWidth = '100%';
-                        img.onload = () => URL.revokeObjectURL(url);
+
+                        img.addEventListener('click', () => {
+                            modal.open(url);
+                        });
 
                         imagesDiv.append(img);
                     } catch (e) {
@@ -68,6 +96,8 @@ async function loadMessage(msgId, key, iv, msgDiv) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const modal = setupImageModal();
+
     var queryParams = new URLSearchParams(window.location.search);
     var anchorParams = new URLSearchParams(window.location.hash.slice(1)); // skip '#'
 
@@ -81,5 +111,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    loadMessage(msgId, key, iv, msgDiv);
+    loadMessage(msgId, key, iv, msgDiv, modal).then();
+});
+
+window.addEventListener('beforeunload', () => {
+    document.querySelectorAll('#images img').forEach(img => {
+        if (img.src.startsWith('blob:')) {
+            URL.revokeObjectURL(img.src);
+        }
+    });
 });
