@@ -14,7 +14,7 @@ install: technochat
 	go install ./...
 
 technochat:
-	go build -mod vendor -o bin/technochat technochat
+	go build -buildvcs=false -mod vendor -o bin/technochat technochat
 
 bin/golangci-lint:
 	@echo "building golangci-lint v1.64.5 with $$(go env GOVERSION)"

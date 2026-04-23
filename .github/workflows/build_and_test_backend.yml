@@ -41,7 +41,7 @@ jobs:
       run: chmod +x ./deploy.sh
 
     - name: Run smoke tests
-      run: ./deploy.sh
+      run: ./deploy.sh --dev
 
     - name: Wait for HTTPS server to respond on /
       run: |
@@ -55,6 +55,12 @@ jobs:
         done
         echo "::error ::HTTPS server not responding after deploy"
         exit 1
+
+    - name: Dump container diagnostics on failure
+      if: failure()
+      run: |
+        docker compose -f dist/docker-compose-dev.yml ps
+        docker compose -f dist/docker-compose-dev.yml logs --no-color
 
     - name: Run integration tests
       run: make integration-test
