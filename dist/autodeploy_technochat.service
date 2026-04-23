@@ -1,0 +1,10 @@
+[Unit]
+Description=Auto-deploy technochat from master branch
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/technochat
+ExecStart=/opt/technochat/dist/autodeploy.sh
+EnvironmentFile=/etc/default/autodeploy_technochat

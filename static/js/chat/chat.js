@@ -5,6 +5,12 @@ const EventConnInitOk = 0;
 const EventConnInitNoSuchChat = 1;
 const EventConnInitMaxUsrsReached = 2;
 
+const NewMsgTitle = "New message!";
+
+// window.onfocus = function() {
+//     pageTitleNotification.off();
+// }
+//
 new Vue({
     el: '#app',
 
@@ -16,6 +22,8 @@ new Vue({
         okconnected: true, // True if email and username have been filled in
         fail: false,
         name: '',
+        onPage: false,
+        newMessagesNum: 0,
     },
     created: function() {
         var self = this;
@@ -46,13 +54,20 @@ new Vue({
     },
     methods: {
         addmsg: function(msg){
-            this.chatContent += '<div class="chip" >'
+            // if (document.hidden) {
+            //     pageTitleNotification.on(NewMsgTitle);
+            // }
+            this.chatContent += '<div class="chat-message">'
+                + '<div class="chip" >'
                 + '<img src="' + this.roboHash(msg.username) + '">' // Avatar
                 + msg.username
                 + '</div>'
-                + emojione.toImage(msg.data) + '<br/>'; // Parse emojis
+                + '<div class="chat-message_body">'
+                + emojione.toImage(msg.data) // Parse emojis
+                + '</div>'
+                + '</div>';
             var element = document.getElementById('chat-messages');
-            element.scrollTop = element.scrollHeight-100; // Auto scroll to the bottom
+            element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
         },
         send: function () {
             if (this.newMsg != '') {
