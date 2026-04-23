@@ -18,8 +18,8 @@ technochat:
 	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat technochat
 
 bin/golangci-lint:
-	@echo "getting golangci-lint for $$(uname -m)/$$(uname -s)"
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.45.2
+	@echo "building golangci-lint v1.64.5 with $$(go env GOVERSION)"
+	GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
 
 lint: bin/golangci-lint
 	bin/golangci-lint run -v -c golangci.yml --new-from-rev=$(TARGET_BRANCH)
