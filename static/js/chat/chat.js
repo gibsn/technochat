@@ -57,17 +57,17 @@ new Vue({
             // if (document.hidden) {
             //     pageTitleNotification.on(NewMsgTitle);
             // }
+            var username = msg.username || '';
             this.chatContent += '<div class="chat-message">'
                 + '<div class="chip" >'
-                + '<img src="' + this.roboHash(msg.username) + '">' // Avatar
-                + msg.username
+                + this.avatarMarkup(username)
+                + this.escapeHtml(username)
                 + '</div>'
                 + '<div class="chat-message_body">'
                 + emojione.toImage(msg.data) // Parse emojis
                 + '</div>'
                 + '</div>';
-            var element = document.getElementById('chat-messages');
-            element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
+            this.scrollToBottom();
         },
         send: function () {
             if (this.newMsg != '') {
@@ -81,8 +81,35 @@ new Vue({
                 this.newMsg = ''; // Reset newMsg
             }
         },
+        scrollToBottom: function() {
+            this.$nextTick(function() {
+                var element = document.getElementById('chat-messages');
+                if (!element) {
+                    return;
+                }
+                element.scrollTop = element.scrollHeight;
+            });
+        },
+        avatarMarkup: function(username) {
+            var safeUsername = this.escapeHtml(username);
+            var fallback = this.fallbackAvatar(username);
+            return '<img src="' + this.roboHash(username) + '" alt="' + safeUsername
+                + '" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">';
+        },
         roboHash: function(username) {
-            return 'https://robohash.org/'+username+'.png?size=50x50'
+            return 'https://robohash.org/' + encodeURIComponent(username) + '.png?size=50x50';
+        },
+        fallbackAvatar: function(username) {
+            var letter = ((username || '?').trim().charAt(0) || '?').toUpperCase();
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">'
+                + '<rect width="50" height="50" rx="25" fill="#111111"/>'
+                + '<text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" '
+                + 'font-family="Ubuntu Mono, monospace" font-size="22" fill="#ffffff">' + letter + '</text>'
+                + '</svg>';
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        },
+        escapeHtml: function(value) {
+            return $('<div>').text(value == null ? '' : String(value)).html();
         },
     }
 });

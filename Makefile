@@ -11,10 +11,10 @@ TARGET_BRANCH ?= master
 all: technochat
 
 install: technochat
-	go install ./...
+	go install -buildvcs=false ./...
 
 technochat:
-	go build -mod vendor -o bin/technochat technochat
+	go build -buildvcs=false -mod vendor -o bin/technochat technochat
 
 bin/golangci-lint:
 	@echo "getting golangci-lint for $$(uname -m)/$$(uname -s)"
