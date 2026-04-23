@@ -7,14 +7,15 @@ VET_FILES = $(shell find -L * -name '*.go' -not -path "vendor/*")
 VET_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(VET_FILES)))
 
 TARGET_BRANCH ?= master
+GO_BUILD_FLAGS ?= -buildvcs=false
 
 all: technochat
 
 install: technochat
-	go install ./...
+	go install $(GO_BUILD_FLAGS) ./...
 
 technochat:
-	go build -buildvcs=false -mod vendor -o bin/technochat technochat
+	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat technochat
 
 bin/golangci-lint:
 	@echo "building golangci-lint v1.64.5 with $$(go env GOVERSION)"
