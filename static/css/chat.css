@@ -77,6 +77,9 @@ button {
   gap: 8px;
 }
 
+.chat-message--own {
+  align-items: flex-end;
+}
 .chat-message .chip {
   display: inline-flex;
   align-items: center;
@@ -91,6 +94,10 @@ button {
   line-height: 1.2;
 }
 
+.chat-message--own .chip {
+  flex-direction: row-reverse;
+  text-align: right;
+}
 .chat-message .chip img {
   width: 34px;
   height: 34px;
@@ -112,6 +119,11 @@ button {
   word-break: break-word;
 }
 
+.chat-message--own .chat-message_body {
+  border-radius: 22px 22px 8px 22px;
+  background: #111111;
+  color: #ffffff;
+}
 .chat-message_body .emojione {
   width: 1.2em;
   height: 1.2em;

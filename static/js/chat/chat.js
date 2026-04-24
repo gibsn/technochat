@@ -27,15 +27,20 @@ new Vue({
     },
     created: function() {
         var self = this;
-        var id = getParameterByName('id', window.location) 
-        this.ws = new WebSocket('wss://' + window.location.host + '/api/v1/chat/connect?id='+id);
+        var id = getParameterByName('id', window.location)
+        var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        this.ws = new WebSocket(wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + id);
+        this.ws.addEventListener('open', function() {
+            console.log('chat websocket opened for chat', id);
+        });
         this.ws.addEventListener('message', function(e) {
             var msg = JSON.parse(e.data);
             console.log(msg);
             switch (msg.type){
                 case WSMsgTypeService:
                     if (msg.data.event_id == EventConnInitOk ){
-                        self.name = msg.event_data;
+                        self.name = msg.data.event_data;
+                        self.username = msg.data.event_data;
                     }
                     if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
                         self.okconnected = false;
@@ -48,7 +53,15 @@ new Vue({
                     alert("unknown response type:"+msg.type);
             }
         });
-        this.ws.addEventListener('close', function() {
+        this.ws.addEventListener('error', function(e) {
+            console.log('chat websocket error', e);
+        });
+        this.ws.addEventListener('close', function(e) {
+            console.log('chat websocket closed', {
+                code: e.code,
+                reason: e.reason,
+                wasClean: e.wasClean,
+            });
             self.okconnected = false;
         });
     },
@@ -58,7 +71,9 @@ new Vue({
             //     pageTitleNotification.on(NewMsgTitle);
             // }
             var username = msg.username || '';
-            this.chatContent += '<div class="chat-message">'
+            var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
+            this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
+ 
                 + '<div class="chip" >'
                 + this.avatarMarkup(username)
                 + this.escapeHtml(username)
@@ -110,6 +125,9 @@ new Vue({
         },
         escapeHtml: function(value) {
             return $('<div>').text(value == null ? '' : String(value)).html();
+        },
+        isOwnMessage: function(username) {
+            return Boolean(this.name) && username === this.name;
         },
     }
 });

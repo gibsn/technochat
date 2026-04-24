@@ -3,6 +3,8 @@ package user
 import (
 	"log"
 
+	"github.com/gorilla/websocket"
+
 	"technochat/chat/message"
 )
 
@@ -18,9 +20,15 @@ func (u *User) doReadsFromWS(q chan *message.WSMessage) {
 	for {
 		var msg message.WSMessage
 		if err := u.ws.ReadJSON(&msg); err != nil {
-			log.Printf("error: chat: could not read message from user [%d %s]: %v",
-				u.ID, u.Name, err,
-			)
+			if closeErr, ok := err.(*websocket.CloseError); ok {
+				log.Printf("info: chat: websocket closed for user [%d %s]: code=%d text=%q",
+					u.ID, u.Name, closeErr.Code, closeErr.Text,
+				)
+			} else {
+				log.Printf("error: chat: could not read message from user [%d %s]: %v",
+					u.ID, u.Name, err,
+				)
+			}
 
 			close(q)
 
