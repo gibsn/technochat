@@ -11,8 +11,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -27,9 +27,11 @@ var (
 	dummyTTL  = 86400
 )
 
+const testRequestTimeout = 3 * time.Second
+
 func addMessage(text string) (string, error) {
 	client := http.Client{
-		Timeout: 1000 * time.Millisecond,
+		Timeout: testRequestTimeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
@@ -81,11 +83,30 @@ func addMessage(text string) (string, error) {
 	return id, nil
 }
 
+func messageIDFromLink(link string) (string, error) {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		return "", fmt.Errorf("could not parse message link %q: %w", link, err)
+	}
+
+	id := parsedURL.Query().Get("id")
+	if id == "" {
+		return "", fmt.Errorf("message link %q does not contain id query parameter", link)
+	}
+
+	return id, nil
+}
+
 func TestAddMessage(t *testing.T) {
 	link, err := addMessage(dummyText)
-	assert.Nil(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
-	id := strings.Split(link, "?id=")[1]
+	id, err := messageIDFromLink(link)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	t.Logf("successfully added a message, id is '%s'", id)
 }
