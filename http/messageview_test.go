@@ -10,9 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
-	"time"
 
 	"technochat/entity"
 
@@ -21,15 +19,15 @@ import (
 
 func messageView(id string) (entity.Message, error) {
 	client := http.Client{
-		Timeout: 1000 * time.Millisecond,
+		Timeout: testRequestTimeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 
 	url := url.URL{
-		Scheme: strings.Split(testAPIAddr, "://")[0],
-		Host:   strings.Split(testAPIAddr, "://")[1],
+		Scheme: "https",
+		Host:   "127.0.0.1",
 		Path:   messageViewPath,
 	}
 
@@ -89,14 +87,21 @@ func messageView(id string) (entity.Message, error) {
 
 func TestMessageViewAfterAdd(t *testing.T) {
 	link, err := addMessage(dummyText)
-	assert.Nil(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
-	id := strings.Split(link, "?id=")[1]
+	id, err := messageIDFromLink(link)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	t.Logf("successfully added a message, id is '%s'", id)
 
 	msg, err := messageView(id)
-	assert.Nil(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	assert.Equal(t, msg.Text, dummyText)
 	assert.Equal(t, msg.Images.Encode(), dummyImgs)
 
@@ -105,14 +110,21 @@ func TestMessageViewAfterAdd(t *testing.T) {
 
 func TestMessageViewAfterView(t *testing.T) {
 	link, err := addMessage(dummyText)
-	assert.Nil(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
-	id := strings.Split(link, "?id=")[1]
+	id, err := messageIDFromLink(link)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	t.Logf("successfully added a message, id is '%s'", id)
 
 	msg, err := messageView(id)
-	assert.Nil(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	assert.Equal(t, msg.Text, dummyText)
 	assert.Equal(t, msg.Images.Encode(), dummyImgs)
 

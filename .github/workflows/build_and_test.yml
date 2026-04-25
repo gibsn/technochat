@@ -1,4 +1,4 @@
-name: "Build backend, run linters, unit and integration tests"
+name: "Build, lint and run all tests"
 
 on:
   push:
@@ -34,8 +34,21 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Run unit tests
-      run: make test
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: ui-tests/package-lock.json
+
+    - name: Install UI test dependencies
+      run: npm --prefix ui-tests ci
+
+    - name: Install Playwright system dependencies
+      run: sudo npx --prefix ui-tests playwright install-deps chromium webkit
+
+    - name: Install Playwright browsers
+      run: npm --prefix ui-tests exec playwright install chromium webkit
 
     - name: Make deploy.sh executable
       run: chmod +x ./deploy.sh
@@ -62,5 +75,11 @@ jobs:
         docker compose -f dist/docker-compose-dev.yml ps
         docker compose -f dist/docker-compose-dev.yml logs --no-color
 
-    - name: Run integration tests
-      run: make integration-test
+    - name: Run all tests
+      run: make test
+
+    - name: Dump container diagnostics on failure
+      if: failure()
+      run: |
+        docker compose -f dist/docker-compose-dev.yml ps
+        docker compose -f dist/docker-compose-dev.yml logs --no-color
