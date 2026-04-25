@@ -11,7 +11,7 @@ GO_BUILD_FLAGS ?= -buildvcs=false
 
 all: technochat
 
-install: technochat
+install: lint test ui-tests technochat
 	go install $(GO_BUILD_FLAGS) ./...
 
 technochat:
@@ -27,7 +27,7 @@ lint: bin/golangci-lint
 test:
 	go test -v $(TEST_PACKAGES)
 
-ui-test:
+ui-tests:
 	npm --prefix ui-tests run ui-test
 
 integration-test:
@@ -50,4 +50,4 @@ clean:
 	rm -rf bin/
 
 
-.PHONY: all clean test ui-test install vet technochat lint install_autodeploy
+.PHONY: all clean test ui-tests install vet technochat lint install_autodeploy

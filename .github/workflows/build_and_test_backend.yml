@@ -79,7 +79,7 @@ jobs:
       run: make integration-test
 
     - name: Run UI tests
-      run: make ui-test
+      run: make ui-tests
 
     - name: Dump container diagnostics on failure
       if: failure()

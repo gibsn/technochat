@@ -20,14 +20,9 @@ chmod +x ./deploy.sh
 ./deploy.sh --dev
 ```
 
-Wait until the app responds on HTTPS:
-```bash
-curl -kfs https://localhost/
-```
-
 Run UI regressions:
 ```bash
-make ui-test
+make ui-tests
 ```
 
 ## Set up automatic deploy
