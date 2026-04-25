@@ -20,3 +20,7 @@
 
 *.crt
 *.key
+
+node_modules/
+.npm-cache/
+test-results/

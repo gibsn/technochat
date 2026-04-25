@@ -1,0 +1,10 @@
+{
+  "name": "technochat-ui-tests",
+  "private": true,
+  "scripts": {
+    "ui-test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

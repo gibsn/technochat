@@ -64,3 +64,48 @@ jobs:
 
     - name: Run integration tests
       run: make integration-test
+
+  ui-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+
+    - name: Install UI test dependencies
+      run: npm ci
+
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps chromium webkit
+
+    - name: Make deploy.sh executable
+      run: chmod +x ./deploy.sh
+
+    - name: Run smoke tests
+      run: ./deploy.sh --dev
+
+    - name: Wait for HTTPS server to respond on /
+      run: |
+        for i in {1..10}; do
+          if curl -kfs https://localhost/; then
+            echo "HTTPS server is up"
+            exit 0
+          fi
+          echo "Waiting for HTTPS server..."
+          sleep 3
+        done
+        echo "::error ::HTTPS server not responding after deploy"
+        exit 1
+
+    - name: Run UI tests
+      run: make ui-test
+
+    - name: Dump container diagnostics on failure
+      if: failure()
+      run: |
+        docker compose -f dist/docker-compose-dev.yml ps
+        docker compose -f dist/docker-compose-dev.yml logs --no-color

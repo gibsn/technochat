@@ -27,6 +27,9 @@ lint: bin/golangci-lint
 test:
 	go test -v $(TEST_PACKAGES)
 
+ui-test:
+	npx playwright test
+
 integration-test:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
 	go test	-count=1 -timeout=10s -tags='integration_tests' ./...
@@ -47,4 +50,4 @@ clean:
 	rm -rf bin/
 
 
-.PHONY: all clean test install vet technochat lint install_autodeploy
+.PHONY: all clean test ui-test install vet technochat lint install_autodeploy
