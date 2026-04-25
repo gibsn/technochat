@@ -1,8 +1,7 @@
 # Technochat
 
 Technochat is a small self-hosted service for temporary communication:
-- one-time text messages with optional images;
-- image uploads with TTL;
+- one-time text messages with optional images and TTL;
 - temporary browser chats over WebSocket.
 
 The backend is written in Go, stores data in Redis, and is typically run behind Nginx with Docker Compose.
@@ -45,18 +44,6 @@ What this command does:
 After startup, open [https://127.0.0.1](https://127.0.0.1) in the browser.
 
 To stop or restart the environment manually, use Docker Compose with `dist/docker-compose-dev.yml`.
-
-### Running only the Go application
-
-If Redis is already available, the application can be started directly:
-
-```bash
-go run -mod vendor . -l :8080 -d redis:6379
-```
-
-Flags:
-- `-l` sets the HTTP listen address, default is `:8080`;
-- `-d` sets the Redis address, default is `redis:6379`.
 
 ## How to test
 
