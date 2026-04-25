@@ -44,8 +44,11 @@ jobs:
     - name: Install UI test dependencies
       run: npm --prefix ui-tests ci
 
+    - name: Install Playwright system dependencies
+      run: sudo npx --prefix ui-tests playwright install-deps chromium webkit
+
     - name: Install Playwright browsers
-      run: npm --prefix ui-tests exec playwright install --with-deps chromium webkit
+      run: npm --prefix ui-tests exec playwright install chromium webkit
 
     - name: Make deploy.sh executable
       run: chmod +x ./deploy.sh
