@@ -15,7 +15,8 @@ async function loadMessage(msgId, key, iv, msgDiv) {
                 await decrypter.setup(Base64ToArrayBuffer(key), Base64ToArrayBuffer(iv));
 
                 let decryptedMsg = await decrypter.decryptToString(encryptedMsg);
-                msgDiv.html(decryptedMsg.replace(/(?:\r\n|\r|\n)/g, '<br>'))
+                msgDiv.text(decryptedMsg)
+                msgDiv.css('white-space', 'pre-wrap')
             } catch (error) {
                 console.error(error);
                 msgDiv.html('Could not decrypt message, the link was possibly corrupted');
