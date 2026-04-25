@@ -1,5 +1,35 @@
 # Technochat
 
+## Run UI tests locally
+UI tests use Playwright and the local dev stack from `deploy.sh --dev`.
+
+Dependencies:
+- Go 1.18+
+- Node.js 22+ and npm
+- Docker with Docker Compose
+
+Install UI test dependencies:
+```bash
+npm --prefix ui-tests ci
+npm --prefix ui-tests exec playwright install chromium webkit
+```
+
+Run the local dev stack:
+```bash
+chmod +x ./deploy.sh
+./deploy.sh --dev
+```
+
+Wait until the app responds on HTTPS:
+```bash
+curl -kfs https://localhost/
+```
+
+Run UI regressions:
+```bash
+make ui-test
+```
+
 ## Set up automatic deploy
 Define GITHUB_TOKEN, TG_BOT_TOKEN and TG_CHAT_ID in /etc/default/autodeploy_technochat:
 ```
