@@ -1,6 +1,7 @@
 # Technochat
 
-## Run UI tests locally
+## Run tests locally
+Recommended: use `make test` to run the full test suite.
 UI tests use Playwright and the local dev stack from `deploy.sh --dev`.
 
 Dependencies:
@@ -20,7 +21,19 @@ chmod +x ./deploy.sh
 ./deploy.sh --dev
 ```
 
-Run UI regressions:
+Run the full test suite after the dev stack is up:
+```bash
+make test
+```
+
+Use targeted commands only when you need a narrower check.
+
+Run only Go unit tests:
+```bash
+make go-tests
+```
+
+Run only UI regressions:
 ```bash
 make ui-tests
 ```

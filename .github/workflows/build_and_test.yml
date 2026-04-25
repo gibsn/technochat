@@ -1,4 +1,4 @@
-name: "Build backend, run linters, unit and integration tests"
+name: "Build, lint and run all tests"
 
 on:
   push:
@@ -41,9 +41,6 @@ jobs:
         cache: npm
         cache-dependency-path: ui-tests/package-lock.json
 
-    - name: Run unit tests
-      run: make test
-
     - name: Install UI test dependencies
       run: npm --prefix ui-tests ci
 
@@ -75,11 +72,8 @@ jobs:
         docker compose -f dist/docker-compose-dev.yml ps
         docker compose -f dist/docker-compose-dev.yml logs --no-color
 
-    - name: Run integration tests
-      run: make integration-test
-
-    - name: Run UI tests
-      run: make ui-tests
+    - name: Run all tests
+      run: make test
 
     - name: Dump container diagnostics on failure
       if: failure()

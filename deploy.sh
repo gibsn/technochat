@@ -28,8 +28,6 @@ if [ ! -f certs/server.key ] || [ ! -f certs/server.crt ]; then
         -keyout certs/server.key -out certs/server.crt || exit
 fi
 
-make install || exit
-
 $DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG build  || exit
 $DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG down   || exit
 $DOCKER_COMPOSE -f $DOCKER_COMPOSE_CFG up -d  || exit
