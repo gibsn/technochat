@@ -2,7 +2,7 @@
   "name": "technochat-ui-tests",
   "private": true,
   "scripts": {
-    "ui-test": "playwright test"
+    "ui-test": "playwright test -c playwright.config.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

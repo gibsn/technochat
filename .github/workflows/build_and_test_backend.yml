@@ -75,12 +75,13 @@ jobs:
       with:
         node-version: 22
         cache: npm
+        cache-dependency-path: ui-tests/package-lock.json
 
     - name: Install UI test dependencies
-      run: npm ci
+      run: npm --prefix ui-tests ci
 
     - name: Install Playwright browsers
-      run: npx playwright install --with-deps chromium webkit
+      run: npm --prefix ui-tests exec playwright install --with-deps chromium webkit
 
     - name: Make deploy.sh executable
       run: chmod +x ./deploy.sh

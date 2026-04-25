@@ -28,7 +28,7 @@ test:
 	go test -v $(TEST_PACKAGES)
 
 ui-test:
-	npx playwright test
+	npm --prefix ui-tests run ui-test
 
 integration-test:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...

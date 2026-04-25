@@ -21,6 +21,6 @@
 *.crt
 *.key
 
-node_modules/
-.npm-cache/
-test-results/
+ui-tests/node_modules/
+ui-tests/.npm-cache/
+ui-tests/test-results/
