@@ -18,9 +18,16 @@ func (r *Redis) AddImage(img entity.Image) error {
 	if err := r.pool.Cmd(
 		"HMSET", key,
 		imgBodyKey, img.Body,
-		"EX", img.TTL,
 	).Err; err != nil {
 		return fmt.Errorf("could not add image: %w", err)
+	}
+
+	if err := r.pool.Cmd("EXPIRE", key, img.TTL).Err; err != nil {
+		if delErr := r.pool.Cmd("DEL", key).Err; delErr != nil {
+			return fmt.Errorf("could not set TTL for image and cleanup failed: %w", delErr)
+		}
+
+		return fmt.Errorf("could not set TTL for image: %w", err)
 	}
 
 	return nil

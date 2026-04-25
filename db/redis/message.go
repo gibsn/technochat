@@ -19,9 +19,16 @@ func (r *Redis) AddMessage(message entity.Message) error {
 		"HMSET", key,
 		msgTextKey, message.Text,
 		msgImagesKey, message.Images.Encode(),
-		"EX", message.TTL,
 	).Err; err != nil {
 		return fmt.Errorf("could not add message: %w", err)
+	}
+
+	if err := r.pool.Cmd("EXPIRE", key, message.TTL).Err; err != nil {
+		if delErr := r.pool.Cmd("DEL", key).Err; delErr != nil {
+			return fmt.Errorf("could not set TTL for message and cleanup failed: %w", delErr)
+		}
+
+		return fmt.Errorf("could not set TTL for message: %w", err)
 	}
 
 	return nil
