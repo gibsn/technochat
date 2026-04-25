@@ -1,55 +1,103 @@
 # Technochat
 
-## Run tests locally
-Recommended: use `make test` to run the full test suite.
-UI tests use Playwright and the local dev stack from `deploy.sh --dev`.
+Technochat is a small self-hosted service for temporary communication:
+- one-time text messages with optional images and TTL;
+- temporary browser chats over WebSocket.
 
-Dependencies:
-- Go 1.18+
-- Node.js 22+ and npm
+The backend is written in Go, stores data in Redis, and is typically run behind Nginx with Docker Compose.
+
+## What the application does
+
+The project exposes HTTP API endpoints and static pages for three main scenarios:
+- create a message with text, optional images, and a TTL;
+- open a message by link and delete it after reading;
+- create a temporary chat room with a limited number of participants.
+
+Default local service ports in the dev stack:
+- `80` and `443` for Nginx;
+- internal `8080` for the Go application;
+- internal `6379` for Redis.
+
+## How to run locally
+
+### Requirements
+
+- Go `1.18+`
+- Node.js `22+` and `npm`
 - Docker with Docker Compose
+- `openssl` for generating local self-signed certificates
 
-Install UI test dependencies:
-```bash
-npm --prefix ui-tests ci
-npm --prefix ui-tests exec playwright install chromium webkit
-```
+### Developer mode with Docker Compose
 
-Run the local dev stack:
+The simplest way to run the project locally is the bundled dev stack:
+
 ```bash
 chmod +x ./deploy.sh
 ./deploy.sh --dev
 ```
 
-Run the full test suite after the dev stack is up:
+What this command does:
+- generates local certificates in `certs/` if they do not exist yet;
+- builds containers from `dist/docker-compose-dev.yml`;
+- starts Redis, the Go application, and Nginx.
+
+After startup, open [https://127.0.0.1](https://127.0.0.1) in the browser.
+
+To stop or restart the environment manually, use Docker Compose with `dist/docker-compose-dev.yml`.
+
+## How to test
+
+If `Makefile` is available, the main entry points are:
+- `make lint` for static analysis;
+- `make test` for the full test suite.
+
+### Full test run
+
+UI tests depend on the local dev stack, so first install browser dependencies and start the application:
+
 ```bash
+npm --prefix ui-tests ci
+npm --prefix ui-tests exec playwright install chromium webkit
+./deploy.sh --dev
 make test
 ```
 
-Use targeted commands only when you need a narrower check.
+`make test` runs:
+- `make go-tests` for Go unit tests;
+- `make integration-tests` for integration tests;
+- `make ui-tests` for Playwright UI checks.
 
-Run only Go unit tests:
+### Targeted test commands
+
+Use these when a narrower check is enough:
+
 ```bash
 make go-tests
-```
-
-Run only UI regressions:
-```bash
+make integration-tests
 make ui-tests
 ```
 
-## Set up automatic deploy
-Define GITHUB_TOKEN, TG_BOT_TOKEN and TG_CHAT_ID in /etc/default/autodeploy_technochat:
-```
+## Automatic deploy
+
+For automatic deploy, define `GITHUB_TOKEN`, `TG_BOT_TOKEN`, and `TG_CHAT_ID` in `/etc/default/autodeploy_technochat`:
+
+```bash
 GITHUB_TOKEN=github_pat...
 TG_BOT_TOKEN=123456:ABCDEF...
 TG_CHAT_ID=-1001234567890
 ```
 
-Call `make install_autodeploy`
+Then run:
 
-## Set up letsencrypt certs
+```bash
+make install_autodeploy
 ```
+
+## Let's Encrypt certificates
+
+For production certificates:
+
+```bash
 mkdir /srv/letsencrypt
 sudo certbot certonly \
   --webroot -w /srv/letsencrypt \
