@@ -1,0 +1,24 @@
+services:
+    redis:
+        container_name: redis
+
+    technochat:
+        container_name: technochat
+
+    nginx:
+        container_name: nginx
+        volumes:
+            - /etc/letsencrypt:/etc/letsencrypt:ro
+            - /srv/letsencrypt:/var/www/letsencrypt
+
+secrets:
+    nginx.conf:
+        file: nginx.conf
+    nginx.http.conf:
+        file: nginx_http_prod.conf
+    nginx.tls.conf:
+        file: nginx_tls_prod.conf
+    nginx.static-cache.conf:
+        file: nginx_static_cache_prod.conf
+    nginx.pwa-cache.conf:
+        file: nginx_pwa_cache_prod.conf

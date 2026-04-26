@@ -38,12 +38,25 @@ chmod +x ./deploy.sh
 
 What this command does:
 - generates local certificates in `certs/` if they do not exist yet;
-- builds containers from `dist/docker-compose-dev.yml`;
+- builds containers from `dist/docker-compose.yml` and `dist/docker-compose-dev.yml`;
 - starts Redis, the Go application, and Nginx.
 
 After startup, open [https://127.0.0.1](https://127.0.0.1) in the browser.
 
-To stop or restart the environment manually, use Docker Compose with `dist/docker-compose-dev.yml`.
+For the RC environment, use the RC mode. It expects a valid Let's Encrypt certificate
+for `rc.technochat.org`:
+
+```bash
+./deploy.sh --rc
+```
+
+To stop or restart the environment manually, use Docker Compose with the base
+file and the environment override:
+
+```bash
+docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml down
+docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml up -d
+```
 
 ## How to test
 
@@ -95,12 +108,61 @@ make install_autodeploy
 
 ## Let's Encrypt certificates
 
+Production and RC deployments use Let's Encrypt certificates mounted into the
+Nginx container. The certificate challenge must be issued with the `webroot`
+authenticator because ports `80` and `443` are already served by the application
+Nginx container.
+
+Create the shared challenge directory first:
+
+```bash
+mkdir -p /srv/letsencrypt
+```
+
 For production certificates:
 
 ```bash
-mkdir /srv/letsencrypt
 sudo certbot certonly \
   --webroot -w /srv/letsencrypt \
   -d technochat.org -d www.technochat.org \
   --deploy-hook "docker exec nginx nginx -s reload"
+```
+
+For RC certificates:
+
+```bash
+sudo certbot certonly \
+  --webroot -w /srv/letsencrypt \
+  -d rc.technochat.org \
+  --cert-name rc.technochat.org \
+  --deploy-hook "docker exec nginx nginx -s reload"
+```
+
+The Docker Compose configs mount `/srv/letsencrypt` into the Nginx container as
+`/var/www/letsencrypt`, and the Nginx configs serve
+`/.well-known/acme-challenge/` from that directory.
+
+Check automatic renewal:
+
+```bash
+systemctl status certbot.timer
+certbot renew --dry-run
+```
+
+The renewal config should use `webroot`, not the `nginx` authenticator:
+
+```bash
+grep -E "authenticator|webroot|installer" /etc/letsencrypt/renewal/rc.technochat.org.conf
+```
+
+If the deploy hook is missing, add one so the container reloads certificates
+after successful renewal:
+
+```bash
+cat >/etc/letsencrypt/renewal-hooks/deploy/reload-technochat-nginx.sh <<'EOF'
+#!/bin/sh
+docker exec nginx nginx -s reload
+EOF
+
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-technochat-nginx.sh
 ```
