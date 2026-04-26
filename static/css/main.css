@@ -1,5 +1,23 @@
-@import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
-@import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
+@font-face {
+    font-family: 'Press Start 2P';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/css/fonts/press-start-2p-v16.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Ubuntu Mono';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/css/fonts/ubuntu-mono-v19-regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Ubuntu Mono';
+    font-style: normal;
+    font-weight: 700;
+    src: url('/css/fonts/ubuntu-mono-v19-bold.ttf') format('truetype');
+}
 
 body {
     font-family: 'Ubuntu Mono', monospace;
@@ -276,6 +294,13 @@ chat styles
     flex-direction: column;
     align-items: center;
     margin-bottom: 20px;
+}
+
+.chat-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
 }
 
 .result__link--chat a {

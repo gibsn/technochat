@@ -358,6 +358,7 @@ function onMessageSubmitSuccess(addResponse) {
         link += '#key=' + encodeURIComponent(this.key);
         link += '&iv=' + encodeURIComponent(this.iv);
 
+        $('#text').val('');
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
         $('#result_link').html("error: " + addResponse.body);

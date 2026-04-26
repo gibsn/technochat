@@ -15,8 +15,11 @@
 .idea
 
 /bin
-/pkg
 /vendor/pkg
 
 *.crt
 *.key
+
+ui-tests/node_modules/
+ui-tests/.npm-cache/
+ui-tests/test-results/
