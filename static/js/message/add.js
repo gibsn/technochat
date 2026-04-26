@@ -193,6 +193,11 @@ function createDeleteButton(imgIndex) {
             URL.revokeObjectURL(removedImages[0].previewUrl);
         }
 
+        const fileInput = document.getElementById(fileInputId);
+        if (fileInput) {
+            fileInput.value = '';
+        }
+
         renderImagesPreview();
     });
 

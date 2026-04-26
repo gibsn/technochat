@@ -1,5 +1,10 @@
 const { test, expect } = require("@playwright/test");
 
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64"
+);
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
@@ -136,4 +141,142 @@ test("@unit renders API validation errors without clearing the original text", a
     "error: maximum text length of 2048 is allowed"
   );
   await expect(page.locator("#text")).toHaveValue("please keep this draft");
+});
+
+test("@unit uploads multiple queued images and attaches all returned ids to the message", async ({
+  page,
+}) => {
+  const imageIds = [
+    "6a938b32-e701-4807-b099-ddfbd19ecd22",
+    "46f46909-4871-4a98-b3a7-be605032efe5",
+  ];
+  let imageUploadCount = 0;
+
+  await page.route("**/api/v1/image/add", async (route) => {
+    const id = imageIds[imageUploadCount];
+    imageUploadCount++;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: { id },
+      }),
+    });
+  });
+
+  await page.route("**/api/v1/message/add", async (route) => {
+    const body = route.request().postData();
+    expect(body).toContain(imageIds.join(","));
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: {
+          link: "https://127.0.0.1/html/messageview.html?id=unit-message",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/html/messageadd.html");
+  await page.setInputFiles("#file-input", [
+    {
+      name: "first.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    },
+    {
+      name: "second.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    },
+  ]);
+
+  await expect(page.locator("#preview .upload__img")).toHaveCount(2);
+
+  await page.locator("#text").fill("secret with images");
+  await page.locator("#generate_button").click();
+
+  await expect(page.locator("#to_copy")).toHaveValue(/unit-message#key=/);
+  expect(imageUploadCount).toBe(2);
+});
+
+test("@unit removes an image from the upload queue before submit", async ({
+  page,
+}) => {
+  let imageUploadCount = 0;
+
+  await page.route("**/api/v1/image/add", async (route) => {
+    imageUploadCount++;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: { id: "6a938b32-e701-4807-b099-ddfbd19ecd22" },
+      }),
+    });
+  });
+
+  await page.route("**/api/v1/message/add", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: {
+          link: "https://127.0.0.1/html/messageview.html?id=unit-message",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/html/messageadd.html");
+  await page.setInputFiles("#file-input", [
+    {
+      name: "keep.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    },
+    {
+      name: "remove.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    },
+  ]);
+
+  await expect(page.locator("#preview .upload__img")).toHaveCount(2);
+
+  await page.locator("#preview .upload__delete").nth(1).click();
+  await expect(page.locator("#preview .upload__img")).toHaveCount(1);
+
+  await page.locator("#text").fill("secret with one image");
+  await page.locator("#generate_button").click();
+
+  await expect(page.locator("#to_copy")).toHaveValue(/unit-message#key=/);
+  expect(imageUploadCount).toBe(1);
+});
+
+test("@unit allows selecting the same image again after removing it from the queue", async ({
+  page,
+}) => {
+  await page.goto("/html/messageadd.html");
+
+  await page.setInputFiles("#file-input", {
+    name: "same-image.png",
+    mimeType: "image/png",
+    buffer: tinyPng,
+  });
+  await expect(page.locator("#preview .upload__img")).toHaveCount(1);
+
+  await page.locator("#preview .upload__delete").click();
+  await expect(page.locator("#preview .upload__img")).toHaveCount(0);
+
+  await page.setInputFiles("#file-input", {
+    name: "same-image.png",
+    mimeType: "image/png",
+    buffer: tinyPng,
+  });
+  await expect(page.locator("#preview .upload__img")).toHaveCount(1);
 });
