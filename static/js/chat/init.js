@@ -5,6 +5,7 @@ let joinButtonView;
 
 function onSubmit(e) {
     $("#loading").show();
+    util.resetCopyButton('copy_button');
     e.preventDefault();
 
     var fd = new FormData($("form")[0]);

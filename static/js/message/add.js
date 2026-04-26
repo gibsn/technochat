@@ -328,7 +328,7 @@ function getCurrentTTL() {
 
 async function onMessageSubmit(e) {
     $('#loading').show();
-    $('#copy_button').html('Copy link');
+    util.resetCopyButton('copy_button');
     e.preventDefault();
 
     if (isPreparingImages) {

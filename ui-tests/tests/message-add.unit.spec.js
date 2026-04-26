@@ -78,6 +78,42 @@ test("@unit renders the generated link and copies it from a mocked API response"
   await expect(page.locator("#copy_button")).toHaveText("Copied!");
 });
 
+test("@unit resets the copy button when a new message link is generated", async ({
+  page,
+}) => {
+  let responseIndex = 0;
+  const messageIDs = ["first-message", "second-message"];
+
+  await page.route("**/api/v1/message/add", async (route) => {
+    const messageID = messageIDs[responseIndex];
+    responseIndex += 1;
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: {
+          link: `https://127.0.0.1/html/messageview.html?id=${messageID}`,
+        },
+      }),
+    });
+  });
+
+  await page.goto("/html/messageadd.html");
+  await page.locator("#text").fill("first message");
+  await page.locator("#generate_button").click();
+
+  await expect(page.locator("#to_copy")).toHaveValue(/first-message#key=/);
+  await page.locator("#copy_button").click();
+  await expect(page.locator("#copy_button")).toHaveText("Copied!");
+
+  await page.locator("#text").fill("second message");
+  await page.locator("#generate_button").click();
+
+  await expect(page.locator("#to_copy")).toHaveValue(/second-message#key=/);
+  await expect(page.locator("#copy_button")).toHaveText("Copy link");
+});
+
 test("@unit renders API validation errors without clearing the original text", async ({
   page,
 }) => {

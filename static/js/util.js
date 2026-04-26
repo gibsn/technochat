@@ -30,6 +30,16 @@ export function copyButton(button, input) {
     });
 }
 
+export function resetCopyButton(button, text = 'Copy link') {
+    const copyButton = document.getElementById(button);
+
+    if (!copyButton) {
+        return;
+    }
+
+    copyButton.textContent = text;
+}
+
 export function scrollToCopyButton() {
     $('html, body').animate({
         scrollTop: $('#copy_button').offset().top
