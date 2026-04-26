@@ -1,6 +1,7 @@
 import * as util from "/js/util.js";
 
 let copyButtonView;
+let joinButtonView;
 
 function onSubmit(e) {
     $("#loading").show();
@@ -29,11 +30,14 @@ function onSubmitSuccess(json) {
     $("#link_box").show();
 
     copyButtonView.style.display = "inline-flex";
+    joinButtonView.style.display = "none";
 
     if (json.code == 200) {
         var id = json.body.id;
-        var link = 'https://' + window.location.host + '/html/joinchat.html?id=' + id
+        var link = window.location.origin + '/html/joinchat.html?id=' + id
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
+        joinButtonView.href = link;
+        joinButtonView.style.display = "inline-flex";
     } else {
         $("#result_link").html("error: " + json.body);
     }
@@ -48,6 +52,7 @@ function onSubmitError() {
     $("#link_box").show();
 
     copyButtonView.style.display = "inline-flex";
+    joinButtonView.style.display = "none";
 
     util.scrollToCopyButton();
 }
@@ -63,6 +68,8 @@ function initPage() {
     copyButtonView = document.getElementById("copy_button");
     copyButtonView.style.display = "none";
 
+    joinButtonView = document.getElementById("join_button");
+    joinButtonView.style.display = "none";
 
     $("form").submit(onSubmit);
 }

@@ -8,6 +8,7 @@ VET_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(VET_FILES)))
 
 TARGET_BRANCH ?= master
 GO_BUILD_FLAGS ?= -buildvcs=false
+UI_TEST_DEPS = ui-tests/node_modules/.package-lock.json
 
 all: technochat
 
@@ -27,10 +28,13 @@ lint: bin/golangci-lint
 go-tests:
 	go test -v $(TEST_PACKAGES)
 
-ui-unit-tests:
+$(UI_TEST_DEPS): ui-tests/package-lock.json ui-tests/package.json
+	npm --prefix ui-tests ci
+
+ui-unit-tests: $(UI_TEST_DEPS)
 	npm --prefix ui-tests run ui-unit-test
 
-ui-e2e-tests:
+ui-e2e-tests: $(UI_TEST_DEPS)
 	npm --prefix ui-tests run ui-e2e-test
 
 ui-tests: ui-unit-tests ui-e2e-tests
@@ -55,6 +59,7 @@ vet:
 
 clean:
 	rm -rf bin/
+	rm -rf ui-tests/node_modules
 
 
 .PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat lint install_autodeploy
