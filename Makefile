@@ -27,8 +27,13 @@ lint: bin/golangci-lint
 go-tests:
 	go test -v $(TEST_PACKAGES)
 
-ui-tests:
-	npm --prefix ui-tests run ui-test
+ui-unit-tests:
+	npm --prefix ui-tests run ui-unit-test
+
+ui-e2e-tests:
+	npm --prefix ui-tests run ui-e2e-test
+
+ui-tests: ui-unit-tests ui-e2e-tests
 
 integration-tests:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
@@ -52,4 +57,4 @@ clean:
 	rm -rf bin/
 
 
-.PHONY: all clean test go-tests ui-tests integration-tests install vet technochat lint install_autodeploy
+.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat lint install_autodeploy

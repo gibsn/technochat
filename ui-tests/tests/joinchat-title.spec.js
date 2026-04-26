@@ -63,7 +63,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(installJoinChatMocks);
 });
 
-test("keeps the unread title until the tab receives focus", async ({
+test("@unit keeps the unread title until the tab receives focus", async ({
   page,
 }) => {
   await page.goto("/html/joinchat.html?id=chat-id");
@@ -102,7 +102,7 @@ test("keeps the unread title until the tab receives focus", async ({
   );
 });
 
-test("does not blink the page title when the chat page is visible", async ({
+test("@unit does not blink the page title when the chat page is visible", async ({
   page,
 }) => {
   await page.goto("/html/joinchat.html?id=chat-id");
@@ -126,7 +126,7 @@ test("does not blink the page title when the chat page is visible", async ({
   await expect(page.locator("#chat-messages")).toContainText("visible message");
 });
 
-test("keeps the original title when focus returns before any unread notification", async ({
+test("@unit keeps the original title when focus returns before any unread notification", async ({
   page,
 }) => {
   await page.goto("/html/joinchat.html?id=chat-id");
