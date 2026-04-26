@@ -1,0 +1,23 @@
+{
+  "name": "Technochat",
+  "short_name": "Technochat",
+  "description": "Self-destructive messages and lightweight chats.",
+  "start_url": "/html/messageadd.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "/images/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
