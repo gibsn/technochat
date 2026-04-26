@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 )
 
 type imageViewRequest struct {

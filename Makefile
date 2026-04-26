@@ -15,7 +15,7 @@ install: lint go-tests ui-tests technochat
 	go install $(GO_BUILD_FLAGS) ./...
 
 technochat:
-	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat technochat
+	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat ./cmd/technochat
 
 bin/golangci-lint:
 	@echo "building golangci-lint v1.64.5 with $$(go env GOVERSION)"

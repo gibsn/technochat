@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 )
 
 const (

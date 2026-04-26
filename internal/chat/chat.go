@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"technochat/chat/message"
-	"technochat/chat/user"
+	"technochat/internal/chat/message"
+	"technochat/internal/chat/user"
 )
 
 const (

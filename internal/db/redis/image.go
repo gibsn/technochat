@@ -3,7 +3,7 @@ package redis
 import (
 	"fmt"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 
 	"github.com/mediocregopher/radix.v2/redis"
 )

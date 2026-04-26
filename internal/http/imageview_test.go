@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 )
 
 var (

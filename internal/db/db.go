@@ -1,6 +1,6 @@
 package db
 
-import "technochat/entity"
+import "technochat/pkg/entity"
 
 type DB interface {
 	Init()
