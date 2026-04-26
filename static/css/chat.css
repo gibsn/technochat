@@ -1,12 +1,17 @@
 @import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
 @import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
 
+html {
+  background: #dddddd;
+}
+
 body {
   font-family: 'Ubuntu Mono', monospace;
   background:
-    radial-gradient(circle at top, #f8f8f8 0%, #dddddd 38%, #d1d1d1 100%);
+    radial-gradient(circle at top, #dddddd 0%, #dddddd 38%, #d1d1d1 100%);
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   box-sizing: border-box;
 }
 
@@ -17,7 +22,11 @@ button {
 
 .wrapper {
   min-height: 100vh;
-  padding: 24px 20px 32px;
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .wrapper .header {
@@ -43,12 +52,18 @@ button {
   width: 100%;
   max-width: 1040px;
   margin: 0 auto;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .chat_shell {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
 }
 
 .chat_content {
@@ -56,12 +71,15 @@ button {
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 28px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .chat_messages {
-  min-height: 60vh;
-  max-height: calc(100vh - 260px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 28px 24px;
   display: flex;
@@ -131,10 +149,7 @@ button {
 }
 
 .message_input {
-  position: sticky;
-  bottom: 0;
   z-index: 5;
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
 .message_input_inner {
@@ -230,7 +245,7 @@ input:focus ~ .bar:after {
 
 @media (max-width: 720px) {
   .wrapper {
-    padding: 18px 12px 24px;
+    padding: max(18px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
   }
 
   .wrapper .header .logo h1 {
@@ -239,8 +254,6 @@ input:focus ~ .bar:after {
   }
 
   .chat_messages {
-    min-height: 56vh;
-    max-height: calc(100vh - 220px);
     padding: 18px 14px;
   }
 
