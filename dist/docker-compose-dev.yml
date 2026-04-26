@@ -10,7 +10,7 @@ services:
             - redis_data:/data
         secrets:
             - redis.conf
-        ports:
+        expose:
             - 6379
 
     technochat:
@@ -21,7 +21,7 @@ services:
         image: gibsn/technochat
         depends_on:
             - redis
-        ports:
+        expose:
             - 8080
     nginx:
         build:
