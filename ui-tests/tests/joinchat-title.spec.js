@@ -68,7 +68,7 @@ async function openJoinChat(page) {
   await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
 }
 
-test("keeps the unread title until the tab receives focus", async ({
+test("@unit keeps the unread title until the tab receives focus", async ({
   page,
 }) => {
   await openJoinChat(page);
@@ -107,7 +107,7 @@ test("keeps the unread title until the tab receives focus", async ({
   );
 });
 
-test("does not blink the page title when the chat page is visible", async ({
+test("@unit does not blink the page title when the chat page is visible", async ({
   page,
 }) => {
   await openJoinChat(page);
@@ -131,7 +131,7 @@ test("does not blink the page title when the chat page is visible", async ({
   await expect(page.locator("#chat-messages")).toContainText("visible message");
 });
 
-test("keeps the original title when focus returns before any unread notification", async ({
+test("@unit keeps the original title when focus returns before any unread notification", async ({
   page,
 }) => {
   await openJoinChat(page);

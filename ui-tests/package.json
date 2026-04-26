@@ -2,6 +2,8 @@
   "name": "technochat-ui-tests",
   "private": true,
   "scripts": {
+    "ui-unit-test": "playwright test -c playwright.config.js --grep @unit",
+    "ui-e2e-test": "playwright test -c playwright.config.js --grep @e2e",
     "ui-test": "playwright test -c playwright.config.js"
   },
   "devDependencies": {

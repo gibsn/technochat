@@ -78,7 +78,8 @@ make test
 `make test` runs:
 - `make go-tests` for Go unit tests;
 - `make integration-tests` for integration tests;
-- `make ui-tests` for Playwright UI checks.
+- `make ui-unit-tests` for Playwright checks with mocked browser dependencies;
+- `make ui-e2e-tests` for Playwright checks against the running dev stack.
 
 ### Targeted test commands
 
@@ -87,8 +88,12 @@ Use these when a narrower check is enough:
 ```bash
 make go-tests
 make integration-tests
+make ui-unit-tests
+make ui-e2e-tests
 make ui-tests
 ```
+
+The current UI coverage map and the next recommended test cases are documented in `ui-tests/TEST_PLAN.md`.
 
 ## Automatic deploy
 
