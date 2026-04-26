@@ -7,7 +7,13 @@ const CACHE_URLS = [
   '/js/pwa.js',
   '/js/message/add.js',
   '/js/lib/jquery-3.6.0.min.js',
+  '/images/apple-touch-icon.png',
+  '/images/apple-touch-icon-167x167.png',
+  '/images/apple-touch-icon-152x152.png',
+  '/images/apple-touch-icon-120x120.png',
   '/images/icon.svg',
+  '/images/icon-512x512.png',
+  '/images/icon-192x192.png',
   '/favicon.ico'
 ];
 
