@@ -1,51 +1,20 @@
-version: "3.6"
 services:
     redis:
-        build:
-            context: ../
-            dockerfile: dist/redis.dockerfile
         container_name: techno_redis
-        image: gibsn/redis
-        volumes:
-            - redis_data:/data
-        secrets:
-            - redis.conf
-        expose:
-            - 6379
 
     technochat:
-        build:
-            context: ../
-            dockerfile: dist/technochat.dockerfile
         container_name: techno_api
-        image: gibsn/technochat
-        depends_on:
-            - redis
-        expose:
-            - 8080
+
     nginx:
         build:
             args:
                 DEV: "True"
-            context: ../
-            dockerfile: dist/nginx.dockerfile
         container_name: techno_nginx
-        image: gibsn/nginx
         volumes:
             - ../static:/static
         secrets:
             - server.key
             - server.crt
-            - source: nginx.conf
-              target: /etc/nginx/nginx.conf
-        depends_on:
-            - technochat
-        ports:
-            - 80:80
-            - 443:443
-
-volumes:
-    redis_data:
 
 secrets:
     server.key:
@@ -53,6 +22,12 @@ secrets:
     server.crt:
         file: ../certs/server.crt
     nginx.conf:
-        file: nginx_dev.conf
-    redis.conf:
-        file: redis.conf
+        file: nginx.conf
+    nginx.http.conf:
+        file: nginx_http_dev.conf
+    nginx.tls.conf:
+        file: nginx_tls_dev.conf
+    nginx.static-cache.conf:
+        file: nginx_static_cache_dev.conf
+    nginx.pwa-cache.conf:
+        file: nginx_pwa_cache_dev.conf

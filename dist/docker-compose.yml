@@ -1,10 +1,8 @@
-version: "3.6"
 services:
     redis:
         build:
             context: ../
             dockerfile: dist/redis.dockerfile
-        container_name: redis
         image: gibsn/redis
         volumes:
             - redis_data:/data
@@ -17,24 +15,28 @@ services:
         build:
             context: ../
             dockerfile: dist/technochat.dockerfile
-        container_name: technochat
         image: gibsn/technochat
         depends_on:
             - redis
         expose:
             - 8080
+
     nginx:
         build:
             context: ../
             dockerfile: dist/nginx.dockerfile
-        container_name: nginx
         image: gibsn/nginx
-        volumes:
-            - /etc/letsencrypt:/etc/letsencrypt:ro
-            - /srv/letsencrypt:/var/www/letsencrypt
         secrets:
             - source: nginx.conf
               target: /etc/nginx/nginx.conf
+            - source: nginx.http.conf
+              target: /etc/nginx/technochat_http.conf
+            - source: nginx.tls.conf
+              target: /etc/nginx/technochat_tls.conf
+            - source: nginx.static-cache.conf
+              target: /etc/nginx/technochat_static_cache.conf
+            - source: nginx.pwa-cache.conf
+              target: /etc/nginx/technochat_pwa_cache.conf
         depends_on:
             - technochat
         ports:
@@ -45,7 +47,5 @@ volumes:
     redis_data:
 
 secrets:
-    nginx.conf:
-        file: nginx.conf
     redis.conf:
         file: redis.conf
