@@ -350,10 +350,6 @@ function onMessageSubmitSuccess(addResponse) {
     $('#result_text').html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
     $('#text').val('');
-    document.getElementById(fileInputId).value = '';
-    revokePreviewUrls();
-    selectedImages = [];
-    renderImagesPreview();
     setUploadStatus('');
     $('#loading').hide();
 

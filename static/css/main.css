@@ -307,12 +307,14 @@ chat styles
 .upload .upload__preview {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     margin-top: 10px;
     gap: 10px;
 }
 
 .upload .upload__preview img {
-    width: 100px;
+    display: block;
+    width: 100%;
     height: 100%;
     object-fit: cover;
 }
@@ -333,6 +335,9 @@ chat styles
 
 .upload__img {
     position: relative;
+    flex: 0 0 auto;
+    width: 100px;
+    height: 100px;
     padding: 10px;
     border-radius: 10px;
     background-color: #ffffff;
