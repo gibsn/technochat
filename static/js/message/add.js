@@ -385,7 +385,6 @@ function initPage() {
     const fileInput = document.getElementById(fileInputId);
     if (isMobileSafari() && fileInput) {
         fileInput.setAttribute('accept', 'image/jpeg,image/png');
-        setUploadStatus('On iPhone/iPad, photos may be converted automatically to JPEG during selection.');
     }
 
     fileInput?.addEventListener("change", previewImages);

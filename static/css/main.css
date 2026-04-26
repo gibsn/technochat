@@ -313,7 +313,8 @@ chat styles
 
 .upload .upload__preview img {
     width: 100px;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
 }
 
 .upload__delete {
@@ -358,16 +359,38 @@ chat styles
 .img-modal__content {
     position: relative;
     z-index: 1;
-    height: 100%;
-    display: grid;
-    place-items: center;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: auto;
     padding: 16px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y pinch-zoom;
 }
 
 .img-modal__img {
-    max-width: 100%;
-    max-height: 100%;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    object-fit: contain;
     background-color: rgba(255, 255, 255, 0.03);
+}
+
+@supports (height: 100dvh) {
+    .img-modal__content {
+        height: 100dvh;
+    }
+
+    .img-modal__img {
+        max-height: calc(100dvh - 32px);
+    }
 }
 
 .img-modal__close {
