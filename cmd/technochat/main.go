@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"technochat/db/redis"
-	"technochat/http"
+	"technochat/internal/db/redis"
+	"technochat/internal/http"
 )
 
 func wait() {

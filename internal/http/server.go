@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"technochat/db"
+	"technochat/internal/db"
 )
 
 const (
@@ -20,14 +20,6 @@ const (
 	messageViewPath = "/api/v1/message/view"
 	imageAddPath    = "/api/v1/image/add"
 	imageViewPath   = "/api/v1/image/view"
-)
-
-var (
-	messengerResolverUAs = [...]string{
-		"LPX", // ICQ
-		"Mozilla/5.0 (compatible; vkShare; +http://vk.com/dev/Share)", // VK
-		"TelegramBot (like TwitterBot)",                               // telegram
-	}
 )
 
 type Server struct {
@@ -47,9 +39,13 @@ type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
 func NewServer(addr string, db db.DB) *Server {
 	return &Server{
-		addr:   addr,
-		db:     db,
-		server: &http.Server{Addr: addr, Handler: nil},
+		addr: addr,
+		db:   db,
+		server: &http.Server{
+			Addr:              addr,
+			Handler:           nil,
+			ReadHeaderTimeout: gracefulTime,
+		},
 	}
 }
 
@@ -92,8 +88,14 @@ func getRealRemoteAddr(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-//nolint: deadcode, unused
+// nolint: deadcode, unused
 func isMessengerResolver(r *http.Request) bool {
+	messengerResolverUAs := [...]string{
+		"LPX", // ICQ
+		"Mozilla/5.0 (compatible; vkShare; +http://vk.com/dev/Share)", // VK
+		"TelegramBot (like TwitterBot)",                               // telegram
+	}
+
 	for _, ua := range messengerResolverUAs {
 		if ua == r.UserAgent() {
 			return true
@@ -170,7 +172,7 @@ func respondAPIRaw(h TechnochatHandlerRaw) func(http.ResponseWriter, *http.Reque
 	}
 }
 
-//nolint: deadcode, unused
+// nolint: deadcode, unused
 func respondPage(h TechnochatHandler) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := getRealRemoteAddr(r)

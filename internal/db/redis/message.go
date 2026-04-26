@@ -5,7 +5,7 @@ import (
 
 	"github.com/mediocregopher/radix.v2/redis"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 )
 
 func newMessageKey(id string) string {

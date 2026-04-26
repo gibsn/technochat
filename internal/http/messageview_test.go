@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"testing"
 
-	"technochat/entity"
+	"technochat/pkg/entity"
 
 	"github.com/stretchr/testify/assert"
 )

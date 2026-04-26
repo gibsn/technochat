@@ -3,7 +3,7 @@ package user
 import (
 	"log"
 
-	"technochat/chat/message"
+	"technochat/internal/chat/message"
 )
 
 const (

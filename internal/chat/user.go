@@ -5,7 +5,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"technochat/chat/user"
+	"technochat/internal/chat/user"
 )
 
 func (c *Chat) AddUser(ws *websocket.Conn) (*user.User, error) {

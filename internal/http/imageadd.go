@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"technochat/entity"
+	"technochat/pkg/entity"
 )
 
 const (

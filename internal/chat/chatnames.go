@@ -1,8 +1,12 @@
 package chat
 
-import "math/rand"
+import (
+	"crypto/rand"
+	"fmt"
+	"math/big"
+)
 
-//nolint: golint
+// nolint: golint
 type ChatNames struct {
 	usedNames map[int]bool
 }
@@ -15,12 +19,25 @@ func NewChatNames() ChatNames {
 
 func (cn *ChatNames) GenerateNameID() (string, int) {
 	for {
-		n := rand.Intn(len(RandomNames) - 1)
+		n, err := randomNameIndex(len(RandomNames))
+		if err != nil {
+			panic(fmt.Sprintf("chat: could not generate random name index: %v", err))
+		}
+
 		if !cn.usedNames[n] {
 			cn.usedNames[n] = true
 			return RandomNames[n], n
 		}
 	}
+}
+
+func randomNameIndex(limit int) (int, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(limit)))
+	if err != nil {
+		return 0, err
+	}
+
+	return int(n.Int64()), nil
 }
 
 var RandomNames = [...]string{

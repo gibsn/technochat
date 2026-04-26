@@ -15,7 +15,9 @@
 .idea
 
 /bin
-/pkg
+/pkg/*
+!/pkg/entity/
+!/pkg/entity/**
 /vendor/pkg
 
 *.crt
