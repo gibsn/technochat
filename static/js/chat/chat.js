@@ -10,6 +10,7 @@ const NewMsgTitle = "New message!";
 window.onfocus = function() {
     pageTitleNotification.off();
 }
+
 new Vue({
     el: '#app',
 
@@ -26,46 +27,61 @@ new Vue({
     },
     created: function() {
         var self = this;
-        var id = getParameterByName('id', window.location) 
-        this.ws = new WebSocket('wss://' + window.location.host + '/api/v1/chat/connect?id='+id);
+        var id = getParameterByName('id', window.location);
+        var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        this.ws = new WebSocket(wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + id);
+        this.ws.addEventListener('open', function() {
+            console.log('chat websocket opened for chat', id);
+        });
         this.ws.addEventListener('message', function(e) {
             var msg = JSON.parse(e.data);
             console.log(msg);
             switch (msg.type){
                 case WSMsgTypeService:
                     if (msg.data.event_id == EventConnInitOk ){
-                        self.name = msg.event_data;
+                        self.name = msg.data.event_data;
+                        self.username = msg.data.event_data;
                     }
                     if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
                         self.okconnected = false;
                     }
-                    break
+                    break;
                 case WSMsgTypeMessage:
                     self.addmsg(msg);
-                    break
+                    break;
                 default:
                     alert("unknown response type:"+msg.type);
             }
         });
-        this.ws.addEventListener('close', function() {
+        this.ws.addEventListener('error', function(e) {
+            console.log('chat websocket error', e);
+        });
+        this.ws.addEventListener('close', function(e) {
+            console.log('chat websocket closed', {
+                code: e.code,
+                reason: e.reason,
+                wasClean: e.wasClean,
+            });
             self.okconnected = false;
         });
     },
     methods: {
         addmsg: function(msg){
-            this.chatContent += '<div class="chat-message">'
             if (document.hidden) {
                 pageTitleNotification.on(NewMsgTitle);
             }
-            this.chatContent += '<div class="chat-message">'
+            var username = msg.username || '';
+            var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
+            this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
                 + '<div class="chip" >'
-                + '<img src="' + this.roboHash(msg.username) + '">' // Avatar
-                + msg.username
+                + this.avatarMarkup(username)
+                + this.escapeHtml(username)
                 + '</div>'
-                + emojione.toImage(msg.data) + '<br/>' // Parse emojis
+                + '<div class="chat-message_body">'
+                + emojione.toImage(msg.data)
+                + '</div>'
                 + '</div>';
-            var element = document.getElementById('chat-messages');
-            element.scrollTop = element.scrollHeight-100; // Auto scroll to the bottom
+            this.scrollToBottom();
         },
         send: function () {
             if (this.newMsg != '') {
@@ -73,14 +89,44 @@ new Vue({
                     JSON.stringify({
                         type:1,
                         username: this.username,
-                        data: $('<p>').html(this.newMsg).text() // Strip out html
-                    }
-                ));
-                this.newMsg = ''; // Reset newMsg
+                        data: $('<p>').html(this.newMsg).text()
+                    })
+                );
+                this.newMsg = '';
             }
         },
+        scrollToBottom: function() {
+            this.$nextTick(function() {
+                var element = document.getElementById('chat-messages');
+                if (!element) {
+                    return;
+                }
+                element.scrollTop = element.scrollHeight;
+            });
+        },
+        avatarMarkup: function(username) {
+            var safeUsername = this.escapeHtml(username);
+            var fallback = this.fallbackAvatar(username);
+            return '<img src="' + this.roboHash(username) + '" alt="' + safeUsername
+                + '" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">';
+        },
         roboHash: function(username) {
-            return 'https://robohash.org/'+username+'.png?size=50x50'
+            return 'https://robohash.org/' + encodeURIComponent(username) + '.png?size=50x50';
+        },
+        fallbackAvatar: function(username) {
+            var letter = ((username || '?').trim().charAt(0) || '?').toUpperCase();
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">'
+                + '<rect width="50" height="50" rx="25" fill="#111111"/>'
+                + '<text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" '
+                + 'font-family="Ubuntu Mono, monospace" font-size="22" fill="#ffffff">' + letter + '</text>'
+                + '</svg>';
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        },
+        escapeHtml: function(value) {
+            return $('<div>').text(value == null ? '' : String(value)).html();
+        },
+        isOwnMessage: function(username) {
+            return Boolean(this.name) && username === this.name;
         },
     }
 });

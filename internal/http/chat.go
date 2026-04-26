@@ -74,16 +74,20 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chatIDStr := r.FormValue("id")
+	remoteAddr := getRealRemoteAddr(r)
 
 	c := chat.GetChat(chatIDStr)
 	if c == nil {
-		log.Printf("info: chat: chat %s does not exist", chatIDStr)
+		log.Printf("info: chat: chat %s does not exist for %s", chatIDStr, remoteAddr)
 		return
 	}
 	if c.RestJoins() <= 0 {
-		log.Printf("info: chat: maxUsers limit reached for chat %s", chatIDStr)
+		log.Printf("info: chat: maxUsers limit reached for chat %s from %s", chatIDStr, remoteAddr)
 		return
 	}
+
+	log.Printf("info: chat: incoming connect for chat %s from %s, joins left before add: %d",
+		chatIDStr, remoteAddr, c.RestJoins())
 
 	usr, err := c.AddUser(ws)
 	if err != nil {
@@ -96,6 +100,9 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDStr, err)
 		return
 	}
+
+	log.Printf("info: chat: connected user [%d %s] to chat %s from %s, joins left after add: %d",
+		usr.ID, usr.Name, chatIDStr, remoteAddr, c.RestJoins())
 
 	usr.Routine()
 

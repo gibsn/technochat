@@ -34,7 +34,7 @@ function onSubmitSuccess(json) {
 
     if (json.code == 200) {
         var id = json.body.id;
-        var link = 'https://' + window.location.host + '/html/joinchat.html?id=' + id
+        var link = window.location.origin + '/html/joinchat.html?id=' + id
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
         joinButtonView.href = link;
         joinButtonView.style.display = "inline-flex";

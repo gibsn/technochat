@@ -2,62 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
     <title>TechnoChat</title>
     <meta name="theme-color" content="#101010">
     <link rel="manifest" href="/manifest.webmanifest">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
-    <link rel="stylesheet" href="/css/lib/material_icons.css">
-    <link rel="stylesheet" href="/css/lib/emojione.min.css"/>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="/css/lib/emojione.min.css">
+    <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/chat.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
-
 </head>
 
 <body>
-    <header>
-        <nav>
-            <div class="nav-wrapper">
-                <a href="/" class="brand-logo right">TechnoChat</a>
+    <div class="wrapper">
+        <div class="header">
+            <div class="logo">
+                <h1><a href="/">Technochat</a></h1>
             </div>
-        </nav>
-    </header>
-    <main id="app">
-        <div v-if="okconnected">
-            <div class="row">
-                <div class="col s12">
-                    <div class="card horizontal">
-                        <div id="chat-messages" class="card-content" v-html="chatContent">
-                        </div>
+        </div>
+        <div class="main" id="app">
+            <div v-if="okconnected" class="chat_shell">
+                <div class="chat_content">
+                    <div id="chat-messages" class="chat_messages" v-html="chatContent"></div>
+                </div>
+                <div class="message_input">
+                    <div class="message_input_inner group">
+                        <input
+                            type="text"
+                            v-model="newMsg"
+                            @keyup.enter="send"
+                            placeholder="Write a message"
+                        >
+                        <span class="bar"></span>
+                        <button class="chat_button" @click="send" aria-label="Send message">
+                            <i class="material-icons">send</i>
+                        </button>
                     </div>
                 </div>
             </div>
-            <div class="row" style="position: fixed; height: 50px; width: 100%;">
-                <div class="input-field col s8">
-                    <input type="text" v-model="newMsg" @keyup.enter="send">
-                </div>
-                <div class="input-field col s4">
-                    <button class="waves-effect waves-light btn" @click="send">
-                        <i class="material-icons right">chat</i>
-                        Send
-                    </button>
-                </div>
+            <div v-if="!okconnected" class="chat_error">
+                Poshel nah
             </div>
         </div>
-        <div v-if="!okconnected">
-            poshel nah
-        </div>
-    </main>
-    <footer class="page-footer">
-    </footer>
-
-<script src="/js/lib/vue.min.js"></script>
-<script src="/js/lib/emojione.min.js"></script>
-<script src="/js/lib/jquery-3.6.0.min.js"></script>
-<script src="/js/lib/md5.js"></script>
-<script src="/js/lib/materialize.min.js"></script>
-<script src="/js/lib/PageTitleNotification.js"></script>
-<script src="/js/pwa.js"></script>
-<script src="/js/chat/chat.js"></script>
+    </div>
+    <script src="/js/lib/vue.min.js"></script>
+    <script src="/js/lib/emojione.min.js"></script>
+    <script src="/js/lib/jquery-3.6.0.min.js"></script>
+    <script src="/js/lib/md5.js"></script>
+    <script src="/js/lib/materialize.min.js"></script>
+    <script src="/js/lib/PageTitleNotification.js"></script>
+    <script src="/js/pwa.js"></script>
+    <script src="/js/chat/chat.js"></script>
 </body>
 </html>
