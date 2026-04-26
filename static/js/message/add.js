@@ -349,7 +349,6 @@ function onMessageSubmitSuccess(addResponse) {
     var userText = $('#text').val();
     $('#result_text').html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
-    $('#text').val('');
     setUploadStatus('');
     $('#loading').hide();
 
