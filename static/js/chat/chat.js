@@ -7,10 +7,10 @@ const EventConnInitMaxUsrsReached = 2;
 
 const NewMsgTitle = "New message!";
 
-// window.onfocus = function() {
-//     pageTitleNotification.off();
-// }
-//
+window.onfocus = function() {
+    pageTitleNotification.off();
+}
+
 new Vue({
     el: '#app',
 
@@ -27,7 +27,7 @@ new Vue({
     },
     created: function() {
         var self = this;
-        var id = getParameterByName('id', window.location)
+        var id = getParameterByName('id', window.location);
         var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
         this.ws = new WebSocket(wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + id);
         this.ws.addEventListener('open', function() {
@@ -45,10 +45,10 @@ new Vue({
                     if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
                         self.okconnected = false;
                     }
-                    break
+                    break;
                 case WSMsgTypeMessage:
                     self.addmsg(msg);
-                    break
+                    break;
                 default:
                     alert("unknown response type:"+msg.type);
             }
@@ -67,19 +67,18 @@ new Vue({
     },
     methods: {
         addmsg: function(msg){
-            // if (document.hidden) {
-            //     pageTitleNotification.on(NewMsgTitle);
-            // }
+            if (document.hidden) {
+                pageTitleNotification.on(NewMsgTitle);
+            }
             var username = msg.username || '';
             var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
             this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
- 
                 + '<div class="chip" >'
                 + this.avatarMarkup(username)
                 + this.escapeHtml(username)
                 + '</div>'
                 + '<div class="chat-message_body">'
-                + emojione.toImage(msg.data) // Parse emojis
+                + emojione.toImage(msg.data)
                 + '</div>'
                 + '</div>';
             this.scrollToBottom();
@@ -90,10 +89,10 @@ new Vue({
                     JSON.stringify({
                         type:1,
                         username: this.username,
-                        data: $('<p>').html(this.newMsg).text() // Strip out html
-                    }
-                ));
-                this.newMsg = ''; // Reset newMsg
+                        data: $('<p>').html(this.newMsg).text()
+                    })
+                );
+                this.newMsg = '';
             }
         },
         scrollToBottom: function() {
