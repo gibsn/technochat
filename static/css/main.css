@@ -322,7 +322,9 @@ chat styles
 }
 
 .upload .upload__label {
-    padding: 10px 40px;
+    height: 34px;
+    padding-inline: 14px;
+    font-size: 18px;
 }
 
 .upload .upload__label:hover {
@@ -366,6 +368,32 @@ chat styles
     padding: 10px;
     border-radius: 10px;
     background-color: #ffffff;
+}
+
+.upload__img-placeholder {
+    width: 100px;
+    height: 100px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    border: 1px dashed #9a9a9a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload__spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #d0d0d0;
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: upload-spin 0.8s linear infinite;
+}
+
+@keyframes upload-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* --- modal --- */

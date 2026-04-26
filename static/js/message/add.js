@@ -48,6 +48,21 @@ function setUploadStatus(message, isError = false) {
     uploadStatus.style.color = isError ? 'red' : '#6d6d6d';
 }
 
+function renderImagesPlaceholder(count) {
+    imagesPreview.innerHTML = '';
+
+    for (let i = 0; i < count; i++) {
+        const placeholder = document.createElement('div');
+        placeholder.classList.add('upload__img-placeholder');
+
+        const spinner = document.createElement('span');
+        spinner.classList.add('upload__spinner');
+        placeholder.appendChild(spinner);
+
+        imagesPreview.appendChild(placeholder);
+    }
+}
+
 function revokePreviewUrls() {
     for (const image of selectedImages) {
         if (image.previewUrl) {
@@ -219,7 +234,7 @@ async function previewImages() {
 
     revokePreviewUrls();
     selectedImages = [];
-    renderImagesPreview();
+    renderImagesPlaceholder(files.length);
 
     let convertedCount = 0;
     let failedCount = 0;
@@ -258,6 +273,8 @@ async function uploadImages(images, ttl, encrypter) {
     let ids = [];
 
     for (let i = 0; i < images.length; i++) {
+        setUploadStatus(`Uploading image ${i + 1} of ${images.length}...`);
+
         let imageBytes = await images[i].preparedFile.arrayBuffer();
 
         if (encrypter) {
@@ -290,6 +307,10 @@ async function uploadImages(images, ttl, encrypter) {
         }
 
         ids.push(resp.body.id);
+    }
+
+    if (images.length > 0) {
+        setUploadStatus('');
     }
 
     return ids;
