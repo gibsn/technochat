@@ -164,6 +164,12 @@ a {
     margin-top: 20px;
 }
 
+.result {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 .result__link {
     word-break: break-word;
 }
@@ -183,6 +189,51 @@ a {
     word-break: break-word;
 }
 
+.result__loader {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    border: 3px solid #b8b8b8;
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: upload-spin 0.8s linear infinite;
+    vertical-align: -3px;
+}
+
+.result__images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.result__images img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+}
+
+.result__image-loader,
+.result__image-error {
+    width: 100px;
+    height: 100px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    border: 1px dashed #9a9a9a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.result__image-error {
+    box-sizing: border-box;
+    padding: 8px;
+    color: red;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
 .message__form {
     position: relative;
 }
@@ -198,7 +249,6 @@ a {
 
 .text__symbols {
     position: absolute;
-    bottom: -15px;
     color: #6d6d6d;
     text-align: right;
     background: transparent;
@@ -290,4 +340,161 @@ chat styles
 .result__link--chat a {
     font-size: 16px;
     text-decoration: underline;
+}
+
+/* images upload */
+
+.upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+}
+
+.upload input[type="file"] {
+    display: none;
+}
+
+.upload .upload__label {
+    height: 34px;
+    padding-inline: 14px;
+    font-size: 18px;
+}
+
+.upload .upload__label:hover {
+    background-color: #000000;
+}
+
+.upload .upload__preview {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+    gap: 10px;
+}
+
+.upload .upload__preview img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.upload__delete {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+    font-size: 28px;
+    line-height: 18px;
+    color: #000;
+}
+
+.upload__delete:hover {
+    opacity: 0.7;
+}
+
+.upload__img {
+    position: relative;
+    flex: 0 0 auto;
+    width: 100px;
+    height: 100px;
+    padding: 10px;
+    border-radius: 10px;
+    background-color: #ffffff;
+}
+
+.upload__img-placeholder {
+    width: 100px;
+    height: 100px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    border: 1px dashed #9a9a9a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload__spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #d0d0d0;
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: upload-spin 0.8s linear infinite;
+}
+
+@keyframes upload-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* --- modal --- */
+.img-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 9999;
+}
+
+.img-modal.is-open {
+    display: block;
+}
+
+.img-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+}
+
+.img-modal__content {
+    position: relative;
+    z-index: 1;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: auto;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y pinch-zoom;
+}
+
+.img-modal__img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    object-fit: contain;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+@supports (height: 100dvh) {
+    .img-modal__content {
+        height: 100dvh;
+    }
+
+    .img-modal__img {
+        max-height: calc(100dvh - 32px);
+    }
+}
+
+.img-modal__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 0;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.55);
+    display: grid;
+    place-items: center;
 }

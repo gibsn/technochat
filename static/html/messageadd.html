@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/css/adaptive.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <script src="/js/lib/jquery-3.6.0.min.js"></script>
+    <script src="/js/lib/heic2any.min.js"></script>
     <script src="/js/pwa.js"></script>
     <script type="module" src="/js/message/add.js"></script>
 </head>
@@ -35,6 +36,12 @@
                       placeholder="Right here"></textarea>
             <div class="text__symbols">
                 <span class="js__counter"></span>/<span class="js__counter-max"></span>
+            </div>
+            <div class="upload">
+                <input hidden type="file" id="file-input" multiple accept="image/*">
+                <label class="button upload__label" for="file-input">Upload Images</label>
+                <div id="upload_status"></div>
+                <div class="upload__preview" id="preview"></div>
             </div>
         </div>
 
