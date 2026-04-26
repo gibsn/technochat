@@ -44,10 +44,42 @@ async function loadAndDecryptImage(imgId, decrypter) {
     return URL.createObjectURL(blob);
 }
 
+function setMessageLoading(msgDiv) {
+    msgDiv
+        .attr('aria-busy', 'true')
+        .html('<span class="result__loader" aria-hidden="true"></span>Loading message...');
+}
+
+function clearMessageLoading(msgDiv) {
+    msgDiv.removeAttr('aria-busy');
+}
+
+function createImageLoader() {
+    const loader = document.createElement('div');
+    loader.classList.add('result__image-loader');
+
+    const spinner = document.createElement('span');
+    spinner.classList.add('upload__spinner');
+    loader.appendChild(spinner);
+
+    return loader;
+}
+
+function renderImageLoaders(imagesDiv, count) {
+    imagesDiv.empty();
+
+    for (let i = 0; i < count; i++) {
+        imagesDiv.append(createImageLoader());
+    }
+}
+
 async function loadMessage(msgId, key, iv, msgDiv, modal) {
+    setMessageLoading(msgDiv);
+
     $.get('/api/v1/message/view?id=' + msgId)
         .done(async function (viewResponse) {
             if (viewResponse.code !== 200) {
+                clearMessageLoading(msgDiv);
                 msgDiv.html(viewResponse.body)
                 return
             }
@@ -59,14 +91,18 @@ async function loadMessage(msgId, key, iv, msgDiv, modal) {
                 await decrypter.setup(Base64ToArrayBuffer(key), Base64ToArrayBuffer(iv));
 
                 let decryptedMsg = await decrypter.decryptToString(encryptedMsg);
+                clearMessageLoading(msgDiv);
                 msgDiv.text(decryptedMsg);
                 msgDiv.html(msgDiv.text().replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
                 const imagesDiv = $('#images');
-                imagesDiv.empty();
-
                 const imgIds = (viewResponse.body.imgs || []);
-                for (const imgId of imgIds) {
+                renderImageLoaders(imagesDiv, imgIds.length);
+
+                for (let i = 0; i < imgIds.length; i++) {
+                    const imgId = imgIds[i];
+                    const imageSlot = imagesDiv.children().get(i);
+
                     try {
                         const url = await loadAndDecryptImage(imgId, decrypter);
 
@@ -79,18 +115,23 @@ async function loadMessage(msgId, key, iv, msgDiv, modal) {
                             modal.open(url);
                         });
 
-                        imagesDiv.append(img);
+                        imageSlot.replaceWith(img);
                     } catch (e) {
                         console.error(e);
-                        imagesDiv.append(`<div>Could not load image ${imgId}</div>`);
+                        const errorMessage = document.createElement('div');
+                        errorMessage.classList.add('result__image-error');
+                        errorMessage.textContent = `Could not load image ${imgId}`;
+                        imageSlot.replaceWith(errorMessage);
                     }
                 }
             } catch (error) {
                 console.error(error);
+                clearMessageLoading(msgDiv);
                 msgDiv.html('Could not decrypt message, the link was possibly corrupted');
             }
         })
         .fail(function (viewResponse) {
+            clearMessageLoading(msgDiv);
             msgDiv.html('Internal Server Error')
         });
 }

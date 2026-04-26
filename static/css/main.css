@@ -189,15 +189,49 @@ a {
     word-break: break-word;
 }
 
+.result__loader {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    border: 3px solid #b8b8b8;
+    border-top-color: #000000;
+    border-radius: 50%;
+    animation: upload-spin 0.8s linear infinite;
+    vertical-align: -3px;
+}
+
 .result__images {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: center;
 }
 
 .result__images img {
     width: 100px;
-    height: auto;
+    height: 100px;
+    object-fit: cover;
+}
+
+.result__image-loader,
+.result__image-error {
+    width: 100px;
+    height: 100px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    border: 1px dashed #9a9a9a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.result__image-error {
+    box-sizing: border-box;
+    padding: 8px;
+    color: red;
+    font-size: 14px;
+    overflow-wrap: anywhere;
 }
 
 .message__form {
