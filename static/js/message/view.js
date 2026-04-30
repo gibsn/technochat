@@ -44,14 +44,36 @@ async function loadAndDecryptImage(imgId, decrypter) {
     return URL.createObjectURL(blob);
 }
 
-function setMessageLoading(msgDiv) {
-    msgDiv
-        .attr('aria-busy', 'true')
-        .html('<span class="result__loader" aria-hidden="true"></span>Loading message...');
+async function fetchMessageView(msgId) {
+    const resp = await fetch(`/api/v1/message/view?id=${encodeURIComponent(msgId)}`);
+
+    if (!resp.ok) {
+        throw new Error(`message/view failed: ${resp.status}`);
+    }
+
+    return await resp.json();
 }
 
-function clearMessageLoading(msgDiv) {
-    msgDiv.removeAttr('aria-busy');
+function setMessageLoading(messageElement) {
+    messageElement.setAttribute('aria-busy', 'true');
+    messageElement.innerHTML = '<span class="result__loader" aria-hidden="true"></span>Loading message...';
+}
+
+function clearMessageLoading(messageElement) {
+    messageElement.removeAttribute('aria-busy');
+}
+
+function setMessageHtml(messageElement, text) {
+    messageElement.innerHTML = text;
+}
+
+function setMessageText(messageElement, text) {
+    messageElement.textContent = text;
+}
+
+function setMessageWithLineBreaks(messageElement, text) {
+    messageElement.textContent = text;
+    messageElement.innerHTML = messageElement.innerHTML.replace(/(?:\r\n|\r|\n)/g, '<br>');
 }
 
 function createImageLoader() {
@@ -65,94 +87,93 @@ function createImageLoader() {
     return loader;
 }
 
-function renderImageLoaders(imagesDiv, count) {
-    imagesDiv.empty();
+function renderImageLoaders(imagesElement, count) {
+    imagesElement.innerHTML = '';
 
     for (let i = 0; i < count; i++) {
-        imagesDiv.append(createImageLoader());
+        imagesElement.appendChild(createImageLoader());
     }
 }
 
-async function loadMessage(msgId, key, iv, msgDiv, modal) {
-    setMessageLoading(msgDiv);
+async function loadMessage(msgId, key, iv, messageElement, modal) {
+    setMessageLoading(messageElement);
 
-    $.get('/api/v1/message/view?id=' + msgId)
-        .done(async function (viewResponse) {
-            if (viewResponse.code !== 200) {
-                clearMessageLoading(msgDiv);
-                msgDiv.html(viewResponse.body)
-                return
-            }
+    try {
+        const viewResponse = await fetchMessageView(msgId);
 
-            let encryptedMsg = Base64ToArrayBuffer(viewResponse.body.text);
+        if (viewResponse.code !== 200) {
+            clearMessageLoading(messageElement);
+            setMessageHtml(messageElement, viewResponse.body);
+            return;
+        }
 
-            try {
-                let decrypter = new Decrypter(new AESGCM128());
-                await decrypter.setup(Base64ToArrayBuffer(key), Base64ToArrayBuffer(iv));
+        const encryptedMsg = Base64ToArrayBuffer(viewResponse.body.text);
 
-                let decryptedMsg = await decrypter.decryptToString(encryptedMsg);
-                clearMessageLoading(msgDiv);
-                msgDiv.text(decryptedMsg);
-                msgDiv.html(msgDiv.text().replace(/(?:\r\n|\r|\n)/g, '<br>'));
+        try {
+            const decrypter = new Decrypter(new AESGCM128());
+            await decrypter.setup(Base64ToArrayBuffer(key), Base64ToArrayBuffer(iv));
 
-                const imagesDiv = $('#images');
-                const imgIds = (viewResponse.body.imgs || []);
-                renderImageLoaders(imagesDiv, imgIds.length);
+            const decryptedMsg = await decrypter.decryptToString(encryptedMsg);
+            clearMessageLoading(messageElement);
+            setMessageWithLineBreaks(messageElement, decryptedMsg);
 
-                for (let i = 0; i < imgIds.length; i++) {
-                    const imgId = imgIds[i];
-                    const imageSlot = imagesDiv.children().get(i);
+            const imagesElement = document.getElementById('images');
+            const imgIds = viewResponse.body.imgs || [];
+            renderImageLoaders(imagesElement, imgIds.length);
 
-                    try {
-                        const url = await loadAndDecryptImage(imgId, decrypter);
+            for (let i = 0; i < imgIds.length; i++) {
+                const imgId = imgIds[i];
+                const imageSlot = imagesElement.children[i];
 
-                        const img = document.createElement('img');
+                try {
+                    const url = await loadAndDecryptImage(imgId, decrypter);
 
-                        img.src = url;
-                        img.loading = 'lazy';
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.loading = 'lazy';
 
-                        img.addEventListener('click', () => {
-                            modal.open(url);
-                        });
+                    img.addEventListener('click', () => {
+                        modal.open(url);
+                    });
 
-                        imageSlot.replaceWith(img);
-                    } catch (e) {
-                        console.error(e);
-                        const errorMessage = document.createElement('div');
-                        errorMessage.classList.add('result__image-error');
-                        errorMessage.textContent = `Could not load image ${imgId}`;
-                        imageSlot.replaceWith(errorMessage);
-                    }
+                    imageSlot.replaceWith(img);
+                } catch (e) {
+                    console.error(e);
+                    const errorMessage = document.createElement('div');
+                    errorMessage.classList.add('result__image-error');
+                    errorMessage.textContent = `Could not load image ${imgId}`;
+                    imageSlot.replaceWith(errorMessage);
                 }
-            } catch (error) {
-                console.error(error);
-                clearMessageLoading(msgDiv);
-                msgDiv.html('Could not decrypt message, the link was possibly corrupted');
             }
-        })
-        .fail(function (viewResponse) {
-            clearMessageLoading(msgDiv);
-            msgDiv.html('Internal Server Error')
-        });
+        } catch (error) {
+            console.error(error);
+            clearMessageLoading(messageElement);
+            setMessageHtml(messageElement, 'Could not decrypt message, the link was possibly corrupted');
+        }
+    } catch (error) {
+        console.error(error);
+        clearMessageLoading(messageElement);
+        setMessageHtml(messageElement, 'Internal Server Error');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const modal = setupImageModal();
 
-    var queryParams = new URLSearchParams(window.location.search);
-    var anchorParams = new URLSearchParams(window.location.hash.slice(1)); // skip '#'
+    const queryParams = new URLSearchParams(window.location.search);
+    const anchorParams = new URLSearchParams(window.location.hash.slice(1)); // skip '#'
 
-    let msgId = queryParams.get('id');
-    let key = anchorParams.get('key');
-    let iv = anchorParams.get('iv');
-    let msgDiv = $('#message');
+    const msgId = queryParams.get('id');
+    const key = anchorParams.get('key');
+    const iv = anchorParams.get('iv');
+    const messageElement = document.getElementById('message');
 
     if (!msgId || !key || !iv) {
-        msgDiv.text('Missing id/key/iv in the link');
+        setMessageText(messageElement, 'Missing id/key/iv in the link');
         return;
     }
 
-    loadMessage(msgId, key, iv, msgDiv, modal).then();
+    loadMessage(msgId, key, iv, messageElement, modal).then();
 });
 
 window.addEventListener('beforeunload', () => {
