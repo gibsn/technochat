@@ -664,3 +664,7 @@ chat styles
     display: grid;
     place-items: center;
 }
+
+#upload_status {
+    margin-top: 10px;
+}
