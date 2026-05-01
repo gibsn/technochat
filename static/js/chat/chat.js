@@ -279,6 +279,7 @@ new Vue({
                 return user.name && user.name !== self.name && Number.isFinite(user.expiresAt);
             });
             this.cleanupExpiredTypingUsers();
+            this.scrollToBottom();
         },
         cleanupExpiredTypingUsers: function() {
             var now = Date.now();

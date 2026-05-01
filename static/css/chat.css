@@ -233,6 +233,12 @@ button {
   box-sizing: border-box;
 }
 
+.chat_messages_stream {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .chat-message {
   display: flex;
   flex-direction: column;
@@ -321,7 +327,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 18px;
+  padding: 2px 8px;
   color: #5f5f5f;
   font-size: 16px;
   line-height: 1.2;
@@ -501,7 +507,7 @@ input:focus ~ .bar:after {
   }
 
   .typing_indicator {
-    padding: 0 12px;
+    padding: 2px 6px;
     font-size: 14px;
   }
 
