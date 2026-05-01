@@ -11,6 +11,7 @@ const WSMsgTypeMessage = 1;
 const EventConnInitOk = 0;
 const EventConnInitNoSuchChat = 1;
 const EventConnInitMaxUsrsReached = 2;
+const EventPresence = 3;
 
 const NewMsgTitle = "New message!";
 
@@ -33,6 +34,17 @@ new Vue({
         newMessagesNum: 0,
         roomKey: '',
         encrypter: null,
+        presence: {
+            online: 0,
+            max: 0,
+            users: [],
+        },
+        presenceOpen: false,
+    },
+    computed: {
+        presenceLabel: function() {
+            return this.presence.online + ' (' + this.presence.max + ') online';
+        },
     },
     created: function() {
         var id = getParameterByName('id', window.location);
@@ -76,6 +88,9 @@ new Vue({
                         }
                         if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
                             self.okconnected = false;
+                        }
+                        if (msg.data.event_id == EventPresence) {
+                            self.updatePresence(msg.data.event_data);
                         }
                         break;
                     case WSMsgTypeMessage:
@@ -171,6 +186,26 @@ new Vue({
                 element.scrollTop = element.scrollHeight;
             });
         },
+        updatePresence: function(data) {
+            var users = Array.isArray(data && data.users) ? data.users : [];
+
+            this.presence = {
+                online: Number(data && data.online) || users.length,
+                max: Number(data && data.max) || 0,
+                users: users.map(function(user) {
+                    return {
+                        id: user.id,
+                        name: String(user.name || ''),
+                    };
+                }),
+            };
+        },
+        openPresence: function() {
+            this.presenceOpen = true;
+        },
+        closePresence: function() {
+            this.presenceOpen = false;
+        },
         avatarMarkup: function(username) {
             var safeUsername = this.escapeHtml(username);
             var fallback = this.fallbackAvatar(username);
@@ -188,6 +223,10 @@ new Vue({
                 + 'font-family="Ubuntu Mono, monospace" font-size="22" fill="#ffffff">' + letter + '</text>'
                 + '</svg>';
             return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        },
+        useFallbackAvatar: function(event, username) {
+            event.target.onerror = null;
+            event.target.src = this.fallbackAvatar(username);
         },
         escapeHtml: function(value) {
             return $('<div>').text(value == null ? '' : String(value)).html();

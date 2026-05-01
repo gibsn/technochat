@@ -66,6 +66,142 @@ button {
   min-height: 0;
 }
 
+.presence_bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.presence_button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #111111;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1.2;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.presence_button:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+}
+
+.presence_button:focus {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.presence_modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(72px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.presence_panel {
+  width: min(360px, 100%);
+  max-height: min(430px, 72vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.presence_header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.presence_header h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.presence_close {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #111111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.presence_close:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.presence_close:focus {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.presence_list {
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.presence_user {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.presence_user + .presence_user {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.presence_user img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
+.presence_user span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+}
+
 .chat_content {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -251,6 +387,30 @@ input:focus ~ .bar:after {
   .wrapper .header .logo h1 {
     font-size: 28px;
     line-height: 1.4;
+  }
+
+  .presence_bar {
+    justify-content: center;
+  }
+
+  .presence_button {
+    width: 100%;
+    min-height: 42px;
+    font-size: 17px;
+  }
+
+  .presence_modal {
+    align-items: flex-end;
+    padding: max(12px, env(safe-area-inset-top)) 10px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .presence_panel {
+    width: 100%;
+    max-height: min(380px, 68vh);
+  }
+
+  .presence_list {
+    max-height: min(320px, 55vh);
   }
 
   .chat_messages {

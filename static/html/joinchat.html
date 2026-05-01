@@ -27,6 +27,17 @@
         </div>
         <div class="main" id="app">
             <div v-if="okconnected" class="chat_shell">
+                <div class="presence_bar">
+                    <button
+                        class="presence_button"
+                        type="button"
+                        @click="openPresence"
+                        aria-haspopup="dialog"
+                        :aria-expanded="presenceOpen ? 'true' : 'false'"
+                    >
+                        {{ presenceLabel }}
+                    </button>
+                </div>
                 <div class="chat_content">
                     <div id="chat-messages" class="chat_messages" v-html="chatContent"></div>
                 </div>
@@ -42,6 +53,34 @@
                         <button class="chat_button" @click="send" aria-label="Send message">
                             <i class="material-icons">send</i>
                         </button>
+                    </div>
+                </div>
+                <div
+                    v-if="presenceOpen"
+                    class="presence_modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="presence_title"
+                    @click.self="closePresence"
+                >
+                    <div class="presence_panel">
+                        <div class="presence_header">
+                            <h2 id="presence_title">Online users</h2>
+                            <button class="presence_close" type="button" @click="closePresence" aria-label="Close">
+                                <i class="material-icons">close</i>
+                            </button>
+                        </div>
+                        <div class="presence_list">
+                            <div v-for="user in presence.users" :key="user.id" class="presence_user">
+                                <img
+                                    :src="roboHash(user.name)"
+                                    :alt="user.name"
+                                    loading="lazy"
+                                    @error="useFallbackAvatar($event, user.name)"
+                                >
+                                <span>{{ user.name }}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
