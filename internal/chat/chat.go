@@ -90,10 +90,12 @@ func (c *Chat) RestJoins() int {
 }
 
 func (c *Chat) SendServerNotify(str string) {
+	createdAt := time.Now().UTC()
 	msg := &message.WSMessage{
-		Type: message.WSMsgTypeMessage,
-		Name: "server",
-		Data: str,
+		Type:      message.WSMsgTypeMessage,
+		Name:      "server",
+		Data:      str,
+		CreatedAt: &createdAt,
 	}
 
 	if err := c.Broadcast(msg); err != nil {

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"log"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -54,7 +55,9 @@ func (c *Chat) DelUser(id int) {
 func (c *Chat) SubscribeUser(usr *user.User) {
 	go func() {
 		for msg := range usr.ReadStream() {
+			createdAt := time.Now().UTC()
 			msg.Name = usr.Name
+			msg.CreatedAt = &createdAt
 			c.incomingChan <- msg
 		}
 	}()
