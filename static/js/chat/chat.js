@@ -12,8 +12,11 @@ const EventConnInitOk = 0;
 const EventConnInitNoSuchChat = 1;
 const EventConnInitMaxUsrsReached = 2;
 const EventPresence = 3;
+const EventTyping = 4;
 
 const NewMsgTitle = "New message!";
+const TypingNotifyRateMs = 1000;
+const TypingCleanupRateMs = 250;
 
 window.onfocus = function() {
     pageTitleNotification.off();
@@ -40,10 +43,31 @@ new Vue({
             users: [],
         },
         presenceOpen: false,
+        typingUsers: [],
+        typingCleanupTimer: null,
+        lastTypingSentAt: 0,
     },
     computed: {
         presenceLabel: function() {
             return this.presence.online + ' (' + this.presence.max + ') online';
+        },
+        typingText: function() {
+            if (this.typingUsers.length === 0) {
+                return '';
+            }
+
+            var names = this.typingUsers.map(function(user) {
+                return user.name;
+            });
+
+            if (names.length === 1) {
+                return names[0] + ' is typing';
+            }
+            if (names.length === 2) {
+                return names[0] + ' and ' + names[1] + ' are typing';
+            }
+
+            return names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others are typing';
         },
     },
     created: function() {
@@ -57,6 +81,17 @@ new Vue({
         }
 
         this.setupEncryptedChat(id, key);
+    },
+    mounted: function() {
+        var self = this;
+        this.typingCleanupTimer = window.setInterval(function() {
+            self.cleanupExpiredTypingUsers();
+        }, TypingCleanupRateMs);
+    },
+    beforeDestroy: function() {
+        if (this.typingCleanupTimer) {
+            window.clearInterval(this.typingCleanupTimer);
+        }
     },
     methods: {
         setupEncryptedChat: async function(id, key) {
@@ -91,6 +126,9 @@ new Vue({
                         }
                         if (msg.data.event_id == EventPresence) {
                             self.updatePresence(msg.data.event_data);
+                        }
+                        if (msg.data.event_id == EventTyping) {
+                            self.updateTypingUsers(msg.data.event_data);
                         }
                         break;
                     case WSMsgTypeMessage:
@@ -180,6 +218,24 @@ new Vue({
                 this.newMsg = '';
             }
         },
+        notifyTyping: function() {
+            if (!this.newMsg || !this.ws || this.ws.readyState !== 1) {
+                return;
+            }
+
+            var now = Date.now();
+            if (now - this.lastTypingSentAt < TypingNotifyRateMs) {
+                return;
+            }
+
+            this.lastTypingSentAt = now;
+            this.ws.send(JSON.stringify({
+                type: WSMsgTypeService,
+                data: {
+                    event_id: EventTyping,
+                },
+            }));
+        },
         scrollToBottom: function() {
             this.$nextTick(function() {
                 var element = document.getElementById('chat-messages');
@@ -208,6 +264,27 @@ new Vue({
         },
         closePresence: function() {
             this.presenceOpen = false;
+        },
+        updateTypingUsers: function(data) {
+            var self = this;
+            var users = Array.isArray(data) ? data : [];
+
+            this.typingUsers = users.map(function(user) {
+                return {
+                    id: user.id,
+                    name: String(user.name || ''),
+                    expiresAt: Date.parse(user.expires_at),
+                };
+            }).filter(function(user) {
+                return user.name && user.name !== self.name && Number.isFinite(user.expiresAt);
+            });
+            this.cleanupExpiredTypingUsers();
+        },
+        cleanupExpiredTypingUsers: function() {
+            var now = Date.now();
+            this.typingUsers = this.typingUsers.filter(function(user) {
+                return user.expiresAt > now;
+            });
         },
         avatarMarkup: function(username) {
             var safeUsername = this.escapeHtml(username);

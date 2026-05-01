@@ -41,11 +41,20 @@
                 <div class="chat_content">
                     <div id="chat-messages" class="chat_messages" v-html="chatContent"></div>
                 </div>
+                <div v-if="typingText" class="typing_indicator" aria-live="polite">
+                    <span>{{ typingText }}</span>
+                    <span class="typing_dots" aria-hidden="true">
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </span>
+                </div>
                 <div class="message_input">
                     <div class="message_input_inner group">
                         <input
                             type="text"
                             v-model="newMsg"
+                            @input="notifyTyping"
                             @keyup.enter="send"
                             placeholder="Write a message"
                         >
