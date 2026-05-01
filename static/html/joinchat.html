@@ -40,7 +40,33 @@
                 </div>
                 <div class="chat_content">
                     <div id="chat-messages" class="chat_messages">
-                        <div class="chat_messages_stream" v-html="chatContent"></div>
+                        <div class="chat_messages_stream">
+                            <div
+                                v-for="message in chatMessages"
+                                :key="message.id"
+                                :class="['chat-message', { 'chat-message--own': message.own }]"
+                            >
+                                <div class="chat-message_meta">
+                                    <div class="chip">
+                                        <img
+                                            :src="roboHash(message.username)"
+                                            :alt="message.username"
+                                            loading="lazy"
+                                            @error="useFallbackAvatar($event, message.username)"
+                                        >
+                                        {{ message.username }}
+                                    </div>
+                                    <time
+                                        v-if="message.timeLabel"
+                                        class="chat-message_time"
+                                        :datetime="message.timeISO"
+                                    >
+                                        {{ message.timeLabel }}
+                                    </time>
+                                </div>
+                                <div class="chat-message_body" v-html="message.bodyHtml"></div>
+                            </div>
+                        </div>
                         <div v-if="typingText" class="typing_indicator" aria-live="polite">
                             <span>{{ typingText }}</span>
                             <span class="typing_dots" aria-hidden="true">

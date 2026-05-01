@@ -258,6 +258,39 @@ test("@unit keeps chat input fixed while messages scroll internally", async ({
   expect(layout.inputBottom).toBeLessThanOrEqual(layout.viewportHeight);
 });
 
+test("@unit preserves existing avatar nodes when a new message arrives", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(async () => {
+    window.__emitJoinChatMessage({
+      type: 1,
+      username: "Axe",
+      data: await window.__encryptJoinChatMessage("first"),
+    });
+  });
+
+  await expect(page.locator(".chat-message .chip img")).toHaveCount(1);
+  await page.locator(".chat-message .chip img").first().evaluate((img) => {
+    img.dataset.persistedAvatar = "yes";
+  });
+
+  await page.evaluate(async () => {
+    window.__emitJoinChatMessage({
+      type: 1,
+      username: "Lina",
+      data: await window.__encryptJoinChatMessage("second"),
+    });
+  });
+
+  await expect(page.locator(".chat-message .chip img")).toHaveCount(2);
+  await expect(page.locator(".chat-message .chip img").first()).toHaveAttribute(
+    "data-persisted-avatar",
+    "yes"
+  );
+});
+
 test("@unit keeps the original title when focus returns before any unread notification", async ({
   page,
 }) => {

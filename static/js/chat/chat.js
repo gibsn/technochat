@@ -28,7 +28,8 @@ new Vue({
     data: {
         ws: null, // Our websocket
         newMsg: '', // Holds new messages to be sent to the server
-        chatContent: '', // A running list of chat messages displayed on the screen
+        chatMessages: [],
+        nextChatMessageID: 1,
         username: null, // Our username
         okconnected: true, // True if email and username have been filled in
         fail: false,
@@ -181,19 +182,14 @@ new Vue({
                 body = 'Could not decrypt chat message';
             }
 
-            var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
-            this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
-                + '<div class="chat-message_meta">'
-                + '<div class="chip">'
-                + this.avatarMarkup(username)
-                + this.escapeHtml(username)
-                + '</div>'
-                + this.messageTimeMarkup(msg.created_at)
-                + '</div>'
-                + '<div class="chat-message_body">'
-                + emojione.toImage(this.escapeHtml(body))
-                + '</div>'
-                + '</div>';
+            this.chatMessages.push({
+                id: this.nextChatMessageID++,
+                username: username,
+                own: this.isOwnMessage(username),
+                bodyHtml: emojione.toImage(this.escapeHtml(body)),
+                timeISO: this.messageTimeISO(msg.created_at),
+                timeLabel: this.messageTimeLabel(msg.created_at),
+            });
             this.scrollToBottom();
         },
         send: async function () {
@@ -315,7 +311,7 @@ new Vue({
         isOwnMessage: function(username) {
             return Boolean(this.name) && username === this.name;
         },
-        messageTimeMarkup: function(createdAt) {
+        messageTimeISO: function(createdAt) {
             if (!createdAt) {
                 return '';
             }
@@ -325,9 +321,19 @@ new Vue({
                 return '';
             }
 
-            return '<time class="chat-message_time" datetime="' + sentAt.toISOString() + '">'
-                + this.escapeHtml(sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-                + '</time>';
+            return sentAt.toISOString();
+        },
+        messageTimeLabel: function(createdAt) {
+            if (!createdAt) {
+                return '';
+            }
+
+            var sentAt = new Date(createdAt);
+            if (Number.isNaN(sentAt.getTime())) {
+                return '';
+            }
+
+            return sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         },
     }
 });
