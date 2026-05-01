@@ -96,9 +96,13 @@ test("@unit decrypts encrypted message and image from the view API while showing
   const loadedImageBytes = await page.evaluate(async (url) => {
     const resp = await fetch(url);
     const buf = await resp.arrayBuffer();
-    return Array.from(new Uint8Array(buf));
+    return {
+      contentType: resp.headers.get("content-type"),
+      bytes: Array.from(new Uint8Array(buf)),
+    };
   }, loadedImageURL);
 
-  expect(Buffer.from(loadedImageBytes).equals(plainImage)).toBeTruthy();
+  expect(loadedImageBytes.contentType).toBe("image/png");
+  expect(Buffer.from(loadedImageBytes.bytes).equals(plainImage)).toBeTruthy();
   await expect(page.locator("#images .result__image-loader")).toHaveCount(0);
 });

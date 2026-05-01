@@ -69,7 +69,12 @@
 
     </form>
     <div class="message__box" id="message_box" style="display: none;">
-        <div id="loading" class="message__loading">loading</div>
+        <div id="loading" class="message__loading" aria-live="polite">
+            <div id="loading_label" class="message__loading-label">Generating link...</div>
+            <div class="message__loading-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="loading_label">
+                <div id="loading_bar" class="message__loading-bar"></div>
+            </div>
+        </div>
         <div class="message">
             <p>Your message: </p>
             <p id="result_text" class="result__message"></p>

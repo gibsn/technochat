@@ -17,18 +17,53 @@ const initialTextAreaLength = 0;
 const fileInputId = 'file-input'
 const textInputId = 'text_form'
 const uploadStatusId = 'upload_status'
+const loadingId = 'loading'
+const loadingLabelId = 'loading_label'
+const loadingBarId = 'loading_bar'
 
 const imageUploadAPI = '/api/v1/image/add'
 const preferredImageMimeType = 'image/webp'
 const fallbackImageMimeType = 'image/jpeg'
-const maxPreparedImageBytes = 4.5 * 1024 * 1024
-const maxImageDimension = 2560
+const maxPreparedImageBytes = 1.5 * 1024 * 1024
+const maxImageDimension = 1200
 const resizeScaleStep = 0.85
 const imageQualitySteps = [0.9, 0.82, 0.75, 0.68, 0.6]
 
 const imagesPreview = document.querySelector('#preview');
 let selectedImages = [];
 let isPreparingImages = false;
+
+function clampProgress(progress) {
+    return Math.max(0, Math.min(100, Math.round(progress)));
+}
+
+function setLoadingVisible(isVisible) {
+    const loading = document.getElementById(loadingId);
+    if (!loading) {
+        return;
+    }
+
+    loading.style.display = isVisible ? 'flex' : 'none';
+}
+
+function setLoadingProgress(progress, label) {
+    const normalizedProgress = clampProgress(progress);
+    const loadingLabel = document.getElementById(loadingLabelId);
+    const loadingBar = document.getElementById(loadingBarId);
+    const loadingTrack = loadingBar?.parentElement;
+
+    if (loadingLabel && label) {
+        loadingLabel.textContent = label;
+    }
+
+    if (loadingBar) {
+        loadingBar.style.width = `${normalizedProgress}%`;
+    }
+
+    if (loadingTrack) {
+        loadingTrack.setAttribute('aria-valuenow', normalizedProgress.toString());
+    }
+}
 
 function isMobileSafari() {
     const ua = navigator.userAgent;
@@ -45,8 +80,14 @@ function setUploadStatus(message, isError = false) {
         return;
     }
 
+    if (!isError) {
+        uploadStatus.textContent = '';
+        uploadStatus.style.color = '#6d6d6d';
+        return;
+    }
+
     uploadStatus.textContent = message;
-    uploadStatus.style.color = isError ? 'red' : '#6d6d6d';
+    uploadStatus.style.color = 'red';
 }
 
 function renderReconnectModal() {
@@ -435,9 +476,16 @@ async function previewImages() {
 
 async function uploadImages(images, ttl, encrypter) {
     let ids = [];
+    const uploadProgressStart = 22;
+    const uploadProgressEnd = 78;
 
     for (let i = 0; i < images.length; i++) {
-        setUploadStatus(`Uploading image ${i + 1} of ${images.length}...`);
+        const currentImageNumber = i + 1;
+        const progressStep = (uploadProgressEnd - uploadProgressStart) / images.length;
+        const progress = uploadProgressStart + (progressStep * i);
+
+        setLoadingProgress(progress, `Uploading image ${currentImageNumber} of ${images.length}...`);
+        setUploadStatus(`Uploading image ${currentImageNumber} of ${images.length}...`);
 
         let imageBytes = await images[i].preparedFile.arrayBuffer();
 
@@ -471,6 +519,7 @@ async function uploadImages(images, ttl, encrypter) {
         }
 
         ids.push(resp.body.id);
+        setLoadingProgress(uploadProgressStart + (progressStep * currentImageNumber), `Uploaded image ${currentImageNumber} of ${images.length}`);
     }
 
     if (images.length > 0) {
@@ -491,16 +540,18 @@ function getCurrentTTL() {
 }
 
 async function onMessageSubmit(e) {
-    $('#loading').show();
+    setLoadingVisible(true);
+    setLoadingProgress(6, 'Preparing secure link...');
     util.resetCopyButton('copy_button');
     e.preventDefault();
 
     if (isPreparingImages) {
-        $('#loading').hide();
+        setLoadingVisible(false);
         setUploadStatus('Please wait until image preparation is complete.', true);
         return;
     }
 
+    setLoadingProgress(14, 'Encrypting message...');
     let encrypter = new Encrypter(new AESGCM128());
     await encrypter.setup();
 
@@ -509,6 +560,12 @@ async function onMessageSubmit(e) {
     const text = $('#text').val();
     const encryptedText = await encrypter.encryptString(text);
 
+    if (selectedImages.length > 0) {
+        setLoadingProgress(22, `Uploading image 1 of ${selectedImages.length}...`);
+    } else {
+        setLoadingProgress(78, 'Packaging link...');
+    }
+
     const imgsIds = await uploadImages(selectedImages, ttl, encrypter);
 
     const formData = new FormData();
@@ -516,6 +573,8 @@ async function onMessageSubmit(e) {
     formData.append("ttl", ttl);
 
     formData.append("imgs", imgsIds.join(","));
+
+    setLoadingProgress(88, 'Creating one-time link...');
 
     $.ajax({
         type: 'POST',
@@ -535,9 +594,9 @@ function onMessageSubmitSuccess(addResponse) {
     $('#result_text').html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
 
     setUploadStatus('');
-    $('#loading').hide();
 
     if (addResponse.code === 200) {
+        setLoadingProgress(100, 'Link is ready');
         let link = addResponse.body.link;
         link += '#key=' + encodeURIComponent(this.key);
         link += '&iv=' + encodeURIComponent(this.iv);
@@ -545,14 +604,19 @@ function onMessageSubmitSuccess(addResponse) {
         $('#text').val('');
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
     } else {
+        setLoadingProgress(100, 'Could not create link');
         $('#result_link').html("error: " + addResponse.body);
     }
+
+    setTimeout(() => {
+        setLoadingVisible(false);
+    }, 250);
 
     util.scrollToCopyButton();
 }
 
 function onMessageSubmitError(e) {
-    $('#loading').hide();
+    setLoadingVisible(false);
     $('#result_text').html('Internal Server Error');
 
     util.scrollToCopyButton();
@@ -562,7 +626,8 @@ function initPage() {
     installRestrictedWebViewWarning();
     renderReconnectModal();
 
-    $('#loading').hide();
+    setLoadingVisible(false);
+    setLoadingProgress(0, 'Generating link...');
     $('#result_text').html('');
     $('#result_link').html('');
 
