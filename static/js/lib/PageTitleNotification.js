@@ -1,0 +1,1 @@
+!function(t,n){t.pageTitleNotification=function(){var e={currentTitle:n.title,notificationTitle:null,isActive:!1};return{on:function(i){e.isActive||(e.currentTitle=n.title,e.notificationTitle=i,e.isActive=!0,n.title=e.notificationTitle)},off:function(){e.isActive=!1,n.title=e.currentTitle||n.title}}}()}(window,document);

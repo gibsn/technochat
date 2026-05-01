@@ -1,0 +1,107 @@
+version: "2"
+run:
+  modules-download-mode: vendor
+  tests: false
+  timeout: 60m
+output:
+  formats:
+    tab:
+      path: stdout
+      colors: false
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - dupl
+    - errcheck
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - prealloc
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+  settings:
+    dogsled:
+      max-blank-identifiers: 2
+    dupl:
+      threshold: 200
+    errcheck:
+      check-blank: true
+    funlen:
+      lines: 100
+      statements: 50
+    gocognit:
+      min-complexity: 20
+    gocyclo:
+      min-complexity: 15
+    lll:
+      line-length: 100
+    whitespace:
+      multi-if: false
+      multi-func: false
+    wsl:
+      strict-append: true
+      force-case-trailing-whitespace: 0
+      allow-trailing-comment: false
+      allow-cuddle-declarations: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - lll
+        source: '^//go:generate '
+      - linters:
+          - lll
+          - mnd
+        path: cfg\.go
+      - linters:
+          - lll
+          - mnd
+        path: metrics\.go
+      - linters:
+          - gosec
+        text: 'G108:'
+    paths:
+      - .pb.go
+      - .svc.go
+      - bin$
+      - \.git$
+      - static
+      - dist
+      - vendor$
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - .pb.go
+      - .svc.go
+      - bin$
+      - \.git$
+      - static
+      - dist
+      - vendor$
+      - third_party$
+      - builtin$
+      - examples$

@@ -1,71 +1,103 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Technochat</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-        <link rel="stylesheet" href="/css/main.css">
-        <link rel="stylesheet" href="/css/adaptive.css">
-        <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
-        <script src="/js/message/util.js"></script>
-        <script src="/js/message/add.js"></script>
-        <script src="/js/message/view.js"></script>
-        <script type="text/javascript">
-            $(document).ready(function() {
-                $("#loading").html('');
-                $("#result_text").html('');
-                $("#result_link").html('');
-
-                $("form").submit(onMessageSubmit);
-
-                var queryParams = new URLSearchParams(window.location.search);
-                loadMessage(queryParams.get("id"), $("#message"));
-            })
-        </script>
-    </head>
-    <body>
-        <div class="content">
-            <div class="logo">
-                <h1><a href="/">Technochat</a></h1>
-            </div>
+<head>
+    <meta charset="utf-8">
+    <title>Technochat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+    <meta name="theme-color" content="#101010">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/images/apple-touch-icon-167x167.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/adaptive.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <script src="/js/lib/jquery-3.6.0.min.js"></script>
+    <script src="/js/lib/heic2any.min.js"></script>
+    <script src="/js/pwa.js"></script>
+    <script type="module" src="/js/message/add.js"></script>
+    <script type="module" src="/js/message/view.js"></script>
+</head>
+<body>
+<div class="content">
+    <div class="logo">
+        <h1><a href="/">Technochat</a></h1>
+    </div>
+    <div class="result">
+        <div class="result__text">
             <p>Message: </p>
-            <div id=message></div>
-
-            <form id="text_form" action="/api/v1/message/add" method="post" enctype="multipart/form-data">
-                <p>Your answer: </p>
-                <p>
-                    <textarea id="text" name="text" cols="72" rows="10" maxlength="1024" placeholder="Right here"></textarea>
-                </p>
-                <div class="ttl">
-                    TTL:
-                    <label class="container">1 day
-                         <input type="radio" checked name="ttl" value=86400>
-                         <span class="checkmark"></span>
-                    </label>
-                    <label class="container">2 days
-                         <input type="radio" name="ttl" value=172800>
-                         <span class="checkmark"></span>
-                    </label>
-                    <label class="container">1 week
-                         <input type="radio" name="ttl" value=604800>
-                         <span class="checkmark"></span>
-                    </label>
-                </div>
-                <div class="submit">
-                    <input class="btn" type="submit" value="Generate">
-                </div>
-            </form>
-            <div id="loading">loading</div>
-            <div class="preview">
-                <p>Check your message here: </p>
-                <p id="result_text"></p>
-            </div>
-            <div class="link">
-                <p>Link: </p>
-                <div id="result_link"></div>
-            </div>
-            <button class="btn" id="copy_button" onclick="copyLink('to_copy')">Copy link</button>
+            <p id=message class="result__message"></p>
         </div>
-        </script>
-    </body>
+        <div id="images" class="result__images"></div>
+    </div>
+
+    <form class="form" id="text_form" action="/api/v1/message/add"
+          method="post" enctype="multipart/form-data" accept-charset="utf-8">
+
+        <p>Your reply: </p>
+
+        <div class="form__wrapper">
+            <textarea id="text" class="area__message js__textarea" name="text" autofocus="true"
+                      placeholder="Right here"></textarea>
+            <div class="text__symbols">
+                <span class="js__counter">0</span>/<span class="js__counter-max"></span>
+            </div>
+            <div class="upload">
+                <input hidden type="file" id="file-input" multiple accept="image/*">
+                <label class="button upload__label" for="file-input">Upload Images</label>
+                <div id="upload_status"></div>
+                <div class="upload__preview" id="preview"></div>
+            </div>
+        </div>
+
+        <div class="ttl">
+            <div class="expires">Expires in:</div>
+            <label class="container">1 day
+                <input type="radio" checked name="ttl" value=86400>
+                <span class="checkmark"></span>
+            </label>
+            <label class="container">2 days
+                <input type="radio" name="ttl" value=172800>
+                <span class="checkmark"></span>
+            </label>
+            <label class="container">1 week
+                <input type="radio" name="ttl" value=604800>
+                <span class="checkmark"></span>
+            </label>
+        </div>
+        <button class="button" id="generate_button">
+            Generate
+        </button>
+    </form>
+    <div class="message__box" id="message_box" style="display: none;">
+        <div id="loading">loading</div>
+        <div class="preview">
+            <p>Your message: </p>
+            <p id="result_text" class="result__message"></p>
+        </div>
+        <div class="link">
+            <p>Link: </p>
+            <div id="result_link" class="result__link"></div>
+        </div>
+        <button class="button" id="copy_button">
+            Copy link
+        </button>
+    </div>
+</div>
+
+<div id="img_modal" class="img-modal" aria-hidden="true">
+    <div class="img-modal__backdrop" id="img_modal_backdrop"></div>
+
+    <div class="img-modal__content" role="dialog" aria-modal="true">
+        <button class="img-modal__close" id="img_modal_close" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M13.1401 1.827C13.1405 1.827 13.1409 1.82735 13.1416 1.82807L14.1718 2.85843C14.1725 2.85896 14.1726 2.85932 14.1728 2.85985C14.1729 2.86021 14.1729 2.86057 14.1728 2.86093C14.1728 2.86146 14.1725 2.86182 14.1718 2.86253L9.03425 8.00003L14.1718 13.1375C14.1725 13.1382 14.1726 13.1386 14.1728 13.1391C14.1729 13.1395 14.1729 13.14 14.1728 13.1404C14.1728 13.1407 14.1725 13.1411 14.1718 13.1418L13.1414 14.172C13.1409 14.1727 13.1405 14.1729 13.1401 14.1731C13.1397 14.1732 13.1393 14.1732 13.1389 14.1731C13.1384 14.1731 13.138 14.1727 13.1373 14.172L7.99979 9.0345L2.86229 14.172C2.86157 14.1727 2.86122 14.1729 2.86068 14.1731C2.86027 14.1732 2.85984 14.1732 2.85943 14.1731C2.85907 14.1731 2.85872 14.1727 2.858 14.172L1.82782 13.1416C1.82711 13.1411 1.82693 13.1407 1.82675 13.1404C1.82663 13.14 1.82663 13.1395 1.82675 13.1391C1.82675 13.1386 1.82711 13.1382 1.82782 13.1375L6.96533 8.00003L1.82782 2.86253C1.82711 2.86182 1.82693 2.86146 1.82675 2.86093C1.82663 2.86052 1.82663 2.86008 1.82675 2.85968C1.82675 2.85932 1.82711 2.85896 1.82782 2.85825L2.85818 1.82807C2.85872 1.82735 2.85907 1.82718 2.85943 1.827C2.85984 1.82687 2.86027 1.82687 2.86068 1.827C2.86122 1.827 2.86157 1.82735 2.86229 1.82807L7.99979 6.96557L13.1373 1.82807C13.138 1.82735 13.1384 1.82718 13.1389 1.827C13.1393 1.82687 13.1397 1.82687 13.1401 1.827Z" fill="#EFEFEF"/>
+            </svg>
+        </button>
+        <img id="img_modal_img" class="img-modal__img" alt="" src="">
+    </div>
+</div>
+
+</body>
 </html>

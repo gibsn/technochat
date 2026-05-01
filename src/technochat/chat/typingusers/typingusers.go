@@ -61,7 +61,7 @@ func (ts *TypingUsers) handle() {
 }
 
 func (ts *TypingUsers) prepUpdate() []int {
-	list := make([]int, len(ts.TypingList), len(ts.TypingList))
+	list := make([]int, len(ts.TypingList))
 	listPtr := 0
 
 	for k, v := range ts.TypingList {
