@@ -98,6 +98,25 @@ button {
 .chat-message--own {
   align-items: flex-end;
 }
+
+.chat-message_meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.chat-message--own .chat-message_meta {
+  flex-direction: row-reverse;
+}
+
+.chat-message_time {
+  color: #6d6d6d;
+  flex: none;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .chat-message .chip {
   display: inline-flex;
   align-items: center;
