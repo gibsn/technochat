@@ -63,6 +63,7 @@ button {
 }
 
 .chat_shell {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -71,6 +72,10 @@ button {
 }
 
 .presence_bar {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 8;
   display: flex;
   justify-content: flex-end;
 }
@@ -413,13 +418,14 @@ input:focus ~ .bar:after {
   }
 
   .presence_bar {
-    justify-content: center;
+    top: 10px;
+    right: 10px;
   }
 
   .presence_button {
-    width: 100%;
-    min-height: 42px;
-    font-size: 17px;
+    min-height: 34px;
+    padding: 5px 10px;
+    font-size: 15px;
   }
 
   .presence_modal {
