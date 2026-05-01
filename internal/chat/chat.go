@@ -53,10 +53,11 @@ type Chat struct {
 	broadcastChan chan *message.WSMessage
 	typingUsers   *typingusers.TypingUsers
 
-	restJoins  int // how many available invitations are left
-	maxUsers   int
-	corresps   map[int]*user.User
-	correspsMx sync.RWMutex
+	restJoins         int // how many available invitations are left
+	maxUsers          int
+	corresps          map[int]*user.User
+	correspsMx        sync.RWMutex
+	typingBroadcastMx sync.Mutex
 }
 
 type incomingMessage struct {
@@ -153,30 +154,38 @@ func (c *Chat) BroadcastPresence() {
 	}
 }
 
-func (c *Chat) TypingMessageFor(recipientID int) *message.WSMessage {
+func (c *Chat) TypingMessageFor(
+	recipientID int,
+	typingUsers []message.TypingUser,
+) *message.WSMessage {
 	return &message.WSMessage{
 		Type: message.WSMsgTypeService,
 		Data: message.Event{
 			EventID:   message.EventTyping,
-			EventData: c.typingUsers.UsersFor(recipientID),
+			EventData: typingusers.UsersFor(typingUsers, recipientID),
 		},
 	}
 }
 
 func (c *Chat) broadcastTypingUsers() {
+	c.typingBroadcastMx.Lock()
+	defer c.typingBroadcastMx.Unlock()
+
 	c.correspsMx.RLock()
-	defer c.correspsMx.RUnlock()
-
+	recipients := make([]*user.User, 0, len(c.corresps))
 	for _, usr := range c.corresps {
-		msg := c.TypingMessageFor(usr.ID)
+		recipients = append(recipients, usr)
+	}
+	c.correspsMx.RUnlock()
 
-		c.correspsMx.RUnlock()
+	typingUsers := c.typingUsers.Users()
+
+	for _, usr := range recipients {
+		msg := c.TypingMessageFor(usr.ID, typingUsers)
 		if err := usr.SendMessage(msg); err != nil {
 			log.Printf("error: chat: could not send typing update to user %s in chat %s: %v",
 				usr.Name, c.ID, err)
 		}
-
-		c.correspsMx.RLock()
 	}
 }
 

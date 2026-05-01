@@ -13,7 +13,7 @@ func TestRefreshAddsUserAndExtendsDeadline(t *testing.T) {
 		t.Fatalf("expected first refresh to change visible users")
 	}
 
-	typingUsers := users.UsersFor(2)
+	typingUsers := UsersFor(users.Users(), 2)
 	if len(typingUsers) != 1 {
 		t.Fatalf("expected 1 typing user, got %d", len(typingUsers))
 	}
@@ -29,7 +29,7 @@ func TestRefreshAddsUserAndExtendsDeadline(t *testing.T) {
 		t.Fatalf("expected repeated refresh to keep visible users unchanged")
 	}
 
-	typingUsers = users.UsersFor(2)
+	typingUsers = UsersFor(users.Users(), 2)
 	if !typingUsers[0].ExpiresAt.Equal(later.Add(3 * time.Second)) {
 		t.Fatalf("expected extended deadline %s, got %s", later.Add(3*time.Second), typingUsers[0].ExpiresAt)
 	}
@@ -80,7 +80,7 @@ func TestUsersForExcludesRecipientAndSorts(t *testing.T) {
 	users.Refresh(User{ID: 20, Name: "Axe"}, now)
 	users.Refresh(User{ID: 10, Name: "Lina"}, now)
 
-	typingUsers := users.UsersFor(20)
+	typingUsers := UsersFor(users.Users(), 20)
 	if len(typingUsers) != 1 {
 		t.Fatalf("expected one typing user after excluding recipient, got %d", len(typingUsers))
 	}
@@ -88,7 +88,7 @@ func TestUsersForExcludesRecipientAndSorts(t *testing.T) {
 		t.Fatalf("expected recipient to see user 10, got %d", typingUsers[0].ID)
 	}
 
-	typingUsers = users.UsersFor(99)
+	typingUsers = UsersFor(users.Users(), 99)
 	if len(typingUsers) != 2 {
 		t.Fatalf("expected two typing users, got %d", len(typingUsers))
 	}

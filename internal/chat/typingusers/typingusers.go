@@ -75,17 +75,13 @@ func (tu *TypingUsers) Expire(now time.Time) bool {
 	return changed
 }
 
-func (tu *TypingUsers) UsersFor(recipientID int) []message.TypingUser {
+func (tu *TypingUsers) Users() []message.TypingUser {
 	tu.mx.RLock()
 	defer tu.mx.RUnlock()
 
 	users := make([]message.TypingUser, 0, len(tu.deadlines))
 
 	for userID, user := range tu.deadlines {
-		if userID == recipientID {
-			continue
-		}
-
 		users = append(users, message.TypingUser{
 			ID:        userID,
 			Name:      user.name,
@@ -98,6 +94,20 @@ func (tu *TypingUsers) UsersFor(recipientID int) []message.TypingUser {
 	})
 
 	return users
+}
+
+func UsersFor(users []message.TypingUser, recipientID int) []message.TypingUser {
+	filtered := make([]message.TypingUser, 0, len(users))
+
+	for _, user := range users {
+		if user.ID == recipientID {
+			continue
+		}
+
+		filtered = append(filtered, user)
+	}
+
+	return filtered
 }
 
 func (tu *TypingUsers) Len() int {
