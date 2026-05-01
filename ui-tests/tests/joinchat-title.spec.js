@@ -17,6 +17,13 @@ async function routeJoinChatWorktreeStatic(page) {
       path: path.join(__dirname, "../../static/js/chat/chat.js"),
     });
   });
+
+  await page.route("**/css/chat.css**", async (route) => {
+    await route.fulfill({
+      contentType: "text/css",
+      path: path.join(__dirname, "../../static/css/chat.css"),
+    });
+  });
 }
 
 function installJoinChatMocks() {
@@ -203,6 +210,48 @@ test("@unit does not blink the page title when the chat page is visible", async 
     "2026-05-01T06:07:08.000Z"
   );
   await expect(page.locator(".chat-message_time")).not.toBeEmpty();
+});
+
+test("@unit keeps chat input fixed while messages scroll internally", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openJoinChat(page);
+
+  await page.evaluate(async () => {
+    window.__setJoinChatHiddenState(false);
+
+    for (let i = 0; i < 20; i++) {
+      window.__emitJoinChatMessage({
+        type: 1,
+        username: "Axe",
+        created_at: "2026-05-01T06:07:08Z",
+        data: await window.__encryptJoinChatMessage("Hi"),
+      });
+    }
+  });
+
+  const layout = await page.evaluate(() => {
+    const messages = document.getElementById("chat-messages");
+    const input = document.querySelector(".message_input");
+    const inputRect = input.getBoundingClientRect();
+
+    return {
+      bodyScrollHeight: document.documentElement.scrollHeight,
+      viewportHeight: window.innerHeight,
+      messagesClientHeight: messages.clientHeight,
+      messagesScrollHeight: messages.scrollHeight,
+      inputBottom: inputRect.bottom,
+    };
+  });
+
+  expect(layout.bodyScrollHeight).toBeLessThanOrEqual(
+    layout.viewportHeight + 1
+  );
+  expect(layout.messagesScrollHeight).toBeGreaterThan(
+    layout.messagesClientHeight
+  );
+  expect(layout.inputBottom).toBeLessThanOrEqual(layout.viewportHeight);
 });
 
 test("@unit keeps the original title when focus returns before any unread notification", async ({
