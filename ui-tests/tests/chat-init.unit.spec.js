@@ -17,9 +17,11 @@ test("@unit resets the copy button when a new chat link is generated", async ({
   page,
 }) => {
   let responseIndex = 0;
+  const initRequestBodies = [];
   const chatIDs = ["first-chat", "second-chat"];
 
   await page.route("**/api/v1/chat/init", async (route) => {
+    initRequestBodies.push(route.request().postData());
     const chatID = chatIDs[responseIndex];
     responseIndex += 1;
 
@@ -37,12 +39,17 @@ test("@unit resets the copy button when a new chat link is generated", async ({
   await page.goto("/html/initchat.html");
   await page.locator("button", { hasText: "Create chat" }).click();
 
-  await expect(page.locator("#to_copy")).toHaveValue(/first-chat/);
+  await expect(page.locator("#to_copy")).toHaveValue(
+    /\/html\/joinchat\.html\?id=first-chat#key=/
+  );
   await page.locator("#copy_button").click();
   await expect(page.locator("#copy_button")).toHaveText("Copied!");
 
   await page.locator("button", { hasText: "Create chat" }).click();
 
-  await expect(page.locator("#to_copy")).toHaveValue(/second-chat/);
+  await expect(page.locator("#to_copy")).toHaveValue(
+    /\/html\/joinchat\.html\?id=second-chat#key=/
+  );
   await expect(page.locator("#copy_button")).toHaveText("Copy link");
+  expect(initRequestBodies.join("\n")).not.toContain("key");
 });

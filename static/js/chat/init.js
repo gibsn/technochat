@@ -1,4 +1,5 @@
 import * as util from "/js/util.js";
+import {GenerateAESGCM128KeyBase64} from "/js/message/crypto.js";
 
 let copyButtonView;
 let joinButtonView;
@@ -25,7 +26,7 @@ function onSubmit(e) {
     });
 }
 
-function onSubmitSuccess(json) {
+async function onSubmitSuccess(json) {
     $("#loading").hide();
 
     $("#link_box").show();
@@ -35,7 +36,18 @@ function onSubmitSuccess(json) {
 
     if (json.code == 200) {
         var id = json.body.id;
-        var link = window.location.origin + '/html/joinchat.html?id=' + id
+        var key;
+
+        try {
+            key = await GenerateAESGCM128KeyBase64();
+        } catch (e) {
+            console.error('could not generate chat key', e);
+            $("#result_link").html("error: could not generate chat encryption key");
+            copyButtonView.style.display = "none";
+            return;
+        }
+
+        var link = window.location.origin + '/html/joinchat.html?id=' + id + '#key=' + encodeURIComponent(key);
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
         joinButtonView.href = link;
         joinButtonView.style.display = "inline-flex";

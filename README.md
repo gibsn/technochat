@@ -13,6 +13,31 @@ The project exposes HTTP API endpoints and static pages for three main scenarios
 - open a message by link and delete it after reading;
 - create a temporary chat room with a limited number of participants.
 
+## Security model
+
+One-time messages and temporary chat message bodies are encrypted in the browser
+before they are sent to the Go backend.
+
+For temporary chats, the room creator generates an AES-GCM-128 room key in the
+browser. The key is added to the invitation URL fragment as `#key=...`, so it is
+not sent in HTTP requests or WebSocket URLs. Every chat message is encrypted with
+that room key and a fresh random IV before `WebSocket.send`. The server assigns
+participant names, enforces the join limit, and relays WebSocket JSON, but it
+only sees ciphertext for user message bodies.
+
+This protects past chat contents from later server-side storage access and keeps
+message text out of normal server request handling, logs, and relay logic. It
+does not protect against a compromised server changing the JavaScript delivered
+to browsers, malicious invitation-link recipients, browser/device compromise, or
+the server replacing client code during a live session. Temporary chat service
+events such as join/leave notifications and generated participant names are
+metadata and are not encrypted.
+
+The current chat bootstrap uses a shared symmetric room key carried in the
+invitation link. It does not provide participant key authentication or forward
+secrecy; adding authenticated participant keys is the next step if the server
+itself must be unable to perform key-substitution attacks.
+
 Default local service ports in the dev stack:
 - `80` and `443` for Nginx;
 - internal `8080` for the Go application;

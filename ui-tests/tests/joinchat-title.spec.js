@@ -1,7 +1,24 @@
 const { test, expect } = require("@playwright/test");
 
+const chatKeyBase64 = "AAAAAAAAAAAAAAAAAAAAAA==";
+
 function installJoinChatMocks() {
   let isHidden = false;
+
+  function base64ToArrayBuffer(value) {
+    const raw = atob(value);
+    const bytes = new Uint8Array(raw.length);
+
+    for (let i = 0; i < raw.length; i++) {
+      bytes[i] = raw.charCodeAt(i);
+    }
+
+    return bytes.buffer;
+  }
+
+  function arrayBufferToBase64(value) {
+    return btoa(String.fromCharCode(...new Uint8Array(value)));
+  }
 
   Object.defineProperty(Document.prototype, "hidden", {
     configurable: true,
@@ -57,6 +74,28 @@ function installJoinChatMocks() {
       data: JSON.stringify(payload),
     });
   };
+  window.__encryptJoinChatMessage = async (text) => {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const key = await crypto.subtle.importKey(
+      "raw",
+      base64ToArrayBuffer(params.get("key")),
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["encrypt"]
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      new TextEncoder().encode(text)
+    );
+
+    return {
+      alg: "AES-GCM-128",
+      iv: arrayBufferToBase64(iv),
+      ciphertext: arrayBufferToBase64(ciphertext),
+    };
+  };
 }
 
 test.beforeEach(async ({ page }) => {
@@ -64,7 +103,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function openJoinChat(page) {
-  await page.goto("/html/joinchat.html?id=chat-id");
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+  );
   await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
 }
 
@@ -76,12 +117,12 @@ test("@unit keeps the unread title until the tab receives focus", async ({
   await expect(page.locator("#chat-messages")).toBeVisible();
   await expect(page).toHaveTitle("TechnoChat");
 
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     window.__setJoinChatHiddenState(true);
     window.__emitJoinChatMessage({
       type: 1,
       username: "alice",
-      data: "hello from hidden tab",
+      data: await window.__encryptJoinChatMessage("hello from hidden tab"),
     });
   });
 
@@ -115,12 +156,12 @@ test("@unit does not blink the page title when the chat page is visible", async 
   await expect(page.locator("#chat-messages")).toBeVisible();
   await expect(page).toHaveTitle("TechnoChat");
 
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     window.__setJoinChatHiddenState(false);
     window.__emitJoinChatMessage({
       type: 1,
       username: "bob",
-      data: "visible message",
+      data: await window.__encryptJoinChatMessage("visible message"),
     });
   });
 
@@ -144,4 +185,69 @@ test("@unit keeps the original title when focus returns before any unread notifi
   });
 
   await expect(page).toHaveTitle("TechnoChat");
+});
+
+test("@unit encrypts outbound chat messages before WebSocket send", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: "alice",
+      },
+    });
+  });
+
+  await page.locator('input[type="text"]').fill("server must not read this");
+  await page.locator('input[type="text"]').press("Enter");
+
+  const payload = await page.waitForFunction(() => {
+    const sent = window.__technochatMockSocket.lastSentPayload;
+
+    if (!sent) {
+      return false;
+    }
+
+    return JSON.parse(sent);
+  });
+  const sentMessage = await payload.jsonValue();
+
+  expect(JSON.stringify(sentMessage)).not.toContain("server must not read this");
+  expect(sentMessage.data.alg).toBe("AES-GCM-128");
+  expect(sentMessage.data.iv).toBeTruthy();
+  expect(sentMessage.data.ciphertext).toBeTruthy();
+
+  const decrypted = await page.evaluate(async (encryptedPayload) => {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const keyBytes = Uint8Array.from(atob(params.get("key")), (char) =>
+      char.charCodeAt(0)
+    );
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "AES-GCM", length: 128 },
+      false,
+      ["decrypt"]
+    );
+    const iv = Uint8Array.from(atob(encryptedPayload.iv), (char) =>
+      char.charCodeAt(0)
+    );
+    const ciphertext = Uint8Array.from(
+      atob(encryptedPayload.ciphertext),
+      (char) => char.charCodeAt(0)
+    );
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext
+    );
+
+    return new TextDecoder().decode(plain);
+  }, sentMessage.data);
+
+  expect(decrypted).toBe("server must not read this");
 });

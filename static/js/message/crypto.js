@@ -25,6 +25,52 @@ export class AESGCM128 extends EncryptionAlgorithm {
     }
 }
 
+export async function GenerateAESGCM128KeyBase64() {
+    const key = await crypto.subtle.generateKey(new AESGCM128().params, true, ['encrypt', 'decrypt']);
+    const exportedKey = await crypto.subtle.exportKey('raw', key);
+
+    return ArrayBufferToBase64(exportedKey);
+}
+
+export async function ImportAESGCM128Key(keyBase64) {
+    return crypto.subtle.importKey(
+        'raw',
+        Base64ToArrayBuffer(keyBase64),
+        new AESGCM128().params,
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
+
+export async function EncryptStringWithAESGCM128Key(key, plaintext) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        new TextEncoder().encode(plaintext)
+    );
+
+    return {
+        alg: 'AES-GCM-128',
+        iv: ArrayBufferToBase64(iv),
+        ciphertext: ArrayBufferToBase64(ciphertext),
+    };
+}
+
+export async function DecryptStringWithAESGCM128Key(key, payload) {
+    if (!payload || payload.alg !== 'AES-GCM-128' || !payload.iv || !payload.ciphertext) {
+        throw new Error('invalid encrypted payload');
+    }
+
+    const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: Base64ToArrayBuffer(payload.iv) },
+        key,
+        Base64ToArrayBuffer(payload.ciphertext)
+    );
+
+    return new TextDecoder('utf-8').decode(plaintext);
+}
+
 export class Encrypter {
     #_algParams;
     #_encryptionParams;
