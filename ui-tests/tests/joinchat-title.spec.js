@@ -319,6 +319,7 @@ test("@unit encrypts outbound chat messages before WebSocket send", async ({
         event_data: "alice",
       },
     });
+    window.$ = undefined;
   });
 
   await page.locator('input[type="text"]').fill("server must not read this");
