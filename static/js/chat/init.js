@@ -1,5 +1,5 @@
 import * as util from "/js/util.js";
-import {GenerateAESGCM128KeyBase64} from "/js/message/crypto.js";
+import {AESGCM128, ArrayBufferToBase64, Encrypter} from "/js/message/crypto.js";
 
 let copyButtonView;
 let joinButtonView;
@@ -39,7 +39,9 @@ async function onSubmitSuccess(json) {
         var key;
 
         try {
-            key = await GenerateAESGCM128KeyBase64();
+            var encrypter = new Encrypter(new AESGCM128());
+            await encrypter.setup();
+            key = ArrayBufferToBase64(encrypter.exportKey);
         } catch (e) {
             console.error('could not generate chat key', e);
             $("#result_link").html("error: could not generate chat encryption key");

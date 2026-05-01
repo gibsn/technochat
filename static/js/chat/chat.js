@@ -1,7 +1,8 @@
 import {
-    DecryptStringWithAESGCM128Key,
-    EncryptStringWithAESGCM128Key,
-    ImportAESGCM128Key
+    AESGCM128,
+    Base64ToArrayBuffer,
+    Decrypter,
+    Encrypter
 } from "/js/message/crypto.js";
 
 const WSMsgTypeService  = 0;
@@ -30,7 +31,8 @@ new Vue({
         name: '',
         onPage: false,
         newMessagesNum: 0,
-        roomKey: null,
+        roomKey: '',
+        encrypter: null,
     },
     created: function() {
         var id = getParameterByName('id', window.location);
@@ -49,7 +51,9 @@ new Vue({
             var self = this;
 
             try {
-                this.roomKey = await ImportAESGCM128Key(key);
+                this.roomKey = key;
+                this.encrypter = new Encrypter(new AESGCM128());
+                await this.encrypter.setupWithKey(Base64ToArrayBuffer(key));
             } catch (e) {
                 console.error('could not import chat key', e);
                 this.okconnected = false;
@@ -98,7 +102,17 @@ new Vue({
                 return String(msg.data || '');
             }
 
-            return await DecryptStringWithAESGCM128Key(this.roomKey, msg.data);
+            if (!msg.data || msg.data.alg !== 'AES-GCM-128' || !msg.data.iv || !msg.data.ciphertext) {
+                throw new Error('invalid encrypted payload');
+            }
+
+            var decrypter = new Decrypter(new AESGCM128());
+            await decrypter.setup(
+                Base64ToArrayBuffer(this.roomKey),
+                Base64ToArrayBuffer(msg.data.iv)
+            );
+
+            return await decrypter.decryptToString(Base64ToArrayBuffer(msg.data.ciphertext));
         },
         addmsg: async function(msg){
             if (document.hidden) {
@@ -132,7 +146,7 @@ new Vue({
                 var encryptedData;
 
                 try {
-                    encryptedData = await EncryptStringWithAESGCM128Key(this.roomKey, plaintext);
+                    encryptedData = await this.encrypter.encryptStringWithNewIV(plaintext);
                 } catch (e) {
                     console.error('could not encrypt chat message', e);
                     return;
