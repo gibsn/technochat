@@ -1,5 +1,7 @@
 package message
 
+import "time"
+
 type TypeID int
 
 const (
@@ -20,7 +22,8 @@ const (
 )
 
 type WSMessage struct {
-	Type TypeID      `json:"type"`
-	Data interface{} `json:"data"`
-	Name string      `json:"username"`
+	Type      TypeID      `json:"type"`
+	Data      interface{} `json:"data"`
+	Name      string      `json:"username"`
+	CreatedAt *time.Time  `json:"created_at,omitempty"`
 }

@@ -1,6 +1,23 @@
 const { test, expect } = require("@playwright/test");
+const path = require("path");
 
 const chatKeyBase64 = "AAAAAAAAAAAAAAAAAAAAAA==";
+
+async function routeJoinChatWorktreeStatic(page) {
+  await page.route("**/html/joinchat.html**", async (route) => {
+    await route.fulfill({
+      contentType: "text/html",
+      path: path.join(__dirname, "../../static/html/joinchat.html"),
+    });
+  });
+
+  await page.route("**/js/chat/chat.js**", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      path: path.join(__dirname, "../../static/js/chat/chat.js"),
+    });
+  });
+}
 
 function installJoinChatMocks() {
   let isHidden = false;
@@ -103,6 +120,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function openJoinChat(page) {
+  await routeJoinChatWorktreeStatic(page);
   await page.goto(
     `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
   );
@@ -110,6 +128,7 @@ async function openJoinChat(page) {
 }
 
 async function openJoinChatScript(page) {
+  await routeJoinChatWorktreeStatic(page);
   await page.goto(
     `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
   );
@@ -168,6 +187,7 @@ test("@unit does not blink the page title when the chat page is visible", async 
     window.__emitJoinChatMessage({
       type: 1,
       username: "bob",
+      created_at: "2026-05-01T06:07:08Z",
       data: await window.__encryptJoinChatMessage("visible message"),
     });
   });
@@ -177,6 +197,12 @@ test("@unit does not blink the page title when the chat page is visible", async 
   await expect(page).toHaveTitle("TechnoChat");
   await expect(page.locator("#chat-messages")).toContainText("bob");
   await expect(page.locator("#chat-messages")).toContainText("visible message");
+  await expect(page.locator(".chat-message_time")).toBeVisible();
+  await expect(page.locator(".chat-message_time")).toHaveAttribute(
+    "datetime",
+    "2026-05-01T06:07:08.000Z"
+  );
+  await expect(page.locator(".chat-message_time")).not.toBeEmpty();
 });
 
 test("@unit keeps the original title when focus returns before any unread notification", async ({
