@@ -1,4 +1,7 @@
 MODULE_NAME=technochat
+GOLANGCI_LINT_VERSION = v2.11.4
+GO_BUILD_CACHE ?= $(CURDIR)/.cache/go-build
+GOLANGCI_LINT_CACHE ?= $(CURDIR)/.cache/golangci-lint
 
 TEST_FILES = $(shell find -L * -name '*_test.go' -not -path "vendor/*")
 TEST_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(TEST_FILES)))
@@ -18,12 +21,12 @@ install: lint go-tests ui-tests technochat
 technochat:
 	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat ./cmd/technochat
 
-bin/golangci-lint:
-	@echo "building golangci-lint v1.64.5 with $$(go env GOVERSION)"
-	GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
+bin/golangci-lint: Makefile
+	@echo "building golangci-lint $(GOLANGCI_LINT_VERSION) with $$(go env GOVERSION)"
+	GOCACHE=$(GO_BUILD_CACHE) GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 lint: bin/golangci-lint
-	bin/golangci-lint run -v -c golangci.yml --new-from-rev=$(TARGET_BRANCH)
+	GOLANGCI_LINT_CACHE=$(GOLANGCI_LINT_CACHE) bin/golangci-lint run -v -c golangci.yml --new-from-rev=$(TARGET_BRANCH)
 
 go-tests:
 	go test -v $(TEST_PACKAGES)

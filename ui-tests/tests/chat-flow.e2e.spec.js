@@ -8,7 +8,7 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
   await page.locator("button", { hasText: "Create chat" }).click();
 
   const linkInput = page.locator("#to_copy");
-  await expect(linkInput).toHaveValue(/\/html\/joinchat\.html\?id=.*/);
+  await expect(linkInput).toHaveValue(/\/html\/joinchat\.html\?id=.*#key=.*/);
   const chatLink = await linkInput.inputValue();
 
   const firstUserPage = await browser.newPage();

@@ -44,6 +44,10 @@ export class Encrypter {
         this._encryptionParams.iv = crypto.getRandomValues(new Uint8Array(12));
     }
 
+    async setupWithKey(key) {
+        this._key = await crypto.subtle.importKey('raw', key, this._algParams, false, ['encrypt']);
+    }
+
     get exportKey() {
         return this._exportKey;
     }
@@ -60,6 +64,17 @@ export class Encrypter {
     // encryptBytes encrypts the given ArrayBuffer and returns the encrypted ArrayBuffer
     async encryptBytes(buf) {
         return await crypto.subtle.encrypt(this._encryptionParams, this._key, buf);
+    }
+
+    async encryptStringWithNewIV(s) {
+        this._encryptionParams.iv = crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext = await this.encryptString(s);
+
+        return {
+            alg: 'AES-GCM-128',
+            iv: ArrayBufferToBase64(this.iv),
+            ciphertext: ArrayBufferToBase64(ciphertext),
+        };
     }
 }
 
