@@ -58,7 +58,7 @@ func TestConnectBroadcastsPresenceEvent(t *testing.T) {
 	defer stopTestChat(c, done)
 
 	client := dialTestChat(t, server)
-	defer client.Close()
+	defer closeTestClient(t, client)
 
 	presence := readPresenceEvent(t, client, 1)
 	if presence.Max != 3 {
@@ -83,11 +83,10 @@ func TestDisconnectBroadcastsPresenceEvent(t *testing.T) {
 	defer stopTestChat(c, done)
 
 	firstClient := dialTestChat(t, server)
-	defer firstClient.Close()
+	defer closeTestClient(t, firstClient)
 	readPresenceEvent(t, firstClient, 1)
 
 	secondClient := dialTestChat(t, server)
-	defer secondClient.Close()
 	readPresenceEvent(t, firstClient, 2)
 
 	if err := secondClient.Close(); err != nil {
@@ -148,6 +147,14 @@ func dialTestChat(t *testing.T, server *httptest.Server) *websocket.Conn {
 	}
 
 	return client
+}
+
+func closeTestClient(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("could not close websocket client: %v", err)
+	}
 }
 
 func readPresenceEvent(t *testing.T, client *websocket.Conn, expectedOnline int) testPresence {
