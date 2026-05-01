@@ -1,5 +1,48 @@
 import {Decrypter, AESGCM128, Base64ToArrayBuffer} from "/js/message/crypto.js";
 
+function sniffImageMimeType(bytes) {
+    const header = new Uint8Array(bytes);
+
+    if (
+        header.length >= 12 &&
+        header[0] === 0x52 &&
+        header[1] === 0x49 &&
+        header[2] === 0x46 &&
+        header[3] === 0x46 &&
+        header[8] === 0x57 &&
+        header[9] === 0x45 &&
+        header[10] === 0x42 &&
+        header[11] === 0x50
+    ) {
+        return 'image/webp';
+    }
+
+    if (
+        header.length >= 3 &&
+        header[0] === 0xff &&
+        header[1] === 0xd8 &&
+        header[2] === 0xff
+    ) {
+        return 'image/jpeg';
+    }
+
+    if (
+        header.length >= 8 &&
+        header[0] === 0x89 &&
+        header[1] === 0x50 &&
+        header[2] === 0x4e &&
+        header[3] === 0x47 &&
+        header[4] === 0x0d &&
+        header[5] === 0x0a &&
+        header[6] === 0x1a &&
+        header[7] === 0x0a
+    ) {
+        return 'image/png';
+    }
+
+    return 'application/octet-stream';
+}
+
 function setupImageModal() {
     const modal = document.getElementById('img_modal');
     const modalImg = document.getElementById('img_modal_img');
@@ -39,8 +82,8 @@ async function loadAndDecryptImage(imgId, decrypter) {
 
     const encryptedBytes = await resp.arrayBuffer();
     const plainBytes = await decrypter.decryptToBytes(encryptedBytes);
-
-    const blob = new Blob([plainBytes], { type: "image/*" });
+    const mimeType = sniffImageMimeType(plainBytes);
+    const blob = new Blob([plainBytes], { type: mimeType });
     return URL.createObjectURL(blob);
 }
 
