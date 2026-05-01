@@ -194,7 +194,7 @@ new Vue({
         },
         send: async function () {
             if (this.newMsg != '') {
-                var plaintext = $('<p>').html(this.newMsg).text();
+                var plaintext = this.newMsg;
                 var encryptedData;
 
                 try {
@@ -306,7 +306,12 @@ new Vue({
             event.target.src = this.fallbackAvatar(username);
         },
         escapeHtml: function(value) {
-            return $('<div>').text(value == null ? '' : String(value)).html();
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         },
         isOwnMessage: function(username) {
             return Boolean(this.name) && username === this.name;
