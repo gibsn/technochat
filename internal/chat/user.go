@@ -58,7 +58,10 @@ func (c *Chat) SubscribeUser(usr *user.User) {
 			createdAt := time.Now().UTC()
 			msg.Name = usr.Name
 			msg.CreatedAt = &createdAt
-			c.incomingChan <- msg
+			c.incomingChan <- &incomingMessage{
+				user: usr,
+				msg:  msg,
+			}
 		}
 	}()
 }

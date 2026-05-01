@@ -12,8 +12,11 @@ const EventConnInitOk = 0;
 const EventConnInitNoSuchChat = 1;
 const EventConnInitMaxUsrsReached = 2;
 const EventPresence = 3;
+const EventTyping = 4;
 
 const NewMsgTitle = "New message!";
+const TypingNotifyRateMs = 1000;
+const TypingCleanupRateMs = 250;
 
 window.onfocus = function() {
     pageTitleNotification.off();
@@ -25,7 +28,8 @@ new Vue({
     data: {
         ws: null, // Our websocket
         newMsg: '', // Holds new messages to be sent to the server
-        chatContent: '', // A running list of chat messages displayed on the screen
+        chatMessages: [],
+        nextChatMessageID: 1,
         username: null, // Our username
         okconnected: true, // True if email and username have been filled in
         fail: false,
@@ -40,10 +44,31 @@ new Vue({
             users: [],
         },
         presenceOpen: false,
+        typingUsers: [],
+        typingCleanupTimer: null,
+        lastTypingSentAt: 0,
     },
     computed: {
         presenceLabel: function() {
             return this.presence.online + ' (' + this.presence.max + ') online';
+        },
+        typingText: function() {
+            if (this.typingUsers.length === 0) {
+                return '';
+            }
+
+            var names = this.typingUsers.map(function(user) {
+                return user.name;
+            });
+
+            if (names.length === 1) {
+                return names[0] + ' is typing';
+            }
+            if (names.length === 2) {
+                return names[0] + ' and ' + names[1] + ' are typing';
+            }
+
+            return names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others are typing';
         },
     },
     created: function() {
@@ -57,6 +82,17 @@ new Vue({
         }
 
         this.setupEncryptedChat(id, key);
+    },
+    mounted: function() {
+        var self = this;
+        this.typingCleanupTimer = window.setInterval(function() {
+            self.cleanupExpiredTypingUsers();
+        }, TypingCleanupRateMs);
+    },
+    beforeDestroy: function() {
+        if (this.typingCleanupTimer) {
+            window.clearInterval(this.typingCleanupTimer);
+        }
     },
     methods: {
         setupEncryptedChat: async function(id, key) {
@@ -91,6 +127,9 @@ new Vue({
                         }
                         if (msg.data.event_id == EventPresence) {
                             self.updatePresence(msg.data.event_data);
+                        }
+                        if (msg.data.event_id == EventTyping) {
+                            self.updateTypingUsers(msg.data.event_data);
                         }
                         break;
                     case WSMsgTypeMessage:
@@ -143,19 +182,14 @@ new Vue({
                 body = 'Could not decrypt chat message';
             }
 
-            var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
-            this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
-                + '<div class="chat-message_meta">'
-                + '<div class="chip">'
-                + this.avatarMarkup(username)
-                + this.escapeHtml(username)
-                + '</div>'
-                + this.messageTimeMarkup(msg.created_at)
-                + '</div>'
-                + '<div class="chat-message_body">'
-                + emojione.toImage(this.escapeHtml(body))
-                + '</div>'
-                + '</div>';
+            this.chatMessages.push({
+                id: this.nextChatMessageID++,
+                username: username,
+                own: this.isOwnMessage(username),
+                bodyHtml: emojione.toImage(this.escapeHtml(body)),
+                timeISO: this.messageTimeISO(msg.created_at),
+                timeLabel: this.messageTimeLabel(msg.created_at),
+            });
             this.scrollToBottom();
         },
         send: async function () {
@@ -179,6 +213,24 @@ new Vue({
                 );
                 this.newMsg = '';
             }
+        },
+        notifyTyping: function() {
+            if (!this.newMsg || !this.ws || this.ws.readyState !== 1) {
+                return;
+            }
+
+            var now = Date.now();
+            if (now - this.lastTypingSentAt < TypingNotifyRateMs) {
+                return;
+            }
+
+            this.lastTypingSentAt = now;
+            this.ws.send(JSON.stringify({
+                type: WSMsgTypeService,
+                data: {
+                    event_id: EventTyping,
+                },
+            }));
         },
         scrollToBottom: function() {
             this.$nextTick(function() {
@@ -209,6 +261,28 @@ new Vue({
         closePresence: function() {
             this.presenceOpen = false;
         },
+        updateTypingUsers: function(data) {
+            var self = this;
+            var users = Array.isArray(data) ? data : [];
+
+            this.typingUsers = users.map(function(user) {
+                return {
+                    id: user.id,
+                    name: String(user.name || ''),
+                    expiresAt: Date.parse(user.expires_at),
+                };
+            }).filter(function(user) {
+                return user.name && user.name !== self.name && Number.isFinite(user.expiresAt);
+            });
+            this.cleanupExpiredTypingUsers();
+            this.scrollToBottom();
+        },
+        cleanupExpiredTypingUsers: function() {
+            var now = Date.now();
+            this.typingUsers = this.typingUsers.filter(function(user) {
+                return user.expiresAt > now;
+            });
+        },
         avatarMarkup: function(username) {
             var safeUsername = this.escapeHtml(username);
             var fallback = this.fallbackAvatar(username);
@@ -237,7 +311,7 @@ new Vue({
         isOwnMessage: function(username) {
             return Boolean(this.name) && username === this.name;
         },
-        messageTimeMarkup: function(createdAt) {
+        messageTimeISO: function(createdAt) {
             if (!createdAt) {
                 return '';
             }
@@ -247,9 +321,19 @@ new Vue({
                 return '';
             }
 
-            return '<time class="chat-message_time" datetime="' + sentAt.toISOString() + '">'
-                + this.escapeHtml(sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-                + '</time>';
+            return sentAt.toISOString();
+        },
+        messageTimeLabel: function(createdAt) {
+            if (!createdAt) {
+                return '';
+            }
+
+            var sentAt = new Date(createdAt);
+            if (Number.isNaN(sentAt.getTime())) {
+                return '';
+            }
+
+            return sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         },
     }
 });

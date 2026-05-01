@@ -19,6 +19,12 @@ type testPresence struct {
 	Users  []map[string]interface{}
 }
 
+type testTypingUser struct {
+	ID        int
+	Name      string
+	ExpiresAt time.Time
+}
+
 func TestPresenceReportsConfiguredMaxUsers(t *testing.T) {
 	c := NewChat(NewChatOpts{
 		ID:       "presence-test",
@@ -102,6 +108,96 @@ func TestDisconnectBroadcastsPresenceEvent(t *testing.T) {
 	}
 }
 
+func TestTypingEventBroadcastsTypingUsers(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "typing-broadcast-test",
+		MaxJoins: 3,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readPresenceEvent(t, firstClient, 1)
+
+	secondClient := dialTestChat(t, server)
+	defer closeTestClient(t, secondClient)
+	readPresenceEvent(t, secondClient, 2)
+
+	writeTypingEvent(t, firstClient)
+
+	typingUsers := readTypingEvent(t, secondClient)
+	if len(typingUsers) != 1 {
+		t.Fatalf("expected one typing user, got %d", len(typingUsers))
+	}
+	if typingUsers[0].Name == "" {
+		t.Fatalf("expected typing user name")
+	}
+	if !typingUsers[0].ExpiresAt.After(time.Now()) {
+		t.Fatalf("expected typing user expiration to be in the future")
+	}
+}
+
+func TestTypingEventDoesNotEchoUserToSelf(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "typing-self-test",
+		MaxJoins: 2,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	client := dialTestChat(t, server)
+	defer closeTestClient(t, client)
+	readPresenceEvent(t, client, 1)
+
+	writeTypingEvent(t, client)
+
+	typingUsers := readTypingEvent(t, client)
+	if len(typingUsers) != 0 {
+		t.Fatalf("expected user not to see themselves typing, got %d users", len(typingUsers))
+	}
+}
+
+func TestMessageClearsTypingState(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "typing-message-clear-test",
+		MaxJoins: 3,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readPresenceEvent(t, firstClient, 1)
+
+	secondClient := dialTestChat(t, server)
+	defer closeTestClient(t, secondClient)
+	readPresenceEvent(t, secondClient, 2)
+
+	writeTypingEvent(t, firstClient)
+	if typingUsers := readTypingEvent(t, secondClient); len(typingUsers) != 1 {
+		t.Fatalf("expected one typing user, got %d", len(typingUsers))
+	}
+
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: "hello",
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	typingUsers := readTypingEvent(t, secondClient)
+	if len(typingUsers) != 0 {
+		t.Fatalf("expected message to clear typing users, got %d users", len(typingUsers))
+	}
+}
+
 func serveTestChat(t *testing.T, c *Chat) (*httptest.Server, chan struct{}) {
 	t.Helper()
 
@@ -154,6 +250,19 @@ func closeTestClient(t *testing.T, client *websocket.Conn) {
 
 	if err := client.Close(); err != nil {
 		t.Fatalf("could not close websocket client: %v", err)
+	}
+}
+
+func writeTypingEvent(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: message.EventTyping,
+		},
+	}); err != nil {
+		t.Fatalf("could not write typing event: %v", err)
 	}
 }
 
@@ -227,12 +336,106 @@ func readNextPresenceEvent(t *testing.T, client *websocket.Conn) (testPresence, 
 	return presence, true
 }
 
+func readTypingEvent(t *testing.T, client *websocket.Conn) []testTypingUser {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	if err := client.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("could not set read deadline: %v", err)
+	}
+
+	for time.Now().Before(deadline) {
+		typingUsers, ok := readNextTypingEvent(t, client)
+		if !ok {
+			continue
+		}
+
+		return typingUsers
+	}
+
+	t.Fatalf("timed out waiting for typing event")
+
+	return nil
+}
+
+func readNextTypingEvent(t *testing.T, client *websocket.Conn) ([]testTypingUser, bool) {
+	t.Helper()
+
+	var wsMsg message.WSMessage
+	if err := client.ReadJSON(&wsMsg); err != nil {
+		t.Fatalf("could not read websocket message: %v", err)
+	}
+
+	event, ok := wsMsg.Data.(map[string]interface{})
+	if wsMsg.Type != message.WSMsgTypeService || !ok {
+		return nil, false
+	}
+
+	eventID, ok := event["event_id"].(float64)
+	if !ok || message.EventID(eventID) != message.EventTyping {
+		return nil, false
+	}
+
+	eventUsers, ok := event["event_data"].([]interface{})
+	if !ok {
+		t.Fatalf("expected typing users list, got %#v", event["event_data"])
+	}
+
+	typingUsers := make([]testTypingUser, 0, len(eventUsers))
+	for _, rawUser := range eventUsers {
+		userData, ok := rawUser.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected typing user object, got %#v", rawUser)
+		}
+
+		expiresAt, ok := userData["expires_at"].(string)
+		if !ok {
+			t.Fatalf("expected expires_at string, got %#v", userData["expires_at"])
+		}
+
+		parsedExpiresAt, err := time.Parse(time.RFC3339Nano, expiresAt)
+		if err != nil {
+			t.Fatalf("could not parse expires_at %q: %v", expiresAt, err)
+		}
+
+		typingUsers = append(typingUsers, testTypingUser{
+			ID:        int(numberFromTypingEvent(t, userData, "id")),
+			Name:      stringFromTypingEvent(t, userData, "name"),
+			ExpiresAt: parsedExpiresAt,
+		})
+	}
+
+	return typingUsers, true
+}
+
 func numberFromPresenceEvent(t *testing.T, eventData map[string]interface{}, field string) float64 {
 	t.Helper()
 
 	value, ok := eventData[field].(float64)
 	if !ok {
 		t.Fatalf("expected numeric presence field %q, got %s", field, fmt.Sprintf("%#v", eventData[field]))
+	}
+
+	return value
+}
+
+func numberFromTypingEvent(t *testing.T, eventData map[string]interface{}, field string) float64 {
+	t.Helper()
+
+	value, ok := eventData[field].(float64)
+	if !ok {
+		t.Fatalf("expected numeric typing field %q, got %s", field, fmt.Sprintf("%#v", eventData[field]))
+	}
+
+	return value
+}
+
+func stringFromTypingEvent(t *testing.T, eventData map[string]interface{}, field string) string {
+	t.Helper()
+
+	value, ok := eventData[field].(string)
+	if !ok {
+		t.Fatalf("expected string typing field %q, got %s", field, fmt.Sprintf("%#v", eventData[field]))
 	}
 
 	return value

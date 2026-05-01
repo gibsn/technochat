@@ -76,6 +76,10 @@ function installJoinChatMocks() {
 
     send(payload) {
       this.lastSentPayload = payload;
+      if (!this.sentPayloads) {
+        this.sentPayloads = [];
+      }
+      this.sentPayloads.push(payload);
     }
 
     close() {
@@ -254,6 +258,39 @@ test("@unit keeps chat input fixed while messages scroll internally", async ({
   expect(layout.inputBottom).toBeLessThanOrEqual(layout.viewportHeight);
 });
 
+test("@unit preserves existing avatar nodes when a new message arrives", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(async () => {
+    window.__emitJoinChatMessage({
+      type: 1,
+      username: "Axe",
+      data: await window.__encryptJoinChatMessage("first"),
+    });
+  });
+
+  await expect(page.locator(".chat-message .chip img")).toHaveCount(1);
+  await page.locator(".chat-message .chip img").first().evaluate((img) => {
+    img.dataset.persistedAvatar = "yes";
+  });
+
+  await page.evaluate(async () => {
+    window.__emitJoinChatMessage({
+      type: 1,
+      username: "Lina",
+      data: await window.__encryptJoinChatMessage("second"),
+    });
+  });
+
+  await expect(page.locator(".chat-message .chip img")).toHaveCount(2);
+  await expect(page.locator(".chat-message .chip img").first()).toHaveAttribute(
+    "data-persisted-avatar",
+    "yes"
+  );
+});
+
 test("@unit keeps the original title when focus returns before any unread notification", async ({
   page,
 }) => {
@@ -288,7 +325,9 @@ test("@unit encrypts outbound chat messages before WebSocket send", async ({
   await page.locator('input[type="text"]').press("Enter");
 
   const payload = await page.waitForFunction(() => {
-    const sent = window.__technochatMockSocket.lastSentPayload;
+    const sent = (window.__technochatMockSocket.sentPayloads || []).find(
+      (payload) => JSON.parse(payload).type === 1
+    );
 
     if (!sent) {
       return false;
@@ -371,4 +410,101 @@ test("@unit shows online count and scrollable online users popup", async ({
     return window.getComputedStyle(element).overflowY;
   });
   expect(overflowY).toBe("auto");
+});
+
+test("@unit sends throttled typing events while composing", async ({ page }) => {
+  await openJoinChat(page);
+
+  await page.locator('input[type="text"]').fill("h");
+  await page.locator('input[type="text"]').fill("he");
+
+  const sentPayloads = await page.evaluate(() => {
+    return (window.__technochatMockSocket.sentPayloads || []).map((payload) =>
+      JSON.parse(payload)
+    );
+  });
+  const typingPayloads = sentPayloads.filter((payload) => {
+    return payload.type === 0 && payload.data && payload.data.event_id === 4;
+  });
+
+  expect(typingPayloads).toHaveLength(1);
+});
+
+test("@unit shows typing indicator and clears it after expires_at", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 4,
+        event_data: [
+          {
+            id: 1,
+            name: "Lina",
+            expires_at: new Date(Date.now() + 500).toISOString(),
+          },
+        ],
+      },
+    });
+  });
+
+  await expect(page.locator(".typing_indicator")).toContainText(
+    "Lina is typing"
+  );
+  await expect(page.locator(".typing_dots i")).toHaveCount(3);
+
+  await expect(page.locator(".typing_indicator")).toBeHidden({
+    timeout: 2_000,
+  });
+});
+
+test("@unit keeps typing indicator while expires_at is refreshed", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 4,
+        event_data: [
+          {
+            id: 1,
+            name: "Lina",
+            expires_at: new Date(Date.now() + 350).toISOString(),
+          },
+        ],
+      },
+    });
+  });
+
+  await expect(page.locator(".typing_indicator")).toContainText(
+    "Lina is typing"
+  );
+
+  await page.waitForTimeout(150);
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 4,
+        event_data: [
+          {
+            id: 1,
+            name: "Lina",
+            expires_at: new Date(Date.now() + 1_200).toISOString(),
+          },
+        ],
+      },
+    });
+  });
+
+  await page.waitForTimeout(500);
+  await expect(page.locator(".typing_indicator")).toContainText(
+    "Lina is typing"
+  );
 });
