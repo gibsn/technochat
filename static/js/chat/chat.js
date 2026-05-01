@@ -130,9 +130,12 @@ new Vue({
 
             var ownMessageClass = this.isOwnMessage(username) ? ' chat-message--own' : '';
             this.chatContent += '<div class="chat-message' + ownMessageClass + '">'
-                + '<div class="chip" >'
+                + '<div class="chat-message_meta">'
+                + '<div class="chip">'
                 + this.avatarMarkup(username)
                 + this.escapeHtml(username)
+                + '</div>'
+                + this.messageTimeMarkup(msg.created_at)
                 + '</div>'
                 + '<div class="chat-message_body">'
                 + emojione.toImage(this.escapeHtml(body))
@@ -194,6 +197,20 @@ new Vue({
         },
         isOwnMessage: function(username) {
             return Boolean(this.name) && username === this.name;
+        },
+        messageTimeMarkup: function(createdAt) {
+            if (!createdAt) {
+                return '';
+            }
+
+            var sentAt = new Date(createdAt);
+            if (Number.isNaN(sentAt.getTime())) {
+                return '';
+            }
+
+            return '<time class="chat-message_time" datetime="' + sentAt.toISOString() + '">'
+                + this.escapeHtml(sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+                + '</time>';
         },
     }
 });
