@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -18,7 +19,8 @@ const (
 	MinPeopleInChat  = 2
 	MaxPeopleInChat  = 100
 
-	ChatAFKLifetime time.Duration = 12 * time.Hour
+	ChatAFKLifetime       time.Duration = 12 * time.Hour
+	PresenceBroadcastRate time.Duration = 30 * time.Second
 )
 
 const (
@@ -47,6 +49,7 @@ type Chat struct {
 	broadcastChan chan *message.WSMessage
 
 	restJoins  int // how many available invitations are left
+	maxUsers   int
 	corresps   map[int]*user.User
 	correspsMx sync.RWMutex
 }
@@ -63,6 +66,7 @@ func NewChat(opts NewChatOpts) *Chat {
 		incomingChan:         make(chan *message.WSMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
 		restJoins:            opts.MaxJoins,
+		maxUsers:             opts.MaxJoins,
 		ChatNames:            NewChatNames(),
 		triggerShutdownChan:  make(chan struct{}),
 		shutdownChan:         make(chan struct{}),
@@ -96,6 +100,45 @@ func (c *Chat) SendServerNotify(str string) {
 
 	if err := c.Broadcast(msg); err != nil {
 		log.Printf("error: chat: could not send server notification in chat %s: %v", c.ID, err)
+	}
+}
+
+func (c *Chat) Presence() message.Presence {
+	c.correspsMx.RLock()
+	defer c.correspsMx.RUnlock()
+
+	users := make([]message.PresenceUser, 0, len(c.corresps))
+	for _, usr := range c.corresps {
+		users = append(users, message.PresenceUser{
+			ID:   usr.ID,
+			Name: usr.Name,
+		})
+	}
+
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].ID < users[j].ID
+	})
+
+	return message.Presence{
+		Online: len(users),
+		Max:    c.maxUsers,
+		Users:  users,
+	}
+}
+
+func (c *Chat) PresenceMessage() *message.WSMessage {
+	return &message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID:   message.EventPresence,
+			EventData: c.Presence(),
+		},
+	}
+}
+
+func (c *Chat) BroadcastPresence() {
+	if err := c.Broadcast(c.PresenceMessage()); err != nil {
+		log.Printf("error: chat: could not send presence update in chat %s: %v", c.ID, err)
 	}
 }
 
@@ -142,11 +185,13 @@ func (c *Chat) handleUsers() {
 
 			c.SubscribeUser(newUser)
 			c.SendServerNotify("user " + newUser.Name + " has joined")
+			c.BroadcastPresence()
 
 		case disconnectedUser := <-c.userDisconnectedChan:
 			c.SendServerNotify("user " + disconnectedUser.Name + " has left")
+			c.BroadcastPresence()
 
-			if len(c.corresps) == 0 && c.restJoins == 0 {
+			if c.Presence().Online == 0 && c.RestJoins() == 0 {
 				log.Printf("info: chat: no users left in chat %s", c.ID)
 				c.TriggerShutdown()
 			}
@@ -157,6 +202,9 @@ func (c *Chat) handleUsers() {
 func (c *Chat) handleCommunication() {
 	defer c.WG.Done()
 
+	presenceTicker := time.NewTicker(PresenceBroadcastRate)
+	defer presenceTicker.Stop()
+
 	for {
 		afkTimer := time.NewTimer(ChatAFKLifetime)
 
@@ -166,6 +214,9 @@ func (c *Chat) handleCommunication() {
 
 		case msg := <-c.broadcastChan:
 			c.broadcast(msg)
+
+		case <-presenceTicker.C:
+			c.broadcast(c.PresenceMessage())
 
 		case <-c.shutdownChan:
 			log.Printf("info: chat: closing communication goroutine for chat [%s]", c.ID)

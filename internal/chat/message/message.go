@@ -19,6 +19,7 @@ const (
 	EventConnInitOk EventID = iota
 	EventConnInitNoSuchChat
 	EventConnInitMaxUsrsReached
+	EventPresence
 )
 
 type WSMessage struct {
@@ -26,4 +27,15 @@ type WSMessage struct {
 	Data      interface{} `json:"data"`
 	Name      string      `json:"username"`
 	CreatedAt *time.Time  `json:"created_at,omitempty"`
+}
+
+type PresenceUser struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type Presence struct {
+	Online int            `json:"online"`
+	Max    int            `json:"max"`
+	Users  []PresenceUser `json:"users"`
 }

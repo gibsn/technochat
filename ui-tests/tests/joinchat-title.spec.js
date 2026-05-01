@@ -333,3 +333,42 @@ test("@unit encrypts outbound chat messages before WebSocket send", async ({
 
   expect(decrypted).toBe("server must not read this");
 });
+
+test("@unit shows online count and scrollable online users popup", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 3,
+        event_data: {
+          online: 4,
+          max: 8,
+          users: [
+            { id: 1, name: "Abaddon" },
+            { id: 2, name: "Lina" },
+            { id: 3, name: "Pudge" },
+            { id: 4, name: "Crystal Maiden" },
+          ],
+        },
+      },
+    });
+  });
+
+  await expect(page.locator(".presence_button")).toHaveText("4 (8) online");
+
+  await page.locator(".presence_button").click();
+
+  const popup = page.locator(".presence_panel");
+  await expect(popup).toBeVisible();
+  await expect(popup.locator(".presence_user")).toHaveCount(4);
+  await expect(popup).toContainText("Crystal Maiden");
+
+  const overflowY = await page.locator(".presence_list").evaluate((element) => {
+    return window.getComputedStyle(element).overflowY;
+  });
+  expect(overflowY).toBe("auto");
+});
