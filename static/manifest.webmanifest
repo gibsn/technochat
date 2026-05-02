@@ -5,8 +5,8 @@
   "start_url": "/html/messageadd.html",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#101010",
+  "background_color": "#dddddd",
+  "theme_color": "#dddddd",
   "icons": [
     {
       "src": "/images/icon.svg",

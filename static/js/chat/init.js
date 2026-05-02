@@ -4,6 +4,36 @@ import {AESGCM128, ArrayBufferToBase64, Encrypter} from "/js/message/crypto.js";
 let copyButtonView;
 let joinButtonView;
 
+function isStandalonePWA() {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+}
+
+function configureJoinButton(link) {
+    joinButtonView.href = link;
+
+    if (isStandalonePWA()) {
+        joinButtonView.removeAttribute('target');
+        joinButtonView.removeAttribute('rel');
+        return;
+    }
+
+    joinButtonView.target = '_blank';
+    joinButtonView.rel = 'noopener';
+}
+
+function onJoinClick(e) {
+    const joinLink = joinButtonView.getAttribute('href');
+    if (!joinLink || joinLink === '#') {
+        e.preventDefault();
+        return;
+    }
+
+    if (isStandalonePWA() && window.TechnochatNetworkLoader) {
+        window.TechnochatNetworkLoader.start();
+    }
+}
+
 function onSubmit(e) {
     $("#loading").show();
     util.resetCopyButton('copy_button');
@@ -51,7 +81,7 @@ async function onSubmitSuccess(json) {
 
         var link = window.location.origin + '/html/joinchat.html?id=' + id + '#key=' + encodeURIComponent(key);
         $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
-        joinButtonView.href = link;
+        configureJoinButton(link);
         joinButtonView.style.display = "inline-flex";
     } else {
         $("#result_link").html("error: " + json.body);
@@ -85,6 +115,7 @@ function initPage() {
 
     joinButtonView = document.getElementById("join_button");
     joinButtonView.style.display = "none";
+    joinButtonView.addEventListener('click', onJoinClick);
 
     $("form").submit(onSubmit);
 }
