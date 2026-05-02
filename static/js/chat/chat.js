@@ -22,6 +22,72 @@ window.onfocus = function() {
     pageTitleNotification.off();
 }
 
+function isStandalonePWA() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+}
+
+function diagnosticContext(extra) {
+    var hashParams = new URLSearchParams(window.location.hash.slice(1));
+    var context = {
+        path: window.location.pathname,
+        search: window.location.search,
+        hash_present: window.location.hash.length > 0,
+        has_key: hashParams.has('key'),
+        standalone: isStandalonePWA(),
+        online: window.navigator.onLine,
+        visibility_state: document.visibilityState,
+    };
+
+    Object.keys(extra || {}).forEach(function(key) {
+        context[key] = extra[key];
+    });
+
+    return context;
+}
+
+function reportChatDiagnostic(eventName, data) {
+    var payload = JSON.stringify({
+        event: eventName,
+        data: diagnosticContext(data),
+    });
+
+    try {
+        if (window.navigator.sendBeacon) {
+            var blob = new Blob([payload], { type: 'application/json' });
+            if (window.navigator.sendBeacon('/api/v1/client/log', blob)) {
+                return;
+            }
+        }
+    } catch (err) {
+        console.warn('could not send chat diagnostic beacon', err);
+    }
+
+    if (!window.fetch) {
+        return;
+    }
+
+    window.fetch('/api/v1/client/log', {
+        method: 'POST',
+        body: payload,
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+    }).catch(function(err) {
+        console.warn('could not send chat diagnostic fetch', err);
+    });
+}
+
+function errorDiagnostic(error) {
+    if (!error) {
+        return {};
+    }
+
+    return {
+        error_name: error.name || '',
+        error_message: error.message || String(error),
+    };
+}
+
 new Vue({
     el: '#app',
 
@@ -76,7 +142,20 @@ new Vue({
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
 
+        reportChatDiagnostic('chat_join_page_start', {
+            chat_id: id || '',
+            has_id: Boolean(id),
+            key_length: key ? key.length : 0,
+            key_mod4: key ? key.length % 4 : null,
+        });
+
         if (!id || !key) {
+            reportChatDiagnostic('chat_join_params_missing', {
+                chat_id: id || '',
+                has_id: Boolean(id),
+                missing_id: !id,
+                missing_key: !key,
+            });
             this.okconnected = false;
             return;
         }
@@ -104,14 +183,38 @@ new Vue({
                 await this.encrypter.setupWithKey(Base64ToArrayBuffer(key));
             } catch (e) {
                 console.error('could not import chat key', e);
+                reportChatDiagnostic('chat_key_import_failed', Object.assign({
+                    chat_id: id,
+                    key_length: key.length,
+                    key_mod4: key.length % 4,
+                }, errorDiagnostic(e)));
                 this.okconnected = false;
                 return;
             }
 
             var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-            this.ws = new WebSocket(wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + id);
+            var wsURL = wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + encodeURIComponent(id);
+            reportChatDiagnostic('chat_ws_connect_start', {
+                chat_id: id,
+                ws_protocol: wsProtocol,
+            });
+
+            try {
+                this.ws = new WebSocket(wsURL);
+            } catch (e) {
+                console.error('could not create chat websocket', e);
+                reportChatDiagnostic('chat_ws_create_failed', Object.assign({
+                    chat_id: id,
+                    ws_protocol: wsProtocol,
+                }, errorDiagnostic(e)));
+                this.okconnected = false;
+                return;
+            }
             this.ws.addEventListener('open', function() {
                 console.log('chat websocket opened for chat', id);
+                reportChatDiagnostic('chat_ws_open', {
+                    chat_id: id,
+                });
             });
             this.ws.addEventListener('message', function(e) {
                 var msg = JSON.parse(e.data);
@@ -141,12 +244,22 @@ new Vue({
             });
             this.ws.addEventListener('error', function(e) {
                 console.log('chat websocket error', e);
+                reportChatDiagnostic('chat_ws_error', {
+                    chat_id: id,
+                    ready_state: self.ws ? self.ws.readyState : null,
+                });
             });
             this.ws.addEventListener('close', function(e) {
                 console.log('chat websocket closed', {
                     code: e.code,
                     reason: e.reason,
                     wasClean: e.wasClean,
+                });
+                reportChatDiagnostic('chat_ws_close', {
+                    chat_id: id,
+                    code: e.code,
+                    reason: e.reason,
+                    was_clean: e.wasClean,
                 });
                 self.okconnected = false;
             });
