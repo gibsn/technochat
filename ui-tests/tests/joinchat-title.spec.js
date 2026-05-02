@@ -18,6 +18,13 @@ async function routeJoinChatWorktreeStatic(page) {
     });
   });
 
+  await page.route("**/js/restricted-webview.js**", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      path: path.join(__dirname, "../../static/js/restricted-webview.js"),
+    });
+  });
+
   await page.route("**/css/chat.css**", async (route) => {
     await route.fulfill({
       contentType: "text/css",
@@ -158,16 +165,18 @@ async function openJoinChatWithStoredReconnectToken(
   name = "stored-name"
 ) {
   await routeJoinChatWorktreeStatic(page);
-  await page.addInitScript(({ token, storedName }) => {
+  await page.addInitScript(({ token, storedName, roomKey }) => {
     localStorage.setItem(
       "technochat:chat:chat-id",
       JSON.stringify({
         chatId: "chat-id",
         reconnectToken: token,
         name: storedName,
+        roomKey,
+        updatedAt: "2026-05-02T06:00:00.000Z",
       })
     );
-  }, { token: reconnectToken, storedName: name });
+  }, { token: reconnectToken, storedName: name, roomKey: chatKeyBase64 });
   await page.goto(
     `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
     { waitUntil: "commit" }
@@ -474,6 +483,8 @@ test("@unit stores reconnect token after the first chat connection", async ({
     chatId: "chat-id",
     reconnectToken: "token-alice",
     name: "alice",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
   });
 });
 
@@ -488,6 +499,71 @@ test("@unit uses reconnect websocket endpoint when a token is stored", async ({
   await expect(page.locator(".connection_status")).toHaveText(
     "Reconnecting as Tiny..."
   );
+});
+
+test("@unit can reconnect from stored room key when URL hash is missing", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript((roomKey) => {
+    localStorage.setItem(
+      "technochat:chat:chat-id",
+      JSON.stringify({
+        chatId: "chat-id",
+        reconnectToken: "stored-token",
+        name: "Tiny",
+        roomKey,
+        updatedAt: "2026-05-02T06:00:00.000Z",
+      })
+    );
+  }, chatKeyBase64);
+
+  await page.goto("/html/joinchat.html?id=chat-id", { waitUntil: "commit" });
+  await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
+
+  const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
+  expect(socketURL).toContain("/api/v1/chat/reconnect");
+  expect(socketURL).toContain("reconnect_token=stored-token");
+});
+
+test("@unit local leave clears reconnect token without returning chat quota", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: {
+          name: "alice",
+          reconnect_token: "token-alice",
+        },
+      },
+    });
+  });
+
+  await expect(page.locator(".leave_button")).toBeVisible();
+  await page.locator(".leave_button").click();
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => localStorage.getItem("technochat:chat:chat-id"))
+    )
+    .toBeNull();
+  await expect(page).toHaveURL(/\/html\/messageadd\.html$/);
+});
+
+test("@unit warns when chat is opened inside Telegram webview", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.Telegram = { WebApp: {} };
+  });
+  await openJoinChat(page);
+
+  await expect(page.locator(".webview_warning")).toContainText("Telegram");
 });
 
 test("@unit clears invalid reconnect token and falls back to first connect", async ({

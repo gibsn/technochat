@@ -4,6 +4,7 @@ import {
     Decrypter,
     Encrypter
 } from "/js/message/crypto.js";
+import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const WSMsgTypeService  = 0;
 const WSMsgTypeMessage = 1;
@@ -118,6 +119,7 @@ function installPageLifecycleDiagnostics() {
 }
 
 installPageLifecycleDiagnostics();
+installRestrictedWebViewWarning();
 
 new Vue({
     el: '#app',
@@ -179,6 +181,10 @@ new Vue({
         var id = getParameterByName('id', window.location);
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
+
+        if (id && !key) {
+            key = this.loadReconnectSession(id).roomKey;
+        }
 
         reportChatDiagnostic('chat_join_page_start', {
             chat_id: id || '',
@@ -498,17 +504,18 @@ new Vue({
             try {
                 var raw = window.localStorage.getItem(this.reconnectStorageKey(chatID));
                 if (!raw) {
-                    return { reconnectToken: '', name: '' };
+                    return { reconnectToken: '', name: '', roomKey: '' };
                 }
 
                 var session = JSON.parse(raw);
                 return {
                     reconnectToken: String(session.reconnectToken || ''),
                     name: String(session.name || ''),
+                    roomKey: String(session.roomKey || ''),
                 };
             } catch (e) {
                 console.warn('could not load chat session', e);
-                return { reconnectToken: '', name: '' };
+                return { reconnectToken: '', name: '', roomKey: '' };
             }
         },
         storeReconnectToken: function(chatID, reconnectToken, name) {
@@ -517,6 +524,8 @@ new Vue({
                     chatId: chatID,
                     reconnectToken: reconnectToken,
                     name: name || '',
+                    roomKey: this.roomKey,
+                    updatedAt: new Date().toISOString(),
                 }));
             } catch (e) {
                 console.warn('could not store chat session', e);
@@ -528,6 +537,30 @@ new Vue({
             } catch (e) {
                 console.warn('could not clear chat session', e);
             }
+        },
+        leaveChat: function() {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+
+            reportChatDiagnostic('chat_leave_local', {
+                chat_id: this.chatID,
+                has_reconnect_token: Boolean(this.reconnectToken),
+            });
+
+            this.chatFinished = true;
+            this.clearStoredReconnectToken(this.chatID);
+            this.reconnectToken = '';
+            this.manualReconnectAvailable = false;
+
+            if (this.ws) {
+                var socket = this.ws;
+                this.ws = null;
+                socket.close();
+            }
+
+            window.location.href = '/html/messageadd.html';
         },
         decryptMessageData: async function(msg) {
             if (msg.username === 'server') {

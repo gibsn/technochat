@@ -114,6 +114,38 @@ button {
   outline-offset: 2px;
 }
 
+.presence_icon_button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #111111;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.presence_icon_button:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+}
+
+.presence_icon_button:focus {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.presence_icon_button .material-icons {
+  font-size: 20px;
+  line-height: 1;
+}
+
 .presence_modal {
   position: fixed;
   inset: 0;
@@ -505,6 +537,12 @@ input:focus ~ .bar:after {
     min-height: 34px;
     padding: 5px 10px;
     font-size: 15px;
+  }
+
+  .presence_icon_button {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
   }
 
   .presence_modal {
