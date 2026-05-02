@@ -50,16 +50,16 @@ jobs:
       run: npm --prefix ui-tests exec playwright install chromium webkit
 
     - name: Run smoke tests
-      run: dist/run-isolated-tests.sh -- true
+      run: make smoke-tests
 
     - name: Run Go tests
       run: make go-tests
 
     - name: Run integration tests
-      run: dist/run-isolated-tests.sh -- make integration-tests
+      run: make integration-tests
 
     - name: Run UI unit tests
-      run: dist/run-isolated-tests.sh -- make ui-unit-tests
+      run: make ui-unit-tests
 
     - name: Run UI end-to-end tests
-      run: dist/run-isolated-tests.sh -- make ui-e2e-tests
+      run: make ui-e2e-tests

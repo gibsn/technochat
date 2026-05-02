@@ -68,7 +68,7 @@ if [ "$#" = 0 ]; then
     status=$?
 
     if [ "$status" = 0 ]; then
-        make integration-tests
+        make integration-tests-run
         status=$?
     fi
 
@@ -78,7 +78,7 @@ if [ "$#" = 0 ]; then
     fi
 
     if [ "$status" = 0 ]; then
-        make ui-e2e-tests
+        make ui-e2e-tests-run
         status=$?
     fi
 else
