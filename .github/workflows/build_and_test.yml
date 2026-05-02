@@ -49,8 +49,30 @@ jobs:
     - name: Install Playwright browsers
       run: npm --prefix ui-tests exec playwright install chromium webkit
 
+    - name: Make deploy.sh executable
+      run: chmod +x ./deploy.sh
+
     - name: Run smoke tests
-      run: make smoke-tests
+      run: ./deploy.sh --dev
+
+    - name: Wait for HTTPS server to respond on /
+      run: |
+        for i in {1..10}; do
+          if curl -kfs https://localhost/; then
+            echo "HTTPS server is up"
+            exit 0
+          fi
+          echo "Waiting for HTTPS server..."
+          sleep 3
+        done
+        echo "::error ::HTTPS server not responding after deploy"
+        exit 1
+
+    - name: Dump container diagnostics on failure
+      if: failure()
+      run: |
+        docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml ps
+        docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml logs --no-color
 
     - name: Run Go tests
       run: make go-tests
