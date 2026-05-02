@@ -17,10 +17,106 @@ const EventTyping = 4;
 const NewMsgTitle = "New message!";
 const TypingNotifyRateMs = 1000;
 const TypingCleanupRateMs = 250;
+const WSConnectMaxAttempts = 3;
+const WSConnectRetryBaseMs = 500;
+const DiagnosticPageID = createDiagnosticPageID();
+var diagnosticSequence = 0;
 
 window.onfocus = function() {
     pageTitleNotification.off();
 }
+
+function isStandalonePWA() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+}
+
+function createDiagnosticPageID() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function diagnosticContext(extra) {
+    var hashParams = new URLSearchParams(window.location.hash.slice(1));
+    var context = {
+        path: window.location.pathname,
+        search: window.location.search,
+        hash_present: window.location.hash.length > 0,
+        has_key: hashParams.has('key'),
+        standalone: isStandalonePWA(),
+        online: window.navigator.onLine,
+        visibility_state: document.visibilityState,
+    };
+
+    Object.keys(extra || {}).forEach(function(key) {
+        context[key] = extra[key];
+    });
+
+    context.client_ts = new Date().toISOString();
+    context.page_id = DiagnosticPageID;
+    context.seq = ++diagnosticSequence;
+
+    return context;
+}
+
+function reportChatDiagnostic(eventName, data) {
+    var payload = JSON.stringify({
+        event: eventName,
+        data: diagnosticContext(data),
+    });
+
+    try {
+        if (window.navigator.sendBeacon) {
+            var blob = new Blob([payload], { type: 'application/json' });
+            if (window.navigator.sendBeacon('/api/v1/client/log', blob)) {
+                return;
+            }
+        }
+    } catch (err) {
+        console.warn('could not send chat diagnostic beacon', err);
+    }
+
+    if (!window.fetch) {
+        return;
+    }
+
+    window.fetch('/api/v1/client/log', {
+        method: 'POST',
+        body: payload,
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+    }).catch(function(err) {
+        console.warn('could not send chat diagnostic fetch', err);
+    });
+}
+
+function errorDiagnostic(error) {
+    if (!error) {
+        return {};
+    }
+
+    return {
+        error_name: error.name || '',
+        error_message: error.message || String(error),
+    };
+}
+
+function installPageLifecycleDiagnostics() {
+    window.addEventListener('pagehide', function(event) {
+        reportChatDiagnostic('chat_page_hide', {
+            persisted: event.persisted,
+        });
+    });
+
+    window.addEventListener('beforeunload', function() {
+        reportChatDiagnostic('chat_before_unload', {});
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        reportChatDiagnostic('chat_visibility_change', {});
+    });
+}
+
+installPageLifecycleDiagnostics();
 
 new Vue({
     el: '#app',
@@ -76,7 +172,20 @@ new Vue({
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
 
+        reportChatDiagnostic('chat_join_page_start', {
+            chat_id: id || '',
+            has_id: Boolean(id),
+            key_length: key ? key.length : 0,
+            key_mod4: key ? key.length % 4 : null,
+        });
+
         if (!id || !key) {
+            reportChatDiagnostic('chat_join_params_missing', {
+                chat_id: id || '',
+                has_id: Boolean(id),
+                missing_id: !id,
+                missing_key: !key,
+            });
             this.okconnected = false;
             return;
         }
@@ -104,52 +213,133 @@ new Vue({
                 await this.encrypter.setupWithKey(Base64ToArrayBuffer(key));
             } catch (e) {
                 console.error('could not import chat key', e);
+                reportChatDiagnostic('chat_key_import_failed', Object.assign({
+                    chat_id: id,
+                    key_length: key.length,
+                    key_mod4: key.length % 4,
+                }, errorDiagnostic(e)));
                 this.okconnected = false;
                 return;
             }
 
             var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-            this.ws = new WebSocket(wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + id);
-            this.ws.addEventListener('open', function() {
-                console.log('chat websocket opened for chat', id);
-            });
-            this.ws.addEventListener('message', function(e) {
-                var msg = JSON.parse(e.data);
-                console.log(msg);
-                switch (msg.type){
-                    case WSMsgTypeService:
-                        if (msg.data.event_id == EventConnInitOk ){
-                            self.name = msg.data.event_data;
-                            self.username = msg.data.event_data;
-                        }
-                        if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
-                            self.okconnected = false;
-                        }
-                        if (msg.data.event_id == EventPresence) {
-                            self.updatePresence(msg.data.event_data);
-                        }
-                        if (msg.data.event_id == EventTyping) {
-                            self.updateTypingUsers(msg.data.event_data);
-                        }
-                        break;
-                    case WSMsgTypeMessage:
-                        self.addmsg(msg);
-                        break;
-                    default:
-                        alert("unknown response type:"+msg.type);
-                }
-            });
-            this.ws.addEventListener('error', function(e) {
-                console.log('chat websocket error', e);
-            });
-            this.ws.addEventListener('close', function(e) {
-                console.log('chat websocket closed', {
-                    code: e.code,
-                    reason: e.reason,
-                    wasClean: e.wasClean,
+            var wsURL = wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + encodeURIComponent(id);
+            var connectAttempt = 0;
+
+            function connectWebSocket() {
+                connectAttempt += 1;
+                var attempt = connectAttempt;
+
+                reportChatDiagnostic('chat_ws_connect_start', {
+                    chat_id: id,
+                    ws_protocol: wsProtocol,
+                    attempt: attempt,
                 });
-                self.okconnected = false;
-            });
+
+                var wsOpened = false;
+
+                try {
+                    self.ws = new WebSocket(wsURL);
+                } catch (e) {
+                    console.error('could not create chat websocket', e);
+                    reportChatDiagnostic('chat_ws_create_failed', Object.assign({
+                        chat_id: id,
+                        ws_protocol: wsProtocol,
+                        attempt: attempt,
+                    }, errorDiagnostic(e)));
+                    retryOrFailWebSocket();
+                    return;
+                }
+
+                self.ws.addEventListener('open', function() {
+                    wsOpened = true;
+                    console.log('chat websocket opened for chat', id);
+                    reportChatDiagnostic('chat_ws_open', {
+                        chat_id: id,
+                        attempt: attempt,
+                    });
+                });
+
+                self.ws.addEventListener('message', function(e) {
+                    var msg = JSON.parse(e.data);
+                    console.log(msg);
+                    switch (msg.type){
+                        case WSMsgTypeService:
+                            if (msg.data.event_id == EventConnInitOk ){
+                                self.name = msg.data.event_data;
+                                self.username = msg.data.event_data;
+                            }
+                            if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
+                                self.okconnected = false;
+                            }
+                            if (msg.data.event_id == EventPresence) {
+                                self.updatePresence(msg.data.event_data);
+                            }
+                            if (msg.data.event_id == EventTyping) {
+                                self.updateTypingUsers(msg.data.event_data);
+                            }
+                            break;
+                        case WSMsgTypeMessage:
+                            self.addmsg(msg);
+                            break;
+                        default:
+                            alert("unknown response type:"+msg.type);
+                    }
+                });
+
+                self.ws.addEventListener('error', function(e) {
+                    console.log('chat websocket error', e);
+                    reportChatDiagnostic('chat_ws_error', {
+                        chat_id: id,
+                        ready_state: self.ws ? self.ws.readyState : null,
+                        attempt: attempt,
+                    });
+                });
+
+                self.ws.addEventListener('close', function(e) {
+                    console.log('chat websocket closed', {
+                        code: e.code,
+                        reason: e.reason,
+                        wasClean: e.wasClean,
+                    });
+                    reportChatDiagnostic('chat_ws_close', {
+                        chat_id: id,
+                        code: e.code,
+                        reason: e.reason,
+                        was_clean: e.wasClean,
+                        opened: wsOpened,
+                        attempt: attempt,
+                    });
+
+                    if (!wsOpened) {
+                        retryOrFailWebSocket();
+                        return;
+                    }
+
+                    self.okconnected = false;
+                });
+            }
+
+            function retryOrFailWebSocket() {
+                if (connectAttempt >= WSConnectMaxAttempts) {
+                    reportChatDiagnostic('chat_ws_connect_failed', {
+                        chat_id: id,
+                        attempts: connectAttempt,
+                    });
+                    self.okconnected = false;
+                    return;
+                }
+
+                var retryDelayMs = WSConnectRetryBaseMs * connectAttempt;
+                reportChatDiagnostic('chat_ws_retry_scheduled', {
+                    chat_id: id,
+                    attempts: connectAttempt,
+                    delay_ms: retryDelayMs,
+                });
+                window.setTimeout(connectWebSocket, retryDelayMs);
+            }
+
+            connectWebSocket();
         },
         decryptMessageData: async function(msg) {
             if (msg.username === 'server') {
