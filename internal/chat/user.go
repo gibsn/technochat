@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"log"
 	"time"
 
@@ -16,36 +18,85 @@ func (c *Chat) AddUser(ws *websocket.Conn) (*user.User, error) {
 		return nil, ErrInvitationQuotaExceeded
 	}
 
+	participant, err := c.newParticipant()
+	if err != nil {
+		c.correspsMx.Unlock()
+		return nil, err
+	}
+
 	c.restJoins--
 	c.correspsMx.Unlock()
 
-	usr := user.NewUser(ws)
-	usr.Name, usr.ID = c.ChatNames.GenerateNameID()
+	return c.connectParticipant(ws, participant), nil
+}
 
-	log.Printf("info: chat: new user [%d %s] in chat %s", usr.ID, usr.Name, c.ID)
+func (c *Chat) ReconnectUser(ws *websocket.Conn, reconnectToken string) (*user.User, error) {
+	c.correspsMx.RLock()
+	participant, ok := c.participants[reconnectToken]
+	c.correspsMx.RUnlock()
+	if !ok {
+		return nil, ErrInvalidReconnectToken
+	}
+
+	return c.connectParticipant(ws, participant), nil
+}
+
+func (c *Chat) newParticipant() (*Participant, error) {
+	name, id := c.ChatNames.GenerateNameID()
+	token, err := newReconnectToken()
+	if err != nil {
+		return nil, err
+	}
+
+	participant := &Participant{
+		ID:             id,
+		Name:           name,
+		ReconnectToken: token,
+	}
+	c.participants[token] = participant
+
+	log.Printf(
+		"info: chat: new participant [%d %s] in chat %s",
+		participant.ID, participant.Name, c.ID,
+	)
+
+	return participant, nil
+}
+
+func (c *Chat) connectParticipant(ws *websocket.Conn, participant *Participant) *user.User {
+	usr := user.NewUser(ws)
+	usr.Name = participant.Name
+	usr.ID = participant.ID
+	usr.ReconnectToken = participant.ReconnectToken
+
+	log.Printf("info: chat: connecting user [%d %s] in chat %s", usr.ID, usr.Name, c.ID)
 
 	c.correspsMx.Lock()
+	if prevUser, ok := c.corresps[usr.ID]; ok {
+		prevUser.TriggerShutdown()
+	}
 	c.corresps[usr.ID] = usr
 	c.correspsMx.Unlock()
 
 	c.usersWG.Add(1)
 	c.userConnectedChan <- usr
 
-	return usr, nil
+	return usr
 }
 
-func (c *Chat) DelUser(id int) {
+func (c *Chat) DelUser(usr *user.User) {
 	c.correspsMx.Lock()
 
-	usr, ok := c.corresps[id]
-	if !ok {
+	onlineUser, ok := c.corresps[usr.ID]
+	if !ok || onlineUser != usr {
 		c.correspsMx.Unlock()
+		c.usersWG.Done()
 		return
 	}
 
 	log.Printf("info: chat: deleting user [%d, %s] in chat %s", usr.ID, usr.Name, c.ID)
 
-	delete(c.corresps, id)
+	delete(c.corresps, usr.ID)
 	c.correspsMx.Unlock()
 
 	c.userDisconnectedChan <- usr
@@ -64,6 +115,15 @@ func (c *Chat) SubscribeUser(usr *user.User) {
 			}
 		}
 	}()
+}
+
+func newReconnectToken() (string, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(tokenBytes), nil
 }
 
 func (c *Chat) ShutdownUsers() {

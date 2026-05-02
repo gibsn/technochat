@@ -77,7 +77,14 @@ button {
   right: 16px;
   z-index: 8;
   display: flex;
+  align-items: center;
+  gap: 10px;
   justify-content: flex-end;
+}
+
+.connection_status {
+  color: #111111;
+  font-size: 16px;
 }
 
 .presence_button {

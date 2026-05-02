@@ -55,6 +55,7 @@ type Chat struct {
 
 	restJoins         int // how many available invitations are left
 	maxUsers          int
+	participants      map[string]*Participant
 	corresps          map[int]*user.User
 	correspsMx        sync.RWMutex
 	typingBroadcastMx sync.Mutex
@@ -65,6 +66,12 @@ type incomingMessage struct {
 	msg  *message.WSMessage
 }
 
+type Participant struct {
+	ID             int
+	Name           string
+	ReconnectToken string
+}
+
 type NewChatOpts struct {
 	ID       string
 	MaxJoins int
@@ -73,6 +80,7 @@ type NewChatOpts struct {
 func NewChat(opts NewChatOpts) *Chat {
 	c := &Chat{
 		ID:                   opts.ID,
+		participants:         make(map[string]*Participant),
 		corresps:             make(map[int]*user.User),
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
@@ -224,7 +232,10 @@ func (c *Chat) handleUsers() {
 			return
 
 		case newUser := <-c.userConnectedChan:
-			if err := newUser.SendEvent(message.EventConnInitOk, newUser.Name); err != nil {
+			if err := newUser.SendEvent(message.EventConnInitOk, message.ConnInit{
+				Name:           newUser.Name,
+				ReconnectToken: newUser.ReconnectToken,
+			}); err != nil {
 				log.Printf("error: could not greet a new user from %s: %v", newUser.Addr(), err)
 				newUser.TriggerShutdown()
 				return

@@ -37,7 +37,7 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
     );
 
     await thirdUserPage.goto(chatLink);
-    await expect(thirdUserPage.locator("#app")).toContainText(/poshel nah/i);
+    await expect(thirdUserPage.locator("#app")).toContainText(/chat is full/i);
   } finally {
     await firstUserPage.close();
     await secondUserPage.close();

@@ -63,6 +63,10 @@ function installJoinChatMocks() {
       this.url = url;
       this.listeners = {};
       this.readyState = 1;
+      if (!window.__technochatMockSockets) {
+        window.__technochatMockSockets = [];
+      }
+      window.__technochatMockSockets.push(this);
       window.__technochatMockSocket = this;
     }
 
@@ -316,7 +320,10 @@ test("@unit encrypts outbound chat messages before WebSocket send", async ({
       type: 0,
       data: {
         event_id: 0,
-        event_data: "alice",
+        event_data: {
+          name: "alice",
+          reconnect_token: "token-alice",
+        },
       },
     });
     window.$ = undefined;
@@ -372,6 +379,102 @@ test("@unit encrypts outbound chat messages before WebSocket send", async ({
   }, sentMessage.data);
 
   expect(decrypted).toBe("server must not read this");
+});
+
+test("@unit stores reconnect token after the first chat connection", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: {
+          name: "alice",
+          reconnect_token: "token-alice",
+        },
+      },
+    });
+  });
+
+  const storedSession = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+  });
+
+  expect(storedSession).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "token-alice",
+  });
+});
+
+test("@unit uses reconnect websocket endpoint when a token is stored", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "technochat:chat:chat-id",
+      JSON.stringify({
+        chatId: "chat-id",
+        reconnectToken: "stored-token",
+      })
+    );
+  });
+
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+  );
+  await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
+
+  const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
+  expect(socketURL).toContain("/api/v1/chat/reconnect");
+  expect(socketURL).toContain("reconnect_token=stored-token");
+});
+
+test("@unit clears invalid reconnect token and falls back to first connect", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "technochat:chat:chat-id",
+      JSON.stringify({
+        chatId: "chat-id",
+        reconnectToken: "bad-token",
+      })
+    );
+  });
+
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+  );
+  await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 5,
+      },
+    });
+  });
+
+  await page.waitForFunction(() => window.__technochatMockSockets.length === 2);
+
+  const state = await page.evaluate(() => {
+    return {
+      storedSession: localStorage.getItem("technochat:chat:chat-id"),
+      socketURLs: window.__technochatMockSockets.map((socket) => socket.url),
+    };
+  });
+
+  expect(state.storedSession).toBeNull();
+  expect(state.socketURLs[0]).toContain("/api/v1/chat/reconnect");
+  expect(state.socketURLs[1]).toContain("/api/v1/chat/connect");
 });
 
 test("@unit shows online count and scrollable online users popup", async ({

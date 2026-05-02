@@ -21,6 +21,7 @@ const (
 	EventConnInitMaxUsrsReached
 	EventPresence
 	EventTyping
+	EventConnInitInvalidReconnectToken
 )
 
 type WSMessage struct {
@@ -28,6 +29,11 @@ type WSMessage struct {
 	Data      interface{} `json:"data"`
 	Name      string      `json:"username"`
 	CreatedAt *time.Time  `json:"created_at,omitempty"`
+}
+
+type ConnInit struct {
+	Name           string `json:"name"`
+	ReconnectToken string `json:"reconnect_token"`
 }
 
 type PresenceUser struct {

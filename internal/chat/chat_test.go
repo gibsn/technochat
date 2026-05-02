@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"technochat/internal/chat/message"
+	"technochat/internal/chat/user"
 )
 
 type testPresence struct {
@@ -23,6 +24,11 @@ type testTypingUser struct {
 	ID        int
 	Name      string
 	ExpiresAt time.Time
+}
+
+type testConnInit struct {
+	Name           string
+	ReconnectToken string
 }
 
 func TestPresenceReportsConfiguredMaxUsers(t *testing.T) {
@@ -75,6 +81,84 @@ func TestConnectBroadcastsPresenceEvent(t *testing.T) {
 	}
 	if presence.Users[0]["name"] == "" {
 		t.Fatalf("expected user name in presence event")
+	}
+}
+
+func TestReconnectDoesNotConsumeQuotaAndRestoresUser(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "reconnect-quota-test",
+		MaxJoins: 1,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	firstInit := readConnInitEvent(t, firstClient)
+	if firstInit.ReconnectToken == "" {
+		t.Fatalf("expected reconnect token")
+	}
+	if c.RestJoins() != 0 {
+		t.Fatalf("expected join quota to be exhausted, got %d", c.RestJoins())
+	}
+
+	reconnectedClient := dialTestChatPath(t, server, "/reconnect?reconnect_token="+firstInit.ReconnectToken)
+	defer closeTestClient(t, reconnectedClient)
+
+	secondInit := readConnInitEvent(t, reconnectedClient)
+	if secondInit.Name != firstInit.Name {
+		t.Fatalf("expected reconnect to restore user %q, got %q", firstInit.Name, secondInit.Name)
+	}
+	if secondInit.ReconnectToken != firstInit.ReconnectToken {
+		t.Fatalf("expected reconnect token to stay stable")
+	}
+	if c.RestJoins() != 0 {
+		t.Fatalf("expected reconnect to keep join quota at 0, got %d", c.RestJoins())
+	}
+
+	closeTestClient(t, firstClient)
+}
+
+func TestJoinBlockedWhenQuotaExhausted(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "join-quota-test",
+		MaxJoins: 1,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	defer closeTestClient(t, secondClient)
+
+	eventID := readConnInitEventID(t, secondClient)
+	if eventID != message.EventConnInitMaxUsrsReached {
+		t.Fatalf("expected max users event, got %d", eventID)
+	}
+}
+
+func TestReconnectFailsWithInvalidToken(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:       "invalid-reconnect-test",
+		MaxJoins: 1,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	client := dialTestChatPath(t, server, "/reconnect?reconnect_token=nope")
+	defer closeTestClient(t, client)
+
+	eventID := readConnInitEventID(t, client)
+	if eventID != message.EventConnInitInvalidReconnectToken {
+		t.Fatalf("expected invalid reconnect event, got %d", eventID)
 	}
 }
 
@@ -214,15 +298,34 @@ func serveTestChat(t *testing.T, c *Chat) (*httptest.Server, chan struct{}) {
 			return
 		}
 
-		usr, err := c.AddUser(ws)
+		var usr *user.User
+		if r.URL.Path == "/reconnect" {
+			usr, err = c.ReconnectUser(ws, r.URL.Query().Get("reconnect_token"))
+		} else {
+			usr, err = c.AddUser(ws)
+		}
 		if err != nil {
-			t.Errorf("could not add user: %v", err)
+			eventID := message.EventConnInitNoSuchChat
+			if err == ErrInvitationQuotaExceeded {
+				eventID = message.EventConnInitMaxUsrsReached
+			}
+			if err == ErrInvalidReconnectToken {
+				eventID = message.EventConnInitInvalidReconnectToken
+			}
+			if writeErr := ws.WriteJSON(message.WSMessage{
+				Type: message.WSMsgTypeService,
+				Data: message.Event{
+					EventID: eventID,
+				},
+			}); writeErr != nil {
+				t.Errorf("could not write error event: %v", writeErr)
+			}
 			_ = ws.Close()
 			return
 		}
 
 		usr.Routine()
-		c.DelUser(usr.ID)
+		c.DelUser(usr)
 	}))
 
 	return server, done
@@ -236,13 +339,103 @@ func stopTestChat(c *Chat, done chan struct{}) {
 func dialTestChat(t *testing.T, server *httptest.Server) *websocket.Conn {
 	t.Helper()
 
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	return dialTestChatPath(t, server, "")
+}
+
+func dialTestChatPath(t *testing.T, server *httptest.Server, path string) *websocket.Conn {
+	t.Helper()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + path
 	client, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("could not dial websocket: %v", err)
 	}
 
 	return client
+}
+
+func readConnInitEvent(t *testing.T, client *websocket.Conn) testConnInit {
+	t.Helper()
+
+	eventData := readConnInitEventData(t, client)
+
+	return testConnInit{
+		Name:           stringFromConnInitEvent(t, eventData, "name"),
+		ReconnectToken: stringFromConnInitEvent(t, eventData, "reconnect_token"),
+	}
+}
+
+func readConnInitEventID(t *testing.T, client *websocket.Conn) message.EventID {
+	t.Helper()
+
+	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("could not set read deadline: %v", err)
+	}
+
+	var wsMsg message.WSMessage
+	if err := client.ReadJSON(&wsMsg); err != nil {
+		t.Fatalf("could not read websocket message: %v", err)
+	}
+
+	event, ok := wsMsg.Data.(map[string]interface{})
+	if wsMsg.Type != message.WSMsgTypeService || !ok {
+		t.Fatalf("expected service event, got %#v", wsMsg)
+	}
+
+	eventID, ok := event["event_id"].(float64)
+	if !ok {
+		t.Fatalf("expected conn init event id, got %#v", event["event_id"])
+	}
+
+	return message.EventID(eventID)
+}
+
+func readConnInitEventData(t *testing.T, client *websocket.Conn) map[string]interface{} {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	if err := client.SetReadDeadline(deadline); err != nil {
+		t.Fatalf("could not set read deadline: %v", err)
+	}
+
+	for time.Now().Before(deadline) {
+		var wsMsg message.WSMessage
+		if err := client.ReadJSON(&wsMsg); err != nil {
+			t.Fatalf("could not read websocket message: %v", err)
+		}
+
+		event, ok := wsMsg.Data.(map[string]interface{})
+		if wsMsg.Type != message.WSMsgTypeService || !ok {
+			continue
+		}
+
+		eventID, ok := event["event_id"].(float64)
+		if !ok || message.EventID(eventID) != message.EventConnInitOk {
+			continue
+		}
+
+		eventData, ok := event["event_data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected conn init event data, got %#v", event["event_data"])
+		}
+
+		return eventData
+	}
+
+	t.Fatalf("timed out waiting for conn init event")
+
+	return nil
+}
+
+func stringFromConnInitEvent(t *testing.T, eventData map[string]interface{}, field string) string {
+	t.Helper()
+
+	value, ok := eventData[field].(string)
+	if !ok {
+		t.Fatalf("expected string conn init field %q, got %s", field, fmt.Sprintf("%#v", eventData[field]))
+	}
+
+	return value
 }
 
 func closeTestClient(t *testing.T, client *websocket.Conn) {

@@ -10,8 +10,9 @@ import (
 )
 
 type User struct {
-	ID   int
-	Name string
+	ID             int
+	Name           string
+	ReconnectToken string
 
 	ws *websocket.Conn
 

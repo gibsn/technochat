@@ -37,6 +37,9 @@
                     >
                         {{ presenceLabel }}
                     </button>
+                    <span v-if="connectionStatus" class="connection_status" aria-live="polite">
+                        {{ connectionStatus }}
+                    </span>
                 </div>
                 <div class="chat_content">
                     <div id="chat-messages" class="chat_messages">
@@ -122,7 +125,7 @@
                 </div>
             </div>
             <div v-if="!okconnected" class="chat_error">
-                Poshel nah
+                {{ connectionStatus || 'Could not connect to chat' }}
             </div>
         </div>
     </div>
