@@ -18,6 +18,7 @@ const EventConnInitInvalidReconnectToken = 5;
 const NewMsgTitle = "New message!";
 const TypingNotifyRateMs = 1000;
 const TypingCleanupRateMs = 250;
+const InitialConnectRetryDelaysMs = [500, 1000];
 const ReconnectDelaysMs = [1000, 2000, 5000, 10000, 30000];
 const DiagnosticPageID = createDiagnosticPageID();
 var diagnosticSequence = 0;
@@ -267,11 +268,11 @@ new Vue({
                     reconnect_attempt: this.reconnectAttempt,
                 }, errorDiagnostic(e)));
                 if (this.reconnectToken) {
-                    this.scheduleReconnect();
+                    this.scheduleReconnect(true);
                     return;
                 }
 
-                this.stopConnecting('Connection lost');
+                this.scheduleReconnect(false);
                 return;
             }
 
@@ -321,6 +322,7 @@ new Vue({
                             self.clearStoredReconnectToken(self.chatID);
                             self.reconnectToken = '';
                             if (useReconnect) {
+                                self.reconnectAttempt = 0;
                                 self.openChatSocket(false);
                             } else {
                                 self.stopConnecting('Could not reconnect', true);
@@ -372,7 +374,11 @@ new Vue({
                     return;
                 }
                 if (self.reconnectToken) {
-                    self.scheduleReconnect();
+                    self.scheduleReconnect(true);
+                    return;
+                }
+                if (!wsOpened) {
+                    self.scheduleReconnect(false);
                     return;
                 }
 
@@ -400,20 +406,38 @@ new Vue({
                 this.storeReconnectToken(this.chatID, reconnectToken);
             }
         },
-        scheduleReconnect: function() {
+        scheduleReconnect: function(useReconnect) {
             var self = this;
 
             if (this.reconnectTimer) {
                 return;
             }
 
-            var delay = ReconnectDelaysMs[Math.min(this.reconnectAttempt, ReconnectDelaysMs.length - 1)];
+            if (!useReconnect && this.reconnectAttempt >= InitialConnectRetryDelaysMs.length) {
+                reportChatDiagnostic('chat_ws_connect_failed', {
+                    chat_id: this.chatID,
+                    mode: 'connect',
+                    attempts: this.reconnectAttempt + 1,
+                });
+                this.stopConnecting('Connection lost');
+                return;
+            }
+
+            var retryDelays = useReconnect ? ReconnectDelaysMs : InitialConnectRetryDelaysMs;
+            var delay = retryDelays[Math.min(this.reconnectAttempt, retryDelays.length - 1)];
             this.reconnectAttempt++;
-            this.connectionStatus = 'Reconnecting...';
+            this.connectionStatus = useReconnect ? 'Reconnecting...' : 'Connecting...';
+
+            reportChatDiagnostic('chat_ws_retry_scheduled', {
+                chat_id: this.chatID,
+                mode: useReconnect ? 'reconnect' : 'connect',
+                attempts: this.reconnectAttempt,
+                delay_ms: delay,
+            });
 
             this.reconnectTimer = window.setTimeout(function() {
                 self.reconnectTimer = null;
-                self.openChatSocket(true);
+                self.openChatSocket(useReconnect);
             }, delay);
         },
         stopConnecting: function(status, terminal) {

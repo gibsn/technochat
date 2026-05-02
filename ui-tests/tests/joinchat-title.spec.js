@@ -521,6 +521,35 @@ test("@unit clears invalid reconnect token and falls back to first connect", asy
   expect(state.socketURLs[1]).toContain("/api/v1/chat/connect");
 });
 
+test("@unit retries the first websocket connect before showing connection lost", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    const socket = window.__technochatMockSocket;
+    socket.readyState = 3;
+    socket.dispatch("error");
+    socket.dispatch("close", {
+      code: 1006,
+      reason: "",
+      wasClean: false,
+    });
+  });
+
+  await expect(page.locator("#app")).not.toContainText("Connection lost");
+  await expect(page.locator(".connection_status")).toHaveText("Connecting...");
+
+  await page.waitForFunction(() => window.__technochatMockSockets.length === 2);
+
+  const socketURLs = await page.evaluate(() => {
+    return window.__technochatMockSockets.map((socket) => socket.url);
+  });
+
+  expect(socketURLs[0]).toContain("/api/v1/chat/connect");
+  expect(socketURLs[1]).toContain("/api/v1/chat/connect");
+});
+
 test("@unit shows online count and scrollable online users popup", async ({
   page,
 }) => {
