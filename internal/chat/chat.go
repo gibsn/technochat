@@ -198,18 +198,33 @@ func (c *Chat) broadcastTypingUsers() {
 }
 
 func (c *Chat) broadcast(msg *message.WSMessage) {
+	recipients := c.recipients()
+
+	if msg != nil && msg.Type == message.WSMsgTypeMessage {
+		log.Printf(
+			"info: chat: broadcasting message chat=%s sender=%q recipients=%d data=%s",
+			c.ID, msg.Name, len(recipients), message.DataForLog(msg.Data),
+		)
+	}
+
+	for _, usr := range recipients {
+		if err := usr.SendMessage(msg); err != nil {
+			log.Printf("error: chat: could not send a message to user %s in chat %s: %v",
+				usr.Name, c.ID, err)
+		}
+	}
+}
+
+func (c *Chat) recipients() []*user.User {
 	c.correspsMx.RLock()
 	defer c.correspsMx.RUnlock()
 
+	recipients := make([]*user.User, 0, len(c.corresps))
 	for _, usr := range c.corresps {
-		c.correspsMx.RUnlock()
-		if err := usr.SendMessage(msg); err != nil {
-			log.Printf("errof: chat: could not send a message to user %s in chat %s: %v",
-				usr.Name, c.ID, err)
-		}
-
-		c.correspsMx.RLock()
+		recipients = append(recipients, usr)
 	}
+
+	return recipients
 }
 
 func (c *Chat) Broadcast(msg *message.WSMessage) error {
@@ -331,6 +346,12 @@ func (c *Chat) handleIncomingMessage(
 
 	switch incoming.msg.Type {
 	case message.WSMsgTypeService:
+		log.Printf(
+			"info: chat: incoming service message chat=%s user_id=%d user_name=%q remote=%s data=%s",
+			c.ID, incoming.user.ID, incoming.user.Name, incoming.user.Addr(),
+			message.DataForLog(incoming.msg.Data),
+		)
+
 		if !isTypingEvent(incoming.msg) {
 			return typingBroadcastPending
 		}
@@ -348,6 +369,12 @@ func (c *Chat) handleIncomingMessage(
 		return true
 
 	case message.WSMsgTypeMessage:
+		log.Printf(
+			"info: chat: incoming chat message chat=%s user_id=%d user_name=%q remote=%s data=%s",
+			c.ID, incoming.user.ID, incoming.user.Name, incoming.user.Addr(),
+			message.DataForLog(incoming.msg.Data),
+		)
+
 		if c.typingUsers.Remove(incoming.user.ID) {
 			c.broadcastTypingUsers()
 			*lastTypingBroadcastAt = now
