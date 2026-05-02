@@ -19,6 +19,8 @@ const TypingNotifyRateMs = 1000;
 const TypingCleanupRateMs = 250;
 const WSConnectMaxAttempts = 3;
 const WSConnectRetryBaseMs = 500;
+const DiagnosticPageID = createDiagnosticPageID();
+var diagnosticSequence = 0;
 
 window.onfocus = function() {
     pageTitleNotification.off();
@@ -27,6 +29,10 @@ window.onfocus = function() {
 function isStandalonePWA() {
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
         window.navigator.standalone === true;
+}
+
+function createDiagnosticPageID() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
 function diagnosticContext(extra) {
@@ -44,6 +50,10 @@ function diagnosticContext(extra) {
     Object.keys(extra || {}).forEach(function(key) {
         context[key] = extra[key];
     });
+
+    context.client_ts = new Date().toISOString();
+    context.page_id = DiagnosticPageID;
+    context.seq = ++diagnosticSequence;
 
     return context;
 }
