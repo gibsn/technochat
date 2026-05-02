@@ -3,11 +3,35 @@ const IS_LOCAL_DEV = self.location.hostname === '127.0.0.1' || self.location.hos
 
 const CACHE_URLS = [
   '/html/messageadd.html',
+  '/html/messageview.html',
+  '/html/initchat.html',
+  '/html/joinchat.html',
+  '/manifest.webmanifest',
   '/css/main.css',
   '/css/adaptive.css',
+  '/css/chat.css',
+  '/css/lib/emojione.min.css',
+  '/css/lib/material_icons.css',
+  '/css/fonts/press-start-2p-v16.ttf',
+  '/css/fonts/ubuntu-mono-v19-bold.ttf',
+  '/css/fonts/ubuntu-mono-v19-regular.ttf',
+  '/css/fonts/material-icons-v38.ttf',
+  '/js/network-loader.js',
   '/js/pwa.js',
   '/js/message/add.js',
+  '/js/message/view.js',
+  '/js/message/crypto.js',
+  '/js/chat/init.js',
+  '/js/chat/chat.js',
+  '/js/util.js',
   '/js/lib/jquery-3.6.0.min.js',
+  '/js/lib/vue.min.js',
+  '/js/lib/emojione.min.js',
+  '/js/lib/heic2any.min.js',
+  '/js/lib/md5.js',
+  '/js/lib/materialize.min.js',
+  '/js/lib/PageTitleNotification.js',
+  '/media/icons/close.svg',
   '/images/apple-touch-icon.png',
   '/images/apple-touch-icon-167x167.png',
   '/images/apple-touch-icon-152x152.png',
@@ -15,6 +39,7 @@ const CACHE_URLS = [
   '/images/icon.svg',
   '/images/icon-512x512.png',
   '/images/icon-192x192.png',
+  '/robots.txt',
   '/favicon.ico'
 ];
 
@@ -68,27 +93,43 @@ if (IS_LOCAL_DEV) {
       return;
     }
 
+    function fetchAndCache(request) {
+      return fetch(request).then(function (response) {
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then(function (cache) {
+          cache.put(request, responseToCache);
+        });
+
+        return response;
+      });
+    }
+
     event.respondWith(
       caches.match(event.request).then(function (cachedResponse) {
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        return fetch(event.request).then(function (response) {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(event.request, responseToCache);
+        if (event.request.mode === 'navigate') {
+          return caches.match(url.pathname).then(function (cachedPageResponse) {
+            return cachedPageResponse || fetchAndCache(event.request);
           });
+        }
 
-          return response;
-        });
+        return fetchAndCache(event.request);
       }).catch(function () {
         if (event.request.mode === 'navigate') {
-          return caches.match('/html/messageadd.html').then(function (cachedResponse) {
+          return caches.match(url.pathname).then(function (cachedResponse) {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+
+            return caches.match('/html/messageadd.html');
+          }).then(function (cachedResponse) {
             return cachedResponse || new Response('Service unavailable', {
               status: 503,
               headers: { 'Content-Type': 'text/plain' }
