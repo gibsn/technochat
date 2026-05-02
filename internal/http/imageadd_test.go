@@ -18,12 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testAPIAddr = "https://127.0.0.1"
-)
-
 var (
-	imageAddAPI = testAPIAddr + imageAddPath
+	imageAddAPI = testAPIBaseURL() + imageAddPath
 )
 
 func addImage(img []byte) (string, error) {
