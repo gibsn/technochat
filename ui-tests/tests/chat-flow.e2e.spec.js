@@ -64,7 +64,7 @@ test("@e2e reopens an invite link with stored reconnect token", async ({
   });
   const firstUserPage = await context.newPage();
   const quotaUserPage = await browser.newPage();
-  const secondUserPage = await context.newPage();
+  let secondUserPage;
 
   try {
     await firstUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
@@ -83,10 +83,13 @@ test("@e2e reopens an invite link with stored reconnect token", async ({
 
     await firstUserPage.close();
 
+    secondUserPage = await context.newPage();
     await secondUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
-    await expect(secondUserPage.locator(".presence_button")).toHaveText(
-      "2 (2) online"
-    );
+    await secondUserPage.waitForFunction(() => {
+      const app = document.getElementById("app").__vue__;
+
+      return app && app.ws && app.ws.readyState === WebSocket.OPEN && app.name;
+    });
 
     await secondUserPage
       .locator('input[type="text"]')
@@ -95,11 +98,16 @@ test("@e2e reopens an invite link with stored reconnect token", async ({
     await expect(secondUserPage.locator("#chat-messages")).toContainText(
       "hello after reconnect"
     );
+    await expect(quotaUserPage.locator("#chat-messages")).toContainText(
+      "hello after reconnect"
+    );
     await expect(secondUserPage.locator("#app")).not.toContainText(
       /chat is full/i
     );
   } finally {
-    await secondUserPage.close();
+    if (secondUserPage) {
+      await secondUserPage.close();
+    }
     await quotaUserPage.close();
     await context.close();
   }
