@@ -44,3 +44,63 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
     await thirdUserPage.close();
   }
 });
+
+test("@e2e reopens an invite link with stored reconnect token", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/html/initchat.html");
+  await page.locator("button", { hasText: "Create chat" }).click();
+
+  const linkInput = page.locator("#to_copy");
+  await expect(linkInput).toHaveValue(/\/html\/joinchat\.html\?id=.*#key=.*/);
+  const chatLink = await linkInput.inputValue();
+  const chatURL = new URL(chatLink);
+  const chatID = chatURL.searchParams.get("id");
+
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    serviceWorkers: "block",
+  });
+  const firstUserPage = await context.newPage();
+  const quotaUserPage = await browser.newPage();
+  const secondUserPage = await context.newPage();
+
+  try {
+    await firstUserPage.goto(chatLink);
+    await quotaUserPage.goto(chatLink);
+    await expect(firstUserPage.locator("#chat-messages")).toContainText(
+      "has joined"
+    );
+    await expect(quotaUserPage.locator("#chat-messages")).toContainText(
+      "has joined"
+    );
+
+    const storedSession = await firstUserPage.evaluate((id) => {
+      return JSON.parse(localStorage.getItem(`technochat:chat:${id}`));
+    }, chatID);
+    expect(storedSession.reconnectToken).toBeTruthy();
+
+    await firstUserPage.close();
+
+    await secondUserPage.goto(chatLink);
+    await expect(secondUserPage.locator("#chat-messages")).toContainText(
+      "has joined"
+    );
+
+    await secondUserPage
+      .locator('input[type="text"]')
+      .fill("hello after reconnect");
+    await secondUserPage.locator("button", { hasText: "Send" }).click();
+    await expect(secondUserPage.locator("#chat-messages")).toContainText(
+      "hello after reconnect"
+    );
+    await expect(secondUserPage.locator("#app")).not.toContainText(
+      /chat is full/i
+    );
+  } finally {
+    await secondUserPage.close();
+    await quotaUserPage.close();
+    await context.close();
+  }
+});
