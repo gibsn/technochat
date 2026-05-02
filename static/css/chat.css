@@ -468,6 +468,24 @@ input:focus ~ .bar:after {
   font-size: 28px;
 }
 
+.chat_error_reconnect {
+  margin-top: 18px;
+  min-height: 42px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat_error_reconnect:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 3px;
+}
+
 @media (max-width: 720px) {
   .wrapper {
     padding: max(18px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));

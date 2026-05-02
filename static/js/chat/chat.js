@@ -150,6 +150,7 @@ new Vue({
         reconnectAttempt: 0,
         connectionStatus: '',
         chatFinished: false,
+        manualReconnectAvailable: false,
     },
     computed: {
         presenceLabel: function() {
@@ -277,6 +278,7 @@ new Vue({
             }
 
             this.ws = socket;
+            this.manualReconnectAvailable = false;
             this.connectionStatus = useReconnect ? 'Reconnecting...' : '';
             var wsOpened = false;
             socket.addEventListener('open', function() {
@@ -399,6 +401,7 @@ new Vue({
             this.okconnected = true;
             this.connectionStatus = '';
             this.chatFinished = false;
+            this.manualReconnectAvailable = false;
             this.reconnectAttempt = 0;
 
             if (reconnectToken) {
@@ -419,7 +422,7 @@ new Vue({
                     mode: 'connect',
                     attempts: this.reconnectAttempt + 1,
                 });
-                this.stopConnecting('Connection lost');
+                this.stopConnecting('Connection lost', false, true);
                 return;
             }
 
@@ -440,7 +443,25 @@ new Vue({
                 self.openChatSocket(useReconnect);
             }, delay);
         },
-        stopConnecting: function(status, terminal) {
+        manualReconnect: function() {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+
+            reportChatDiagnostic('chat_manual_reconnect', {
+                chat_id: this.chatID,
+                has_reconnect_token: Boolean(this.reconnectToken),
+            });
+
+            this.chatFinished = false;
+            this.manualReconnectAvailable = false;
+            this.reconnectAttempt = 0;
+            this.okconnected = true;
+            this.connectionStatus = this.reconnectToken ? 'Reconnecting...' : 'Connecting...';
+            this.openChatSocket(Boolean(this.reconnectToken));
+        },
+        stopConnecting: function(status, terminal, manualReconnectAvailable) {
             if (this.reconnectTimer) {
                 window.clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
@@ -449,6 +470,7 @@ new Vue({
                 this.chatFinished = true;
             }
             this.connectionStatus = status;
+            this.manualReconnectAvailable = Boolean(manualReconnectAvailable);
             this.okconnected = false;
         },
         finishChat: function(status) {

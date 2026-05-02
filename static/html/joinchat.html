@@ -133,7 +133,15 @@
                 </div>
             </div>
             <div v-if="!okconnected" class="chat_error">
-                {{ connectionStatus || 'Could not connect to chat' }}
+                <div>{{ connectionStatus || 'Could not connect to chat' }}</div>
+                <button
+                    v-if="manualReconnectAvailable"
+                    class="chat_error_reconnect"
+                    type="button"
+                    @click="manualReconnect"
+                >
+                    Reconnect
+                </button>
             </div>
         </div>
     </div>
