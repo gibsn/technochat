@@ -6,10 +6,6 @@ if [ "${1:-}" = "--" ]; then
     shift
 fi
 
-if [ "$#" = 0 ]; then
-    set -- make test-suite
-fi
-
 port_is_free() {
     local port="$1"
 
@@ -67,8 +63,28 @@ export UI_TEST_BASE_URL="https://127.0.0.1:${TECHNOCHAT_HTTPS_PORT}"
 export TECHNOCHAT_TEST_API_URL="$UI_TEST_BASE_URL"
 
 set +e
-"$@"
-status=$?
+if [ "$#" = 0 ]; then
+    make go-tests
+    status=$?
+
+    if [ "$status" = 0 ]; then
+        make integration-tests
+        status=$?
+    fi
+
+    if [ "$status" = 0 ]; then
+        make ui-unit-tests
+        status=$?
+    fi
+
+    if [ "$status" = 0 ]; then
+        make ui-e2e-tests
+        status=$?
+    fi
+else
+    "$@"
+    status=$?
+fi
 set -e
 
 if [ "$status" != 0 ]; then

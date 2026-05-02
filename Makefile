@@ -12,7 +12,7 @@ VET_PACKAGES = $(dir $(addprefix $(MODULE_NAME)/,$(VET_FILES)))
 TARGET_BRANCH ?= master
 GO_BUILD_FLAGS ?= -buildvcs=false
 UI_TEST_DEPS = ui-tests/node_modules/.package-lock.json
-TEST_COMMAND ?= make test-suite
+TEST_COMMAND ?=
 
 all: technochat
 
@@ -47,8 +47,6 @@ integration-tests:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
 	go test	-count=1 -timeout=10s -tags='integration_tests' ./...
 
-test-suite: go-tests integration-tests ui-tests
-
 test:
 	dist/run-isolated-tests.sh -- $(TEST_COMMAND)
 
@@ -69,4 +67,4 @@ clean:
 	rm -rf ui-tests/node_modules
 
 
-.PHONY: all clean test test-suite go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat lint install_autodeploy
+.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat lint install_autodeploy
