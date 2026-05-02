@@ -4,7 +4,7 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
   page,
   browser,
 }) => {
-  await page.goto("/html/initchat.html");
+  await page.goto("/html/initchat.html", { waitUntil: "domcontentloaded" });
   await page.locator("button", { hasText: "Create chat" }).click();
 
   const linkInput = page.locator("#to_copy");
@@ -16,8 +16,8 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
   const thirdUserPage = await browser.newPage();
 
   try {
-    await firstUserPage.goto(chatLink);
-    await secondUserPage.goto(chatLink);
+    await firstUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
+    await secondUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
 
     await expect(firstUserPage.locator("#chat-messages")).toContainText(
       "has joined"
@@ -36,7 +36,7 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
       "hello from chat e2e"
     );
 
-    await thirdUserPage.goto(chatLink);
+    await thirdUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
     await expect(thirdUserPage.locator("#app")).toContainText(/poshel nah/i);
   } finally {
     await firstUserPage.close();

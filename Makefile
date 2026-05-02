@@ -46,7 +46,8 @@ integration-tests:
 	# go test	-v -count=1 -timeout=10s -tags='integration_tests' ./...
 	go test	-count=1 -timeout=10s -tags='integration_tests' ./...
 
-test: go-tests integration-tests ui-tests
+test:
+	dist/run-isolated-tests.sh
 
 install_autodeploy:
 	mkdir -p /opt/technochat

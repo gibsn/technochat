@@ -1,0 +1,26 @@
+services:
+    nginx:
+        build:
+            args:
+                DEV: "True"
+        secrets:
+            - server.key
+            - server.crt
+        volumes:
+            - ../static:/static
+
+secrets:
+    server.key:
+        file: ../certs/server.key
+    server.crt:
+        file: ../certs/server.crt
+    nginx.conf:
+        file: nginx.conf
+    nginx.http.conf:
+        file: nginx_http_dev.conf
+    nginx.tls.conf:
+        file: nginx_tls_dev.conf
+    nginx.static-cache.conf:
+        file: nginx_static_cache_dev.conf
+    nginx.pwa-cache.conf:
+        file: nginx_pwa_cache_dev.conf

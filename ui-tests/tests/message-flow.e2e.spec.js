@@ -11,7 +11,7 @@ test("@e2e creates, opens, decrypts, and consumes a one-time message", async ({
 }) => {
   const messageText = "secret from playwright\nsecond line";
 
-  await page.goto("/html/messageadd.html");
+  await page.goto("/html/messageadd.html", { waitUntil: "domcontentloaded" });
   await page.locator("#text").fill(messageText);
   await page.locator("#generate_button").click();
 
@@ -21,7 +21,7 @@ test("@e2e creates, opens, decrypts, and consumes a one-time message", async ({
   );
 
   const messageLink = await linkInput.inputValue();
-  await page.goto(messageLink);
+  await page.goto(messageLink, { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("#message")).toContainText("secret from playwright");
   await expect(page.locator("#message")).toContainText("second line");
@@ -37,7 +37,7 @@ test("@e2e creates, opens, decrypts, and consumes a one-time message", async ({
 
   const replyViewPage = await browser.newPage();
   try {
-    await replyViewPage.goto(replyLink);
+    await replyViewPage.goto(replyLink, { waitUntil: "domcontentloaded" });
     await expect(replyViewPage.locator("#message")).toHaveText(
       "reply from message view"
     );
@@ -47,7 +47,7 @@ test("@e2e creates, opens, decrypts, and consumes a one-time message", async ({
 
   const secondViewPage = await browser.newPage();
   try {
-    await secondViewPage.goto(messageLink);
+    await secondViewPage.goto(messageLink, { waitUntil: "domcontentloaded" });
     await expect(secondViewPage.locator("#message")).toHaveText(/not found/i);
   } finally {
     await secondViewPage.close();
@@ -60,7 +60,7 @@ test("@e2e creates, opens, decrypts, and renders message images", async ({
 }) => {
   const messageText = "secret images from playwright";
 
-  await page.goto("/html/messageadd.html");
+  await page.goto("/html/messageadd.html", { waitUntil: "domcontentloaded" });
   await page.locator("#text").fill(messageText);
   await page.setInputFiles("#file-input", [
     {
@@ -90,7 +90,7 @@ test("@e2e creates, opens, decrypts, and renders message images", async ({
   );
 
   const messageLink = await linkInput.inputValue();
-  await page.goto(messageLink);
+  await page.goto(messageLink, { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("#message")).toHaveText(messageText);
   await expect(page.locator("#images img")).toHaveCount(3);
@@ -102,7 +102,7 @@ test("@e2e creates, opens, decrypts, and renders message images", async ({
 
   const secondViewPage = await browser.newPage();
   try {
-    await secondViewPage.goto(messageLink);
+    await secondViewPage.goto(messageLink, { waitUntil: "domcontentloaded" });
     await expect(secondViewPage.locator("#message")).toHaveText(/not found/i);
   } finally {
     await secondViewPage.close();
