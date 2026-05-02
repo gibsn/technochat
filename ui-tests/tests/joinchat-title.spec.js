@@ -133,7 +133,8 @@ test.beforeEach(async ({ page }) => {
 async function openJoinChat(page) {
   await routeJoinChatWorktreeStatic(page);
   await page.goto(
-    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
+    { waitUntil: "commit" }
   );
   await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
 }
@@ -141,7 +142,8 @@ async function openJoinChat(page) {
 async function openJoinChatScript(page) {
   await routeJoinChatWorktreeStatic(page);
   await page.goto(
-    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
+    { waitUntil: "commit" }
   );
   await page.waitForFunction(() => typeof window.onfocus === "function");
 }
