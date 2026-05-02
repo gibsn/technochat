@@ -43,6 +43,14 @@ const CACHE_URLS = [
   '/favicon.ico'
 ];
 
+function cacheURLs(cache, urls) {
+  return urls.reduce(function (promise, url) {
+    return promise.then(function () {
+      return cache.add(url);
+    });
+  }, Promise.resolve());
+}
+
 if (IS_LOCAL_DEV) {
   self.addEventListener('install', function (event) {
     event.waitUntil(self.skipWaiting());
@@ -63,7 +71,7 @@ if (IS_LOCAL_DEV) {
   self.addEventListener('install', function (event) {
     event.waitUntil(
       caches.open(CACHE_NAME).then(function (cache) {
-        return cache.addAll(CACHE_URLS);
+        return cacheURLs(cache, CACHE_URLS);
       }).then(function () {
         return self.skipWaiting();
       })
