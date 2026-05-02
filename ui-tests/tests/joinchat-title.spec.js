@@ -152,17 +152,22 @@ async function openJoinChatScript(page) {
   await page.waitForFunction(() => typeof window.onfocus === "function");
 }
 
-async function openJoinChatWithStoredReconnectToken(page, reconnectToken) {
+async function openJoinChatWithStoredReconnectToken(
+  page,
+  reconnectToken,
+  name = "stored-name"
+) {
   await routeJoinChatWorktreeStatic(page);
-  await page.addInitScript((token) => {
+  await page.addInitScript(({ token, storedName }) => {
     localStorage.setItem(
       "technochat:chat:chat-id",
       JSON.stringify({
         chatId: "chat-id",
         reconnectToken: token,
+        name: storedName,
       })
     );
-  }, reconnectToken);
+  }, { token: reconnectToken, storedName: name });
   await page.goto(
     `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
     { waitUntil: "commit" }
@@ -468,17 +473,21 @@ test("@unit stores reconnect token after the first chat connection", async ({
   expect(storedSession).toEqual({
     chatId: "chat-id",
     reconnectToken: "token-alice",
+    name: "alice",
   });
 });
 
 test("@unit uses reconnect websocket endpoint when a token is stored", async ({
   page,
 }) => {
-  await openJoinChatWithStoredReconnectToken(page, "stored-token");
+  await openJoinChatWithStoredReconnectToken(page, "stored-token", "Tiny");
 
   const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
   expect(socketURL).toContain("/api/v1/chat/reconnect");
   expect(socketURL).toContain("reconnect_token=stored-token");
+  await expect(page.locator(".connection_status")).toHaveText(
+    "Reconnecting as Tiny..."
+  );
 });
 
 test("@unit clears invalid reconnect token and falls back to first connect", async ({

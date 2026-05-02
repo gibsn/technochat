@@ -237,7 +237,12 @@ new Vue({
                 return;
             }
 
-            this.reconnectToken = this.loadReconnectToken(id);
+            var session = this.loadReconnectSession(id);
+            this.reconnectToken = session.reconnectToken;
+            if (session.name) {
+                this.name = session.name;
+                this.username = session.name;
+            }
             this.openChatSocket(Boolean(this.reconnectToken));
         },
         openChatSocket: function(useReconnect) {
@@ -279,7 +284,7 @@ new Vue({
 
             this.ws = socket;
             this.manualReconnectAvailable = false;
-            this.connectionStatus = useReconnect ? 'Reconnecting...' : '';
+            this.connectionStatus = useReconnect ? this.reconnectingStatus() : '';
             var wsOpened = false;
             socket.addEventListener('open', function() {
                 wsOpened = true;
@@ -406,8 +411,15 @@ new Vue({
 
             if (reconnectToken) {
                 this.reconnectToken = reconnectToken;
-                this.storeReconnectToken(this.chatID, reconnectToken);
+                this.storeReconnectToken(this.chatID, reconnectToken, name);
             }
+        },
+        reconnectingStatus: function() {
+            if (this.name) {
+                return 'Reconnecting as ' + this.name + '...';
+            }
+
+            return 'Reconnecting...';
         },
         scheduleReconnect: function(useReconnect) {
             var self = this;
@@ -429,7 +441,7 @@ new Vue({
             var retryDelays = useReconnect ? ReconnectDelaysMs : InitialConnectRetryDelaysMs;
             var delay = retryDelays[Math.min(this.reconnectAttempt, retryDelays.length - 1)];
             this.reconnectAttempt++;
-            this.connectionStatus = useReconnect ? 'Reconnecting...' : 'Connecting...';
+            this.connectionStatus = useReconnect ? this.reconnectingStatus() : 'Connecting...';
 
             reportChatDiagnostic('chat_ws_retry_scheduled', {
                 chat_id: this.chatID,
@@ -458,7 +470,7 @@ new Vue({
             this.manualReconnectAvailable = false;
             this.reconnectAttempt = 0;
             this.okconnected = true;
-            this.connectionStatus = this.reconnectToken ? 'Reconnecting...' : 'Connecting...';
+            this.connectionStatus = this.reconnectToken ? this.reconnectingStatus() : 'Connecting...';
             this.openChatSocket(Boolean(this.reconnectToken));
         },
         stopConnecting: function(status, terminal, manualReconnectAvailable) {
@@ -482,25 +494,29 @@ new Vue({
         reconnectStorageKey: function(chatID) {
             return 'technochat:chat:' + chatID;
         },
-        loadReconnectToken: function(chatID) {
+        loadReconnectSession: function(chatID) {
             try {
                 var raw = window.localStorage.getItem(this.reconnectStorageKey(chatID));
                 if (!raw) {
-                    return '';
+                    return { reconnectToken: '', name: '' };
                 }
 
                 var session = JSON.parse(raw);
-                return String(session.reconnectToken || '');
+                return {
+                    reconnectToken: String(session.reconnectToken || ''),
+                    name: String(session.name || ''),
+                };
             } catch (e) {
                 console.warn('could not load chat session', e);
-                return '';
+                return { reconnectToken: '', name: '' };
             }
         },
-        storeReconnectToken: function(chatID, reconnectToken) {
+        storeReconnectToken: function(chatID, reconnectToken, name) {
             try {
                 window.localStorage.setItem(this.reconnectStorageKey(chatID), JSON.stringify({
                     chatId: chatID,
                     reconnectToken: reconnectToken,
+                    name: name || '',
                 }));
             } catch (e) {
                 console.warn('could not store chat session', e);
