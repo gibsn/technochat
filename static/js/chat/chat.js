@@ -157,7 +157,7 @@ new Vue({
                             self.finishChat('Chat finished');
                         }
                         if (msg.data.event_id == EventConnInitMaxUsrsReached ){
-                            self.stopConnecting('Chat is full');
+                            self.stopConnecting('Chat is full', true);
                         }
                         if (msg.data.event_id == EventConnInitInvalidReconnectToken) {
                             self.clearStoredReconnectToken(self.chatID);
@@ -165,7 +165,7 @@ new Vue({
                             if (useReconnect) {
                                 self.openChatSocket(false);
                             } else {
-                                self.stopConnecting('Could not reconnect');
+                                self.stopConnecting('Could not reconnect', true);
                             }
                         }
                         if (msg.data.event_id == EventPresence) {
@@ -243,10 +243,13 @@ new Vue({
                 self.openChatSocket(true);
             }, delay);
         },
-        stopConnecting: function(status) {
+        stopConnecting: function(status, terminal) {
             if (this.reconnectTimer) {
                 window.clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
+            }
+            if (terminal) {
+                this.chatFinished = true;
             }
             this.connectionStatus = status;
             this.okconnected = false;

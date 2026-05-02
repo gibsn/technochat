@@ -84,8 +84,8 @@ test("@e2e reopens an invite link with stored reconnect token", async ({
     await firstUserPage.close();
 
     await secondUserPage.goto(chatLink, { waitUntil: "domcontentloaded" });
-    await expect(secondUserPage.locator("#chat-messages")).toContainText(
-      "has joined"
+    await expect(secondUserPage.locator(".presence_button")).toHaveText(
+      "2 (2) online"
     );
 
     await secondUserPage
