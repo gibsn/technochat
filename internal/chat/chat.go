@@ -20,7 +20,7 @@ const (
 	MinPeopleInChat  = 2
 	MaxPeopleInChat  = 100
 
-	ChatAFKLifetime       time.Duration = 12 * time.Hour
+	ChatOfflineTTL        time.Duration = 24 * time.Hour
 	PresenceBroadcastRate time.Duration = 30 * time.Second
 	TypingTTL             time.Duration = 3 * time.Second
 	TypingExpireRate      time.Duration = 500 * time.Millisecond
@@ -49,9 +49,11 @@ type Chat struct {
 	userDisconnectedChan chan *user.User
 	usersWG              sync.WaitGroup
 
-	incomingChan  chan *incomingMessage
-	broadcastChan chan *message.WSMessage
-	typingUsers   *typingusers.TypingUsers
+	incomingChan     chan *incomingMessage
+	broadcastChan    chan *message.WSMessage
+	offlineStateChan chan bool
+	offlineTTL       time.Duration
+	typingUsers      *typingusers.TypingUsers
 
 	restJoins         int // how many available invitations are left
 	maxUsers          int
@@ -73,17 +75,25 @@ type Participant struct {
 }
 
 type NewChatOpts struct {
-	ID       string
-	MaxJoins int
+	ID         string
+	MaxJoins   int
+	OfflineTTL time.Duration
 }
 
 func NewChat(opts NewChatOpts) *Chat {
+	offlineTTL := opts.OfflineTTL
+	if offlineTTL <= 0 {
+		offlineTTL = ChatOfflineTTL
+	}
+
 	c := &Chat{
 		ID:                   opts.ID,
 		participants:         make(map[string]*Participant),
 		corresps:             make(map[int]*user.User),
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
+		offlineStateChan:     make(chan bool, 1),
+		offlineTTL:           offlineTTL,
 		typingUsers:          typingusers.New(TypingTTL),
 		restJoins:            opts.MaxJoins,
 		maxUsers:             opts.MaxJoins,
@@ -259,6 +269,7 @@ func (c *Chat) handleUsers() {
 			c.SubscribeUser(newUser)
 			c.SendServerNotify("user " + newUser.Name + " has joined")
 			c.BroadcastPresence()
+			c.notifyOfflineState(false)
 
 		case disconnectedUser := <-c.userDisconnectedChan:
 			if c.typingUsers.Remove(disconnectedUser.ID) {
@@ -268,11 +279,28 @@ func (c *Chat) handleUsers() {
 			c.SendServerNotify("user " + disconnectedUser.Name + " has left")
 			c.BroadcastPresence()
 
-			if c.Presence().Online == 0 && c.RestJoins() == 0 {
-				log.Printf("info: chat: no users left in chat %s", c.ID)
-				c.TriggerShutdown()
+			if c.Presence().Online == 0 {
+				c.notifyOfflineState(true)
 			}
 		}
+	}
+}
+
+func (c *Chat) notifyOfflineState(offline bool) {
+	select {
+	case c.offlineStateChan <- offline:
+		return
+	default:
+	}
+
+	select {
+	case <-c.offlineStateChan:
+	default:
+	}
+
+	select {
+	case c.offlineStateChan <- offline:
+	default:
 	}
 }
 
@@ -288,9 +316,11 @@ func (c *Chat) handleCommunication() {
 	lastTypingBroadcastAt := time.Now()
 	typingBroadcastPending := false
 
-	for {
-		afkTimer := time.NewTimer(ChatAFKLifetime)
+	offlineTimer := time.NewTimer(c.offlineTTL)
+	offlineTimerC := offlineTimer.C
+	defer stopTimer(offlineTimer)
 
+	for {
 		select {
 		case incoming := <-c.incomingChan:
 			typingBroadcastPending = c.handleIncomingMessage(
@@ -302,6 +332,15 @@ func (c *Chat) handleCommunication() {
 
 		case msg := <-c.broadcastChan:
 			c.broadcast(msg)
+
+		case offline := <-c.offlineStateChan:
+			if offline {
+				resetTimer(offlineTimer, c.offlineTTL, &offlineTimerC)
+				log.Printf("info: chat: all users left chat %s, closing in %s", c.ID, c.offlineTTL)
+			} else {
+				stopTimer(offlineTimer)
+				offlineTimerC = nil
+			}
 
 		case <-presenceTicker.C:
 			c.broadcast(c.PresenceMessage())
@@ -322,16 +361,28 @@ func (c *Chat) handleCommunication() {
 			log.Printf("info: chat: closing communication goroutine for chat [%s]", c.ID)
 			return
 
-		case <-afkTimer.C:
-			log.Printf("info: chat: no activity in chat %s for %s, shutting down", c.ID, ChatAFKLifetime)
-			c.SendServerNotify("closing chat due to inactivity for " + ChatAFKLifetime.String())
+		case <-offlineTimerC:
+			log.Printf("info: chat: no online users in chat %s for %s, shutting down", c.ID, c.offlineTTL)
 			c.TriggerShutdown()
 
 			return
 		}
-
-		afkTimer.Stop()
 	}
+}
+
+func stopTimer(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+}
+
+func resetTimer(timer *time.Timer, ttl time.Duration, timerC *<-chan time.Time) {
+	stopTimer(timer)
+	timer.Reset(ttl)
+	*timerC = timer.C
 }
 
 func (c *Chat) handleIncomingMessage(

@@ -120,6 +120,60 @@ func TestReconnectDoesNotConsumeQuotaAndRestoresUser(t *testing.T) {
 	closeTestClient(t, firstClient)
 }
 
+func TestDisconnectKeepsChatAliveUntilOfflineTTL(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:         "disconnect-offline-ttl-test",
+		MaxJoins:   1,
+		OfflineTTL: 200 * time.Millisecond,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChatIfRunning(c, done)
+
+	firstClient := dialTestChat(t, server)
+	firstInit := readConnInitEvent(t, firstClient)
+	closeTestClient(t, firstClient)
+	waitForOnlineUsers(t, c, 0)
+
+	reconnectedClient := dialTestChatPath(t, server, "/reconnect?reconnect_token="+firstInit.ReconnectToken)
+	defer closeTestClient(t, reconnectedClient)
+
+	secondInit := readConnInitEvent(t, reconnectedClient)
+	if secondInit.Name != firstInit.Name {
+		t.Fatalf("expected reconnect to restore user %q, got %q", firstInit.Name, secondInit.Name)
+	}
+
+	select {
+	case <-done:
+		t.Fatal("chat closed before offline TTL elapsed")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestOfflineTTLClosesChatAfterLastDisconnect(t *testing.T) {
+	c := NewChat(NewChatOpts{
+		ID:         "offline-ttl-close-test",
+		MaxJoins:   1,
+		OfflineTTL: 100 * time.Millisecond,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChatIfRunning(c, done)
+
+	client := dialTestChat(t, server)
+	readConnInitEvent(t, client)
+	closeTestClient(t, client)
+	waitForOnlineUsers(t, c, 0)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("chat did not close after offline TTL elapsed")
+	}
+}
+
 func TestJoinBlockedWhenQuotaExhausted(t *testing.T) {
 	c := NewChat(NewChatOpts{
 		ID:       "join-quota-test",
@@ -334,6 +388,29 @@ func serveTestChat(t *testing.T, c *Chat) (*httptest.Server, chan struct{}) {
 func stopTestChat(c *Chat, done chan struct{}) {
 	c.TriggerShutdown()
 	<-done
+}
+
+func stopTestChatIfRunning(c *Chat, done chan struct{}) {
+	select {
+	case <-done:
+	default:
+		stopTestChat(c, done)
+	}
+}
+
+func waitForOnlineUsers(t *testing.T, c *Chat, expectedOnline int) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.Presence().Online == expectedOnline {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for %d online users, got %d", expectedOnline, c.Presence().Online)
 }
 
 func dialTestChat(t *testing.T, server *httptest.Server) *websocket.Conn {
