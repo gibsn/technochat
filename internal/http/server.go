@@ -60,6 +60,7 @@ func (s *Server) Init() {
 	http.HandleFunc("/api/v1/chat/init", respondAPI(s.chatInit))
 	http.HandleFunc("/api/v1/chat/connect", s.chatConnect)
 	http.HandleFunc("/api/v1/chat/reconnect", s.chatReconnect)
+	http.HandleFunc("/api/v1/client/log", respondAPI(s.clientLog))
 
 	log.Println("http: successfully initialised")
 }
