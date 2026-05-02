@@ -40,8 +40,8 @@ services:
         depends_on:
             - technochat
         ports:
-            - 80:80
-            - 443:443
+            - "${TECHNOCHAT_HTTP_PORT:-80}:80"
+            - "${TECHNOCHAT_HTTPS_PORT:-443}:443"
 
 volumes:
     redis_data:

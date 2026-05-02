@@ -25,18 +25,18 @@ func messageView(id string) (entity.Message, error) {
 		},
 	}
 
-	url := url.URL{
-		Scheme: "https",
-		Host:   "127.0.0.1",
-		Path:   messageViewPath,
+	reqURL, err := url.Parse(testAPIBaseURL())
+	if err != nil {
+		return entity.Message{}, fmt.Errorf("could not parse test API URL: %w", err)
 	}
 
-	query := url.Query()
+	reqURL.Path = messageViewPath
+	query := reqURL.Query()
 	query.Add("id", id)
 
-	url.RawQuery = query.Encode()
+	reqURL.RawQuery = query.Encode()
 
-	httpReq, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	httpReq, err := http.NewRequest(http.MethodGet, reqURL.String(), nil)
 	if err != nil {
 		return entity.Message{}, fmt.Errorf("could not make a request: %w", err)
 	}

@@ -4,14 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
     <title>TechnoChat</title>
+    <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#dddddd">
+    <style>
+        html,
+        body {
+            background: #dddddd;
+            color-scheme: light;
+        }
+    </style>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
     <link rel="apple-touch-icon" sizes="167x167" href="/images/apple-touch-icon-167x167.png">
     <link rel="apple-touch-icon" sizes="152x152" href="/images/apple-touch-icon-152x152.png">
     <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="/css/lib/material_icons.css">
     <link rel="stylesheet" href="/css/lib/emojione.min.css">
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/chat.css">
@@ -25,7 +33,7 @@
                 <h1><a href="/">Technochat</a></h1>
             </div>
         </div>
-        <div class="main" id="app">
+        <div class="main" id="app" v-cloak>
             <div v-if="okconnected" class="chat_shell">
                 <div class="presence_bar">
                     <button
@@ -132,6 +140,7 @@
     <script src="/js/lib/vue.min.js"></script>
     <script src="/js/lib/emojione.min.js"></script>
     <script src="/js/lib/jquery-3.6.0.min.js"></script>
+    <script src="/js/network-loader.js"></script>
     <script src="/js/lib/md5.js"></script>
     <script src="/js/lib/materialize.min.js"></script>
     <script src="/js/lib/PageTitleNotification.js"></script>

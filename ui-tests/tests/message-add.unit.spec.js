@@ -119,6 +119,22 @@ test("@unit resets the copy button when a new message link is generated", async 
   await expect(page.locator("#copy_button")).toHaveText("Copy link");
 });
 
+test("@unit starts the global loader before navigating to chat creation", async ({
+  page,
+}) => {
+  await page.goto("/html/messageadd.html");
+
+  const createChatLink = page.locator("#create_chat");
+  await createChatLink.evaluate((link) => {
+    link.addEventListener("click", (event) => event.preventDefault());
+  });
+
+  await createChatLink.click();
+  await expect(page.locator("#network_loader")).toHaveClass(
+    /network-loader--visible/
+  );
+});
+
 test("@unit renders API validation errors without clearing the original text", async ({
   page,
 }) => {

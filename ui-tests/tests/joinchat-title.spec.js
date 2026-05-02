@@ -137,7 +137,8 @@ test.beforeEach(async ({ page }) => {
 async function openJoinChat(page) {
   await routeJoinChatWorktreeStatic(page);
   await page.goto(
-    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
+    { waitUntil: "commit" }
   );
   await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
 }
@@ -145,7 +146,8 @@ async function openJoinChat(page) {
 async function openJoinChatScript(page) {
   await routeJoinChatWorktreeStatic(page);
   await page.goto(
-    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
+    { waitUntil: "commit" }
   );
   await page.waitForFunction(() => typeof window.onfocus === "function");
 }
@@ -218,6 +220,48 @@ test("@unit does not blink the page title when the chat page is visible", async 
     "2026-05-01T06:07:08.000Z"
   );
   await expect(page.locator(".chat-message_time")).not.toBeEmpty();
+});
+
+test("@unit keeps the page gray behind the white chat canvas", async ({ page }) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript(installJoinChatMocks);
+
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+  );
+  await expect(page.locator("#chat-messages")).toBeVisible();
+
+  await expect(page.locator("html")).toHaveCSS(
+    "background-color",
+    "rgb(221, 221, 221)"
+  );
+  await expect(page.locator(".chat_content")).toHaveCSS(
+    "background-color",
+    "rgba(255, 255, 255, 0.88)"
+  );
+});
+
+test("@unit shows a global loader while chat WebSocket connects", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript(installJoinChatMocks);
+
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`
+  );
+
+  await expect(page.locator("#network_loader")).toHaveClass(
+    /network-loader--visible/
+  );
+
+  await page.evaluate(() => {
+    window.__technochatMockSocket.dispatch("open");
+  });
+
+  await expect(page.locator("#network_loader")).not.toHaveClass(
+    /network-loader--visible/
+  );
 });
 
 test("@unit keeps chat input fixed while messages scroll internally", async ({

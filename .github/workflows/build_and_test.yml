@@ -71,14 +71,17 @@ jobs:
     - name: Dump container diagnostics on failure
       if: failure()
       run: |
-        docker compose -f dist/docker-compose-dev.yml ps
-        docker compose -f dist/docker-compose-dev.yml logs --no-color
+        docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml ps
+        docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml logs --no-color
 
-    - name: Run all tests
-      run: make test
+    - name: Run Go tests
+      run: make go-tests
 
-    - name: Dump container diagnostics on failure
-      if: failure()
-      run: |
-        docker compose -f dist/docker-compose-dev.yml ps
-        docker compose -f dist/docker-compose-dev.yml logs --no-color
+    - name: Run integration tests
+      run: make integration-tests
+
+    - name: Run UI unit tests
+      run: make ui-unit-tests
+
+    - name: Run UI end-to-end tests
+      run: make ui-e2e-tests

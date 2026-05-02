@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	messageAddAPI = testAPIAddr + messageAddPath
+	messageAddAPI = testAPIBaseURL() + messageAddPath
 
 	dummyText = "this a test text"
 	dummyImgs = "6a938b32-e701-4807-b099-ddfbd19ecd22,46f46909-4871-4a98-b3a7-be605032efe5"

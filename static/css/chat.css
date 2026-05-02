@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css?family=Press+Start+2P');
-@import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700&subset=cyrillic');
-
 html {
+  color-scheme: light;
   background: #dddddd;
   height: 100%;
 }
@@ -24,6 +22,7 @@ button {
 }
 
 .wrapper {
+  background-color: #dddddd;
   height: 100vh;
   height: 100dvh;
   padding: max(24px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));

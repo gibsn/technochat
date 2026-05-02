@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	imageViewAPI = testAPIAddr + imageViewPath
+	imageViewAPI = testAPIBaseURL() + imageViewPath
 
 	dummyImageBytes = []byte{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7}
 )
