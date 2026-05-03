@@ -49,18 +49,26 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 	newChat := chat.NewChat(chat.NewChatOpts{
 		ID:       chatID.String(),
 		MaxJoins: req.MaxUsers,
+		Store:    s.db,
 	})
 
-	chat.AddChat(newChat)
+	if err := s.db.AddChat(newChat.State()); err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
+	s.startChat(newChat)
 	log.Printf("info: chat: started a new chat %s for %d people", newChat.ID, newChat.RestJoins())
 
 	resp := ChatInitResponse{
 		ID: newChat.ID,
 	}
 
-	go chat.HandleChat(newChat)
-
 	return http.StatusOK, resp, nil
+}
+
+func (s *Server) startChat(c *chat.Chat) {
+	s.chatRegistry().AddChat(c)
+	go s.chatRegistry().HandleChat(c)
 }
 
 func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
@@ -86,10 +94,22 @@ func (s *Server) chatConnectWithMode(w http.ResponseWriter, r *http.Request, rec
 
 	chatIDStr := r.FormValue("id")
 	remoteAddr := getRealRemoteAddr(r)
+	chatIDForLog := sanitizeClientLogValue(chatIDStr)
+	remoteAddrForLog := sanitizeClientLogValue(remoteAddr)
 
-	c := chat.GetChat(chatIDStr)
+	c, err := s.chatRegistry().GetChat(chatIDStr)
+	if err != nil {
+		//nolint:gosec // Chat ID and remote address are sanitized before logging.
+		log.Printf(
+			"error: chat: could not get chat %s for %s: %v",
+			chatIDForLog, remoteAddrForLog, err,
+		)
+		sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
+		return
+	}
 	if c == nil {
-		log.Printf("info: chat: chat %s does not exist for %s", chatIDStr, remoteAddr)
+		//nolint:gosec // Chat ID and remote address are sanitized before logging.
+		log.Printf("info: chat: chat %s does not exist for %s", chatIDForLog, remoteAddrForLog)
 		sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
 		return
 	}
@@ -108,13 +128,16 @@ func (s *Server) chatConnectWithMode(w http.ResponseWriter, r *http.Request, rec
 			eventID = message.EventConnInitInvalidReconnectToken
 		}
 
-		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDStr, err)
+		//nolint:gosec // Chat ID is sanitized before logging.
+		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDForLog, err)
 		sendChatInitEvent(ws, eventID)
 		return
 	}
 
+	userNameForLog := sanitizeClientLogValue(usr.Name)
+	//nolint:gosec // User name, chat ID and remote address are sanitized before logging.
 	log.Printf("info: chat: connected user [%d %s] to chat %s from %s, joins left after add: %d",
-		usr.ID, usr.Name, chatIDStr, remoteAddr, c.RestJoins())
+		usr.ID, userNameForLog, chatIDForLog, remoteAddrForLog, c.RestJoins())
 
 	usr.Routine()
 
