@@ -24,6 +24,20 @@ func AddChat(c *Chat) {
 	chatsList.mx.Unlock()
 }
 
+func AddChatIfAbsent(c *Chat) (*Chat, bool) {
+	chatsList.mx.Lock()
+	defer chatsList.mx.Unlock()
+
+	existingChat, ok := chatsList.chats[c.ID]
+	if ok {
+		return existingChat, false
+	}
+
+	chatsList.chats[c.ID] = c
+
+	return c, true
+}
+
 func GetChat(id string) *Chat {
 	chatsList.mx.Lock()
 	defer chatsList.mx.Unlock()

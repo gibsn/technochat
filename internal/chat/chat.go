@@ -44,6 +44,7 @@ type Chat struct {
 	store     StateStore
 
 	triggerShutdown     sync.Once
+	start               sync.Once
 	triggerShutdownChan chan struct{}
 	shutdownChan        chan struct{}
 	WG                  sync.WaitGroup
@@ -136,12 +137,16 @@ func NewChat(opts NewChatOpts) *Chat {
 		userDisconnectedChan: make(chan *user.User),
 	}
 
-	c.WG.Add(2)
-
-	go c.handleUsers()
-	go c.handleCommunication()
-
 	return c
+}
+
+func (c *Chat) Start() {
+	c.start.Do(func() {
+		c.WG.Add(2)
+
+		go c.handleUsers()
+		go c.handleCommunication()
+	})
 }
 
 func (c *Chat) stateLocked() entity.Chat {
@@ -545,6 +550,8 @@ func (c *Chat) TriggerShutdown() {
 }
 
 func (c *Chat) Routine() {
+	c.Start()
+
 	<-c.triggerShutdownChan
 
 	log.Printf("info: chat: triggered shutdown for chat [%s]", c.ID)

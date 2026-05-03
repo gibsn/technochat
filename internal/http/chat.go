@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"technochat/internal/chat"
 	"technochat/internal/chat/message"
 	"technochat/internal/chat/user"
+	"technochat/pkg/entity"
 )
 
 type ChatInitRequest struct {
@@ -66,37 +68,41 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 	return http.StatusOK, resp, nil
 }
 
-func (s *Server) restoreChats() error {
-	savedChats, err := s.db.GetChats()
+func (s *Server) restoreChat(chatID string) (*chat.Chat, error) {
+	savedChat, err := s.db.GetChat(chatID)
 	if err != nil {
-		return err
-	}
-
-	for _, savedChat := range savedChats {
-		participants := make([]chat.Participant, 0, len(savedChat.Participants))
-		for _, participant := range savedChat.Participants {
-			participants = append(participants, chat.Participant{
-				ID:             participant.ID,
-				Name:           participant.Name,
-				ReconnectToken: participant.ReconnectToken,
-			})
+		if errors.Is(err, entity.ErrNotFound) {
+			return nil, nil
 		}
 
-		restoredChat := chat.NewChat(chat.NewChatOpts{
-			ID:               savedChat.ID,
-			MaxJoins:         savedChat.MaxUsers,
-			RestJoins:        savedChat.RestJoins,
-			RestoreRestJoins: true,
-			Participants:     participants,
-			Store:            s.db,
-		})
-
-		s.startChat(restoredChat)
-		log.Printf("info: chat: restored chat %s for %d people, joins left: %d",
-			restoredChat.ID, savedChat.MaxUsers, restoredChat.RestJoins())
+		return nil, err
 	}
 
-	return nil
+	participants := make([]chat.Participant, 0, len(savedChat.Participants))
+	for _, participant := range savedChat.Participants {
+		participants = append(participants, chat.Participant{
+			ID:             participant.ID,
+			Name:           participant.Name,
+			ReconnectToken: participant.ReconnectToken,
+		})
+	}
+
+	restoredChat := chat.NewChat(chat.NewChatOpts{
+		ID:               savedChat.ID,
+		MaxJoins:         savedChat.MaxUsers,
+		RestJoins:        savedChat.RestJoins,
+		RestoreRestJoins: true,
+		Participants:     participants,
+		Store:            s.db,
+	})
+
+	activeChat, started := s.startChatIfAbsent(restoredChat)
+	if started {
+		log.Printf("info: chat: restored chat %s for %d people, joins left: %d",
+			activeChat.ID, savedChat.MaxUsers, activeChat.RestJoins())
+	}
+
+	return activeChat, nil
 }
 
 func (s *Server) startChat(c *chat.Chat) {
@@ -109,6 +115,23 @@ func (s *Server) startChat(c *chat.Chat) {
 			log.Printf("error: chat: could not delete chat %s from db: %v", c.ID, err)
 		}
 	}()
+}
+
+func (s *Server) startChatIfAbsent(c *chat.Chat) (*chat.Chat, bool) {
+	activeChat, added := chat.AddChatIfAbsent(c)
+	if !added {
+		return activeChat, false
+	}
+
+	go func() {
+		chat.HandleChat(c)
+
+		if err := s.db.DeleteChat(c.ID); err != nil {
+			log.Printf("error: chat: could not delete chat %s from db: %v", c.ID, err)
+		}
+	}()
+
+	return activeChat, true
 }
 
 func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
@@ -134,12 +157,27 @@ func (s *Server) chatConnectWithMode(w http.ResponseWriter, r *http.Request, rec
 
 	chatIDStr := r.FormValue("id")
 	remoteAddr := getRealRemoteAddr(r)
+	chatIDForLog := sanitizeClientLogValue(chatIDStr)
+	remoteAddrForLog := sanitizeClientLogValue(remoteAddr)
 
 	c := chat.GetChat(chatIDStr)
 	if c == nil {
-		log.Printf("info: chat: chat %s does not exist for %s", chatIDStr, remoteAddr)
-		sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
-		return
+		c, err = s.restoreChat(chatIDStr)
+		if err != nil {
+			//nolint:gosec // Chat ID and remote address are sanitized before logging.
+			log.Printf(
+				"error: chat: could not restore chat %s for %s: %v",
+				chatIDForLog, remoteAddrForLog, err,
+			)
+			sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
+			return
+		}
+		if c == nil {
+			//nolint:gosec // Chat ID and remote address are sanitized before logging.
+			log.Printf("info: chat: chat %s does not exist for %s", chatIDForLog, remoteAddrForLog)
+			sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
+			return
+		}
 	}
 
 	usr, err := connectChatUser(c, ws, r, reconnect)
@@ -156,13 +194,16 @@ func (s *Server) chatConnectWithMode(w http.ResponseWriter, r *http.Request, rec
 			eventID = message.EventConnInitInvalidReconnectToken
 		}
 
-		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDStr, err)
+		//nolint:gosec // Chat ID is sanitized before logging.
+		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDForLog, err)
 		sendChatInitEvent(ws, eventID)
 		return
 	}
 
+	userNameForLog := sanitizeClientLogValue(usr.Name)
+	//nolint:gosec // User name, chat ID and remote address are sanitized before logging.
 	log.Printf("info: chat: connected user [%d %s] to chat %s from %s, joins left after add: %d",
-		usr.ID, usr.Name, chatIDStr, remoteAddr, c.RestJoins())
+		usr.ID, userNameForLog, chatIDForLog, remoteAddrForLog, c.RestJoins())
 
 	usr.Routine()
 

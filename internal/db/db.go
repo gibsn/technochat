@@ -16,6 +16,6 @@ type DB interface {
 
 	AddChat(chat entity.Chat) error
 	UpdateChat(chat entity.Chat) error
-	GetChats() ([]entity.Chat, error)
+	GetChat(chatID string) (entity.Chat, error)
 	DeleteChat(chatID string) error
 }

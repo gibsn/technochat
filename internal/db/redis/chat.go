@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/mediocregopher/radix.v2/redis"
 
@@ -96,75 +95,27 @@ func (r *Redis) UpdateChat(chat entity.Chat) error {
 	return r.saveChat(chat)
 }
 
-func (r *Redis) GetChats() ([]entity.Chat, error) {
-	const scanCount = 100
+func (r *Redis) GetChat(chatID string) (entity.Chat, error) {
+	key := newChatKey(chatID)
 
-	cursor := "0"
-	chats := []entity.Chat{}
-
-	for {
-		resp := r.pool.Cmd("SCAN", cursor, "MATCH", newChatKey("*"), "COUNT", scanCount)
-		if err := resp.Err; err != nil {
-			return nil, fmt.Errorf("could not scan chats: %w", err)
+	resp := r.pool.Cmd("HGETALL", key)
+	if err := resp.Err; err != nil {
+		if err == redis.ErrRespNil {
+			return entity.Chat{}, entity.ErrNotFound
 		}
 
-		parts, err := resp.Array()
-		if err != nil {
-			return nil, fmt.Errorf("could not parse chats scan response: %w", err)
-		}
-		if len(parts) != 2 {
-			return nil, fmt.Errorf(
-				"could not parse chats scan response: expected 2 parts, got %d", len(parts),
-			)
-		}
-
-		cursor, err = parts[0].Str()
-		if err != nil {
-			return nil, fmt.Errorf("could not parse chats scan cursor: %w", err)
-		}
-
-		keys, err := parts[1].List()
-		if err != nil {
-			return nil, fmt.Errorf("could not parse chats scan keys: %w", err)
-		}
-
-		for _, key := range keys {
-			id := strings.TrimPrefix(key, chatKeyPrefix+":")
-			if id == key {
-				continue
-			}
-
-			chatResp := r.pool.Cmd("HGETALL", key)
-			if err := chatResp.Err; err != nil {
-				if err == redis.ErrRespNil {
-					continue
-				}
-
-				return nil, fmt.Errorf("could not get chat %s: %w", id, err)
-			}
-
-			chatMap, err := chatResp.Map()
-			if err != nil {
-				return nil, fmt.Errorf("could not parse chat %s: %w", id, err)
-			}
-			if len(chatMap) == 0 {
-				continue
-			}
-
-			chat, err := newChatFromRedis(id, chatMap)
-			if err != nil {
-				return nil, err
-			}
-
-			chats = append(chats, chat)
-		}
-
-		if cursor == "0" {
-			break
-		}
+		return entity.Chat{}, fmt.Errorf("could not get chat %s: %w", chatID, err)
 	}
 
-	return chats, nil
+	chatMap, err := resp.Map()
+	if err != nil {
+		return entity.Chat{}, fmt.Errorf("could not parse chat %s: %w", chatID, err)
+	}
+	if len(chatMap) == 0 {
+		return entity.Chat{}, entity.ErrNotFound
+	}
+
+	return newChatFromRedis(chatID, chatMap)
 }
 
 func (r *Redis) DeleteChat(chatID string) error {
