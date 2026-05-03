@@ -179,6 +179,7 @@ a {
 
 .reconnect_modal__panel {
     width: min(420px, 100%);
+    max-height: min(640px, calc(100vh - 32px));
     box-sizing: border-box;
     padding: 20px;
     border: 1px solid #111111;
@@ -200,6 +201,17 @@ a {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    min-height: 0;
+}
+
+.reconnect_modal__list {
+    display: flex;
+    max-height: min(360px, 55vh);
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px;
 }
 
 .reconnect_modal__button {

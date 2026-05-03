@@ -4,6 +4,11 @@ import {
     Decrypter,
     Encrypter
 } from "/js/message/crypto.js";
+import {
+    clearReconnectSession,
+    loadReconnectSession,
+    storeReconnectSession
+} from "/js/chat/reconnect-session.js";
 import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const WSMsgTypeService  = 0;
@@ -183,7 +188,7 @@ new Vue({
         var key = anchorParams.get('key');
 
         if (id && !key) {
-            key = this.loadReconnectSession(id).roomKey;
+            key = loadReconnectSession(id).roomKey;
         }
 
         reportChatDiagnostic('chat_join_page_start', {
@@ -243,7 +248,7 @@ new Vue({
                 return;
             }
 
-            var session = this.loadReconnectSession(id);
+            var session = loadReconnectSession(id);
             this.reconnectToken = session.reconnectToken;
             if (session.name) {
                 this.name = session.name;
@@ -332,7 +337,7 @@ new Vue({
                                 chat_id: self.chatID,
                                 mode: useReconnect ? 'reconnect' : 'connect',
                             });
-                            self.clearStoredReconnectToken(self.chatID);
+                            clearReconnectSession(self.chatID);
                             self.reconnectToken = '';
                             if (useReconnect) {
                                 self.reconnectAttempt = 0;
@@ -417,7 +422,7 @@ new Vue({
 
             if (reconnectToken) {
                 this.reconnectToken = reconnectToken;
-                this.storeReconnectToken(this.chatID, reconnectToken, name);
+                storeReconnectSession(this.chatID, reconnectToken, name, this.roomKey);
             }
         },
         reconnectingStatus: function() {
@@ -493,50 +498,9 @@ new Vue({
         },
         finishChat: function(status) {
             this.chatFinished = true;
-            this.clearStoredReconnectToken(this.chatID);
+            clearReconnectSession(this.chatID);
             this.reconnectToken = '';
             this.stopConnecting(status);
-        },
-        reconnectStorageKey: function(chatID) {
-            return 'technochat:chat:' + chatID;
-        },
-        loadReconnectSession: function(chatID) {
-            try {
-                var raw = window.localStorage.getItem(this.reconnectStorageKey(chatID));
-                if (!raw) {
-                    return { reconnectToken: '', name: '', roomKey: '' };
-                }
-
-                var session = JSON.parse(raw);
-                return {
-                    reconnectToken: String(session.reconnectToken || ''),
-                    name: String(session.name || ''),
-                    roomKey: String(session.roomKey || ''),
-                };
-            } catch (e) {
-                console.warn('could not load chat session', e);
-                return { reconnectToken: '', name: '', roomKey: '' };
-            }
-        },
-        storeReconnectToken: function(chatID, reconnectToken, name) {
-            try {
-                window.localStorage.setItem(this.reconnectStorageKey(chatID), JSON.stringify({
-                    chatId: chatID,
-                    reconnectToken: reconnectToken,
-                    name: name || '',
-                    roomKey: this.roomKey,
-                    updatedAt: new Date().toISOString(),
-                }));
-            } catch (e) {
-                console.warn('could not store chat session', e);
-            }
-        },
-        clearStoredReconnectToken: function(chatID) {
-            try {
-                window.localStorage.removeItem(this.reconnectStorageKey(chatID));
-            } catch (e) {
-                console.warn('could not clear chat session', e);
-            }
         },
         leaveChat: function() {
             if (this.reconnectTimer) {
@@ -550,7 +514,7 @@ new Vue({
             });
 
             this.chatFinished = true;
-            this.clearStoredReconnectToken(this.chatID);
+            clearReconnectSession(this.chatID);
             this.reconnectToken = '';
             this.manualReconnectAvailable = false;
 

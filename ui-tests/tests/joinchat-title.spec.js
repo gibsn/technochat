@@ -18,6 +18,13 @@ async function routeJoinChatWorktreeStatic(page) {
     });
   });
 
+  await page.route("**/js/chat/reconnect-session.js**", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      path: path.join(__dirname, "../../static/js/chat/reconnect-session.js"),
+    });
+  });
+
   await page.route("**/js/restricted-webview.js**", async (route) => {
     await route.fulfill({
       contentType: "application/javascript",

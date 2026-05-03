@@ -1,5 +1,9 @@
 import {Encrypter, AESGCM128, ArrayBufferToBase64} from "/js/message/crypto.js";
 import * as util from "/js/util.js";
+import {
+    loadReconnectSessions,
+    reconnectSessionLink
+} from "/js/chat/reconnect-session.js";
 import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const maxTextAreaLength = 1024;
@@ -13,7 +17,6 @@ const initialTextAreaLength = 0;
 const fileInputId = 'file-input'
 const textInputId = 'text_form'
 const uploadStatusId = 'upload_status'
-const chatSessionPrefix = 'technochat:chat:'
 
 const imageUploadAPI = '/api/v1/image/add'
 
@@ -50,59 +53,6 @@ function setUploadStatus(message, isError = false) {
     uploadStatus.style.color = isError ? 'red' : '#6d6d6d';
 }
 
-function reconnectSessionLink(session) {
-    return '/html/joinchat.html?id=' + encodeURIComponent(session.chatId) +
-        '#key=' + encodeURIComponent(session.roomKey);
-}
-
-function loadReconnectSessions() {
-    const sessions = [];
-
-    try {
-        for (let i = 0; i < window.localStorage.length; i++) {
-            const storageKey = window.localStorage.key(i);
-            if (!storageKey || !storageKey.startsWith(chatSessionPrefix)) {
-                continue;
-            }
-
-            const raw = window.localStorage.getItem(storageKey);
-            if (!raw) {
-                continue;
-            }
-
-            try {
-                const session = JSON.parse(raw);
-                if (!session.chatId || !session.reconnectToken || !session.roomKey) {
-                    continue;
-                }
-
-                sessions.push({
-                    chatId: String(session.chatId),
-                    reconnectToken: String(session.reconnectToken),
-                    name: String(session.name || ''),
-                    roomKey: String(session.roomKey),
-                    updatedAt: String(session.updatedAt || ''),
-                });
-            } catch (error) {
-                console.warn('could not parse chat session', error);
-            }
-        }
-    } catch (error) {
-        console.warn('could not load chat sessions', error);
-    }
-
-    sessions.sort((left, right) => {
-        return sessionTimestamp(right) - sessionTimestamp(left);
-    });
-
-    return sessions;
-}
-
-function sessionTimestamp(session) {
-    const timestamp = Date.parse(session.updatedAt);
-    return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
 function renderReconnectModal() {
     const sessions = loadReconnectSessions();
     if (sessions.length === 0 || document.querySelector('.reconnect_modal')) {
@@ -124,16 +74,21 @@ function renderReconnectModal() {
     title.textContent = 'Reconnect to chat';
     panel.appendChild(title);
 
-    const actions = document.createElement('div');
-    actions.className = 'reconnect_modal__actions';
+    const list = document.createElement('div');
+    list.className = 'reconnect_modal__list';
 
-    sessions.slice(0, 3).forEach((session) => {
+    sessions.forEach((session) => {
         const link = document.createElement('a');
         link.className = 'button reconnect_modal__button';
         link.href = reconnectSessionLink(session);
         link.textContent = session.name ? 'Reconnect as ' + session.name : 'Reconnect';
-        actions.appendChild(link);
+        list.appendChild(link);
     });
+
+    const actions = document.createElement('div');
+    actions.className = 'reconnect_modal__actions';
+
+    actions.appendChild(list);
 
     const dismissButton = document.createElement('button');
     dismissButton.className = 'reconnect_modal__secondary';
