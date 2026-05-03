@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"technochat/internal/chat"
 	"technochat/internal/chat/message"
 	"technochat/pkg/entity"
 )
@@ -136,7 +135,10 @@ func TestChatConnectRestoresChatLazily(t *testing.T) {
 		t.Fatalf("expected reconnect to persist restored chat state")
 	}
 
-	restoredChat := chat.GetChat(chatID)
+	restoredChat, err := s.chatRegistry().GetChat(chatID)
+	if err != nil {
+		t.Fatalf("could not get restored chat: %v", err)
+	}
 	if restoredChat == nil {
 		t.Fatalf("expected chat to be registered after lazy restore")
 	}
@@ -168,7 +170,11 @@ func TestChatInitDoesNotRegisterChatWhenPersistFails(t *testing.T) {
 	if persistedChat.ID == "" {
 		t.Fatalf("expected chat init to try persisting a chat")
 	}
-	if activeChat := chat.GetChat(persistedChat.ID); activeChat != nil {
+	activeChat, err := s.chatRegistry().GetChat(persistedChat.ID)
+	if err != nil {
+		t.Fatalf("could not get chat from registry: %v", err)
+	}
+	if activeChat != nil {
 		activeChat.TriggerShutdown()
 		t.Fatalf("expected failed chat init not to register chat %s in memory", persistedChat.ID)
 	}

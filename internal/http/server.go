@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"technochat/internal/chat"
 	"technochat/internal/db"
 )
 
@@ -26,6 +27,7 @@ type Server struct {
 	addr string
 
 	db     db.DB
+	chats  *chat.Registry
 	server *http.Server
 }
 
@@ -39,14 +41,23 @@ type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
 func NewServer(addr string, db db.DB) *Server {
 	return &Server{
-		addr: addr,
-		db:   db,
+		addr:  addr,
+		db:    db,
+		chats: chat.NewRegistry(db),
 		server: &http.Server{
 			Addr:              addr,
 			Handler:           nil,
 			ReadHeaderTimeout: gracefulTime,
 		},
 	}
+}
+
+func (s *Server) chatRegistry() *chat.Registry {
+	if s.chats == nil {
+		s.chats = chat.NewRegistry(s.db)
+	}
+
+	return s.chats
 }
 
 func (s *Server) Init() {
