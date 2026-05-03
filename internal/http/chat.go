@@ -49,18 +49,66 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 	newChat := chat.NewChat(chat.NewChatOpts{
 		ID:       chatID.String(),
 		MaxJoins: req.MaxUsers,
+		Store:    s.db,
 	})
 
-	chat.AddChat(newChat)
+	if err := s.db.AddChat(newChat.State()); err != nil {
+		return http.StatusInternalServerError, nil, err
+	}
+
+	s.startChat(newChat)
 	log.Printf("info: chat: started a new chat %s for %d people", newChat.ID, newChat.RestJoins())
 
 	resp := ChatInitResponse{
 		ID: newChat.ID,
 	}
 
-	go chat.HandleChat(newChat)
-
 	return http.StatusOK, resp, nil
+}
+
+func (s *Server) restoreChats() error {
+	savedChats, err := s.db.GetChats()
+	if err != nil {
+		return err
+	}
+
+	for _, savedChat := range savedChats {
+		participants := make([]chat.Participant, 0, len(savedChat.Participants))
+		for _, participant := range savedChat.Participants {
+			participants = append(participants, chat.Participant{
+				ID:             participant.ID,
+				Name:           participant.Name,
+				ReconnectToken: participant.ReconnectToken,
+			})
+		}
+
+		restoredChat := chat.NewChat(chat.NewChatOpts{
+			ID:               savedChat.ID,
+			MaxJoins:         savedChat.MaxUsers,
+			RestJoins:        savedChat.RestJoins,
+			RestoreRestJoins: true,
+			Participants:     participants,
+			Store:            s.db,
+		})
+
+		s.startChat(restoredChat)
+		log.Printf("info: chat: restored chat %s for %d people, joins left: %d",
+			restoredChat.ID, savedChat.MaxUsers, restoredChat.RestJoins())
+	}
+
+	return nil
+}
+
+func (s *Server) startChat(c *chat.Chat) {
+	chat.AddChat(c)
+
+	go func() {
+		chat.HandleChat(c)
+
+		if err := s.db.DeleteChat(c.ID); err != nil {
+			log.Printf("error: chat: could not delete chat %s from db: %v", c.ID, err)
+		}
+	}()
 }
 
 func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {

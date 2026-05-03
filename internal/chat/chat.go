@@ -13,6 +13,7 @@ import (
 	"technochat/internal/chat/message"
 	"technochat/internal/chat/typingusers"
 	"technochat/internal/chat/user"
+	"technochat/pkg/entity"
 )
 
 const (
@@ -39,6 +40,7 @@ var Upgrader = websocket.Upgrader{
 type Chat struct {
 	ID        string
 	ChatNames ChatNames
+	store     StateStore
 
 	triggerShutdown     sync.Once
 	triggerShutdownChan chan struct{}
@@ -74,10 +76,18 @@ type Participant struct {
 	ReconnectToken string
 }
 
+type StateStore interface {
+	UpdateChat(chat entity.Chat) error
+}
+
 type NewChatOpts struct {
-	ID         string
-	MaxJoins   int
-	OfflineTTL time.Duration
+	ID               string
+	MaxJoins         int
+	RestJoins        int
+	RestoreRestJoins bool
+	Participants     []Participant
+	OfflineTTL       time.Duration
+	Store            StateStore
 }
 
 func NewChat(opts NewChatOpts) *Chat {
@@ -86,18 +96,32 @@ func NewChat(opts NewChatOpts) *Chat {
 		offlineTTL = ChatOfflineTTL
 	}
 
+	restJoins := opts.MaxJoins
+	if opts.RestoreRestJoins {
+		restJoins = opts.RestJoins
+	}
+
+	participants := make(map[string]*Participant, len(opts.Participants))
+	chatNames := NewChatNames()
+	for _, participant := range opts.Participants {
+		participant := participant
+		participants[participant.ReconnectToken] = &participant
+		chatNames.usedNames[participant.ID] = true
+	}
+
 	c := &Chat{
 		ID:                   opts.ID,
-		participants:         make(map[string]*Participant),
+		store:                opts.Store,
+		participants:         participants,
 		corresps:             make(map[int]*user.User),
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
 		offlineStateChan:     make(chan bool, 1),
 		offlineTTL:           offlineTTL,
 		typingUsers:          typingusers.New(TypingTTL),
-		restJoins:            opts.MaxJoins,
+		restJoins:            restJoins,
 		maxUsers:             opts.MaxJoins,
-		ChatNames:            NewChatNames(),
+		ChatNames:            chatNames,
 		triggerShutdownChan:  make(chan struct{}),
 		shutdownChan:         make(chan struct{}),
 		userConnectedChan:    make(chan *user.User),
@@ -110,6 +134,47 @@ func NewChat(opts NewChatOpts) *Chat {
 	go c.handleCommunication()
 
 	return c
+}
+
+func (c *Chat) stateLocked() entity.Chat {
+	participants := make([]entity.ChatParticipant, 0, len(c.participants))
+	for _, participant := range c.participants {
+		participants = append(participants, entity.ChatParticipant{
+			ID:             participant.ID,
+			Name:           participant.Name,
+			ReconnectToken: participant.ReconnectToken,
+		})
+	}
+
+	sort.Slice(participants, func(i, j int) bool {
+		return participants[i].ID < participants[j].ID
+	})
+
+	return entity.Chat{
+		ID:           c.ID,
+		MaxUsers:     c.maxUsers,
+		RestJoins:    c.restJoins,
+		Participants: participants,
+		TTL:          int(c.offlineTTL.Seconds()),
+	}
+}
+
+func (c *Chat) State() entity.Chat {
+	c.correspsMx.RLock()
+	defer c.correspsMx.RUnlock()
+
+	return c.stateLocked()
+}
+
+func (c *Chat) persistState() error {
+	if c.store == nil {
+		return nil
+	}
+
+	c.correspsMx.RLock()
+	defer c.correspsMx.RUnlock()
+
+	return c.store.UpdateChat(c.stateLocked())
 }
 
 func (c *Chat) RestJoins() int {
@@ -393,6 +458,9 @@ func (c *Chat) handleIncomingMessage(
 ) bool {
 	if incoming == nil || incoming.msg == nil || incoming.user == nil {
 		return typingBroadcastPending
+	}
+	if err := c.persistState(); err != nil {
+		log.Printf("error: chat: could not refresh persisted state for chat %s: %v", c.ID, err)
 	}
 
 	switch incoming.msg.Type {

@@ -13,4 +13,9 @@ type DB interface {
 	AddImage(image entity.Image) error
 	GetImage(imageID string) (entity.Image, error)
 	DeleteImage(imageID string) error
+
+	AddChat(chat entity.Chat) error
+	UpdateChat(chat entity.Chat) error
+	GetChats() ([]entity.Chat, error)
+	DeleteChat(chatID string) error
 }

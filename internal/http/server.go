@@ -62,6 +62,10 @@ func (s *Server) Init() {
 	http.HandleFunc("/api/v1/chat/reconnect", s.chatReconnect)
 	http.HandleFunc("/api/v1/client/log", respondAPI(s.clientLog))
 
+	if err := s.restoreChats(); err != nil {
+		log.Fatalln("http: could not restore chats:", err)
+	}
+
 	log.Println("http: successfully initialised")
 }
 
