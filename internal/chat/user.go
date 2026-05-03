@@ -54,6 +54,7 @@ func (c *Chat) newParticipant() (*Participant, error) {
 		ReconnectToken: token,
 	}
 	c.participants[token] = participant
+	c.participantByID[participant.ID] = participant
 
 	log.Printf(
 		"info: chat: new participant [%d %s] in chat %s",

@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"technochat/internal/chat"
 	"technochat/internal/db"
 )
 
@@ -20,6 +22,7 @@ const (
 	messageViewPath = "/api/v1/message/view"
 	imageAddPath    = "/api/v1/image/add"
 	imageViewPath   = "/api/v1/image/view"
+	pushVAPIDPath   = "/api/v1/push/vapid-public-key"
 )
 
 type Server struct {
@@ -27,6 +30,9 @@ type Server struct {
 
 	db     db.DB
 	server *http.Server
+
+	pushPublicKey string
+	pushSender    chat.PushSender
 }
 
 type Response struct {
@@ -38,9 +44,21 @@ type TechnochatHandler func(*http.Request) (int, interface{}, error)
 type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
 func NewServer(addr string, db db.DB) *Server {
+	pushPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
+	pushPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
+	pushSubject := os.Getenv("VAPID_SUBJECT")
+	var pushSender chat.PushSender
+	if pushPublicKey != "" && pushPrivateKey != "" && pushSubject != "" {
+		pushSender = chat.NewVAPIDPushSender(pushPublicKey, pushPrivateKey, pushSubject)
+	} else {
+		pushPublicKey = ""
+	}
+
 	return &Server{
-		addr: addr,
-		db:   db,
+		addr:          addr,
+		db:            db,
+		pushPublicKey: pushPublicKey,
+		pushSender:    pushSender,
 		server: &http.Server{
 			Addr:              addr,
 			Handler:           nil,
@@ -60,6 +78,7 @@ func (s *Server) Init() {
 	http.HandleFunc("/api/v1/chat/init", respondAPI(s.chatInit))
 	http.HandleFunc("/api/v1/chat/connect", s.chatConnect)
 	http.HandleFunc("/api/v1/chat/reconnect", s.chatReconnect)
+	http.HandleFunc(pushVAPIDPath, respondAPI(s.pushVAPIDPublicKey))
 	http.HandleFunc("/api/v1/client/log", respondAPI(s.clientLog))
 
 	log.Println("http: successfully initialised")

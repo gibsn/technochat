@@ -23,6 +23,10 @@ const CACHE_URLS = [
   '/js/message/crypto.js',
   '/js/chat/init.js',
   '/js/chat/chat.js',
+  '/js/chat/reconnect-session.js',
+  '/js/chat/push-subscription.js',
+  '/js/chat/push-messages.js',
+  '/js/restricted-webview.js',
   '/js/util.js',
   '/js/lib/jquery-3.6.0.min.js',
   '/js/lib/vue.min.js',
@@ -160,5 +164,210 @@ if (IS_LOCAL_DEV) {
         return new Response('', { status: 503 });
       })
     );
+  });
+}
+
+self.addEventListener('push', function (event) {
+  event.waitUntil(handlePush(event));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+
+  const chatId = event.notification && event.notification.data ?
+    event.notification.data.chatId :
+    '';
+  const url = chatId ?
+    '/html/joinchat.html?id=' + encodeURIComponent(chatId) :
+    '/html/messageadd.html';
+
+  event.waitUntil(openClientURL(url));
+});
+
+self.addEventListener('pushsubscriptionchange', function (event) {
+  event.waitUntil(refreshPushSubscription(event));
+});
+
+function handlePush(event) {
+  const payload = parsePushPayload(event);
+  if (!payload || !payload.chatId || !payload.messageId) {
+    return Promise.resolve();
+  }
+
+  return savePushMessage(payload).then(function () {
+    return self.registration.showNotification('New message in Technochat', {
+      body: payload.sender ? 'Message from ' + payload.sender : 'Open chat to read it',
+      icon: '/images/icon-192x192.png',
+      badge: '/images/icon-192x192.png',
+      tag: 'technochat:' + payload.chatId,
+      data: {
+        chatId: payload.chatId
+      }
+    });
+  });
+}
+
+function parsePushPayload(event) {
+  try {
+    return event.data ? event.data.json() : null;
+  } catch (error) {
+    console.warn('could not parse push payload', error);
+    return null;
+  }
+}
+
+function refreshPushSubscription(event) {
+  const newSubscription = event && event.newSubscription ? event.newSubscription : null;
+  if (newSubscription) {
+    return notifyClientsOfPushSubscription(normalizePushSubscription(newSubscription));
+  }
+
+  return loadVAPIDPublicKey().then(function (publicKey) {
+    if (!publicKey) {
+      return null;
+    }
+
+    return self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+  }).then(function (subscription) {
+    if (!subscription) {
+      return null;
+    }
+
+    return notifyClientsOfPushSubscription(normalizePushSubscription(subscription));
+  }).catch(function (error) {
+    console.warn('could not refresh push subscription', error);
+  });
+}
+
+function loadVAPIDPublicKey() {
+  return fetch('/api/v1/push/vapid-public-key', {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' }
+  }).then(function (response) {
+    if (!response.ok) {
+      return '';
+    }
+
+    return response.json();
+  }).then(function (payload) {
+    const body = payload && payload.body ? payload.body : {};
+    if (!body.enabled) {
+      return '';
+    }
+
+    return String(body.public_key || '');
+  });
+}
+
+function notifyClientsOfPushSubscription(subscription) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
+    return Promise.all(clients.map(function (client) {
+      client.postMessage({
+        type: 'technochat:push-subscription-changed',
+        subscription: subscription
+      });
+      return Promise.resolve();
+    }));
+  });
+}
+
+function normalizePushSubscription(subscription) {
+  const json = subscription && typeof subscription.toJSON === 'function' ?
+    subscription.toJSON() :
+    subscription;
+
+  return {
+    endpoint: String(json && json.endpoint || ''),
+    keys: {
+      auth: String(json && json.keys && json.keys.auth || ''),
+      p256dh: String(json && json.keys && json.keys.p256dh || '')
+    }
+  };
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i++) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
+function openClientURL(url) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
+    for (let i = 0; i < clients.length; i++) {
+      const clientURL = new URL(clients[i].url);
+      if (clientURL.origin === self.location.origin && clientURL.pathname === '/html/joinchat.html') {
+        clientURL.search = new URL(url, self.location.origin).search;
+        return clients[i].navigate(clientURL.toString()).then(function (client) {
+          return client.focus();
+        });
+      }
+    }
+
+    return self.clients.openWindow(url);
+  });
+}
+
+function savePushMessage(payload) {
+  return openPushDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      const tx = db.transaction('messages', 'readwrite');
+      const store = tx.objectStore('messages');
+
+      store.put({
+        key: payload.chatId + ':' + payload.messageId,
+        chatId: payload.chatId,
+        messageId: payload.messageId,
+        messageSeq: payload.messageSeq,
+        sender: payload.sender,
+        data: payload.data,
+        timestamp: payload.timestamp
+      });
+
+      tx.oncomplete = function () {
+        db.close();
+        resolve();
+      };
+      tx.onerror = function (event) {
+        db.close();
+        reject(event.target.error);
+      };
+      tx.onabort = function (event) {
+        db.close();
+        reject(event.target.error);
+      };
+    });
+  });
+}
+
+function openPushDB() {
+  return new Promise(function (resolve, reject) {
+    const request = indexedDB.open('technochat-push-messages', 1);
+
+    request.onupgradeneeded = function (event) {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('messages')) {
+        const store = db.createObjectStore('messages', { keyPath: 'key' });
+        store.createIndex('chatId', 'chatId', { unique: false });
+      }
+    };
+    request.onsuccess = function (event) {
+      resolve(event.target.result);
+    };
+    request.onerror = function (event) {
+      reject(event.target.error);
+    };
   });
 }

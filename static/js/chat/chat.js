@@ -9,6 +9,15 @@ import {
     loadReconnectSession,
     storeReconnectSession
 } from "/js/chat/reconnect-session.js";
+import {
+    currentPushSubscription,
+    pushPermission,
+    pushSupported
+} from "/js/chat/push-subscription.js";
+import {
+    deletePushMessages,
+    readPushMessages
+} from "/js/chat/push-messages.js";
 import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const WSMsgTypeService  = 0;
@@ -20,6 +29,8 @@ const EventConnInitMaxUsrsReached = 2;
 const EventPresence = 3;
 const EventTyping = 4;
 const EventConnInitInvalidReconnectToken = 5;
+const EventPushSubscribe = 6;
+const EventPushUnsubscribe = 7;
 
 const NewMsgTitle = "New message!";
 const TypingNotifyRateMs = 1000;
@@ -133,6 +144,7 @@ new Vue({
         ws: null, // Our websocket
         newMsg: '', // Holds new messages to be sent to the server
         chatMessages: [],
+        renderedMessageIDs: {},
         nextChatMessageID: 1,
         username: null, // Our username
         okconnected: true, // True if email and username have been filled in
@@ -158,6 +170,11 @@ new Vue({
         connectionStatus: '',
         chatFinished: false,
         manualReconnectAvailable: false,
+        pushSubscription: null,
+        pushSupported: pushSupported(),
+        pushPermission: pushPermission(),
+        pushSubscribeInProgress: false,
+        pushSubscriptionChangeHandler: null,
     },
     computed: {
         presenceLabel: function() {
@@ -217,6 +234,23 @@ new Vue({
         this.typingCleanupTimer = window.setInterval(function() {
             self.cleanupExpiredTypingUsers();
         }, TypingCleanupRateMs);
+        if ('serviceWorker' in navigator) {
+            this.pushSubscriptionChangeHandler = function(event) {
+                if (!event.data || event.data.type !== 'technochat:push-subscription-changed') {
+                    return;
+                }
+
+                self.pushSubscription = event.data.subscription || null;
+                self.pushPermission = pushPermission();
+                self.sendPushSubscription();
+                reportChatDiagnostic('chat_push_subscription_changed', {
+                    chat_id: self.chatID,
+                    has_subscription: Boolean(self.pushSubscription),
+                    permission: self.pushPermission,
+                });
+            };
+            navigator.serviceWorker.addEventListener('message', this.pushSubscriptionChangeHandler);
+        }
     },
     beforeDestroy: function() {
         if (this.typingCleanupTimer) {
@@ -227,6 +261,9 @@ new Vue({
         }
         if (this.ws) {
             this.ws.close();
+        }
+        if ('serviceWorker' in navigator && this.pushSubscriptionChangeHandler) {
+            navigator.serviceWorker.removeEventListener('message', this.pushSubscriptionChangeHandler);
         }
     },
     methods: {
@@ -254,6 +291,8 @@ new Vue({
                 this.name = session.name;
                 this.username = session.name;
             }
+            await this.renderStoredPushMessages();
+            await this.refreshPushSubscription(false);
             this.openChatSocket(Boolean(this.reconnectToken));
         },
         openChatSocket: function(useReconnect) {
@@ -424,6 +463,52 @@ new Vue({
                 this.reconnectToken = reconnectToken;
                 storeReconnectSession(this.chatID, reconnectToken, name, this.roomKey);
             }
+
+            this.sendPushSubscription();
+        },
+        refreshPushSubscription: async function(requestPermission) {
+            if (!this.pushSupported) {
+                return;
+            }
+
+            this.pushSubscribeInProgress = true;
+            try {
+                this.pushSubscription = await currentPushSubscription(requestPermission);
+                this.pushPermission = pushPermission();
+            } catch (e) {
+                console.warn('could not refresh push subscription', e);
+                reportChatDiagnostic('chat_push_subscription_failed', Object.assign({
+                    chat_id: this.chatID,
+                    request_permission: Boolean(requestPermission),
+                    permission: pushPermission(),
+                }, errorDiagnostic(e)));
+                this.pushSubscription = null;
+                this.pushPermission = pushPermission();
+            } finally {
+                this.pushSubscribeInProgress = false;
+            }
+        },
+        enablePushNotifications: async function() {
+            reportChatDiagnostic('chat_push_enable_clicked', {
+                chat_id: this.chatID,
+                permission: pushPermission(),
+            });
+
+            await this.refreshPushSubscription(true);
+            this.sendPushSubscription();
+        },
+        sendPushSubscription: function() {
+            if (!this.pushSubscription || !this.ws || this.ws.readyState !== 1) {
+                return;
+            }
+
+            this.ws.send(JSON.stringify({
+                type: WSMsgTypeService,
+                data: {
+                    event_id: EventPushSubscribe,
+                    event_data: this.pushSubscription,
+                },
+            }));
         },
         reconnectingStatus: function() {
             if (this.name) {
@@ -521,6 +606,14 @@ new Vue({
             if (this.ws) {
                 var socket = this.ws;
                 this.ws = null;
+                if (socket.readyState === 1) {
+                    socket.send(JSON.stringify({
+                        type: WSMsgTypeService,
+                        data: {
+                            event_id: EventPushUnsubscribe,
+                        },
+                    }));
+                }
                 socket.close();
             }
 
@@ -543,7 +636,44 @@ new Vue({
 
             return await decrypter.decryptToString(Base64ToArrayBuffer(msg.data.ciphertext));
         },
+        renderStoredPushMessages: async function() {
+            var messages;
+
+            try {
+                messages = await readPushMessages(this.chatID);
+            } catch (e) {
+                console.warn('could not read stored push messages', e);
+                return;
+            }
+
+            var renderedIDs = [];
+            for (var i = 0; i < messages.length; i++) {
+                var messageID = messages[i].messageId;
+                await this.addmsg({
+                    type: WSMsgTypeMessage,
+                    username: messages[i].sender,
+                    data: messages[i].data,
+                    created_at: messages[i].timestamp,
+                    message_id: messageID,
+                    message_seq: messages[i].messageSeq,
+                });
+                renderedIDs.push(messageID);
+            }
+
+            try {
+                await deletePushMessages(this.chatID, renderedIDs);
+            } catch (e) {
+                console.warn('could not delete stored push messages', e);
+            }
+        },
         addmsg: async function(msg){
+            if (msg.message_id) {
+                if (this.renderedMessageIDs[msg.message_id]) {
+                    return;
+                }
+                this.$set(this.renderedMessageIDs, msg.message_id, true);
+            }
+
             if (document.hidden) {
                 pageTitleNotification.on(NewMsgTitle);
             }

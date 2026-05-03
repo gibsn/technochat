@@ -25,6 +25,20 @@ async function routeJoinChatWorktreeStatic(page) {
     });
   });
 
+  await page.route("**/js/chat/push-subscription.js**", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      path: path.join(__dirname, "../../static/js/chat/push-subscription.js"),
+    });
+  });
+
+  await page.route("**/js/chat/push-messages.js**", async (route) => {
+    await route.fulfill({
+      contentType: "application/javascript",
+      path: path.join(__dirname, "../../static/js/chat/push-messages.js"),
+    });
+  });
+
   await page.route("**/js/restricted-webview.js**", async (route) => {
     await route.fulfill({
       contentType: "application/javascript",

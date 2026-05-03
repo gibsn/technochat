@@ -49,6 +49,17 @@
                         {{ connectionStatus }}
                     </span>
                     <button
+                        v-if="pushSupported && pushPermission !== 'granted'"
+                        class="presence_icon_button"
+                        type="button"
+                        @click="enablePushNotifications"
+                        :disabled="pushSubscribeInProgress"
+                        aria-label="Enable notifications"
+                        title="Enable notifications"
+                    >
+                        <i class="material-icons">notifications</i>
+                    </button>
+                    <button
                         class="presence_icon_button leave_button"
                         type="button"
                         @click="leaveChat"

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,15 @@ type testTypingUser struct {
 type testConnInit struct {
 	Name           string
 	ReconnectToken string
+}
+
+type testPushSender struct {
+	sent chan PushPayload
+}
+
+func (s *testPushSender) Send(_ context.Context, _ PushSubscription, payload PushPayload) error {
+	s.sent <- payload
+	return nil
 }
 
 func TestPresenceReportsConfiguredMaxUsers(t *testing.T) {
@@ -336,6 +346,137 @@ func TestMessageClearsTypingState(t *testing.T) {
 	}
 }
 
+func TestPushSubscriptionSentToOfflineParticipant(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "offline-push-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	firstInit := readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	secondInit := readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+	closeTestClient(t, secondClient)
+	waitForOnlineUsers(t, c, 1)
+
+	encryptedData := map[string]interface{}{
+		"alg":        "AES-GCM-128",
+		"iv":         "test-iv",
+		"ciphertext": "test-ciphertext",
+	}
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: encryptedData,
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		if payload.ChatID != c.ID {
+			t.Fatalf("expected chat id %q, got %q", c.ID, payload.ChatID)
+		}
+		if payload.Sender != firstInit.Name {
+			t.Fatalf("expected sender %q, got %q", firstInit.Name, payload.Sender)
+		}
+		if payload.MessageID == "" {
+			t.Fatalf("expected message id")
+		}
+		if payload.MessageSeq != 1 {
+			t.Fatalf("expected message seq 1, got %d", payload.MessageSeq)
+		}
+		if payload.Timestamp == "" {
+			t.Fatalf("expected timestamp")
+		}
+		if fmt.Sprintf("%v", payload.Data) != fmt.Sprintf("%v", encryptedData) {
+			t.Fatalf("expected encrypted payload %v, got %v", encryptedData, payload.Data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for push to offline participant %q", secondInit.Name)
+	}
+}
+
+func TestPushSubscriptionNotSentToOnlineParticipant(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "online-no-push-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	defer closeTestClient(t, secondClient)
+	readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: "hello",
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		t.Fatalf("unexpected push to online participant: %#v", payload)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestPushUnsubscribeRemovesSubscription(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "push-unsubscribe-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+	writePushUnsubscribeEvent(t, secondClient)
+	closeTestClient(t, secondClient)
+	waitForOnlineUsers(t, c, 1)
+
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: "hello",
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		t.Fatalf("unexpected push after unsubscribe: %#v", payload)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func serveTestChat(t *testing.T, c *Chat) (*httptest.Server, chan struct{}) {
 	t.Helper()
 
@@ -533,6 +674,39 @@ func writeTypingEvent(t *testing.T, client *websocket.Conn) {
 		},
 	}); err != nil {
 		t.Fatalf("could not write typing event: %v", err)
+	}
+}
+
+func writePushSubscribeEvent(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: message.EventPushSubscribe,
+			EventData: PushSubscription{
+				Endpoint: "https://push.example/subscription",
+				Keys: PushKeys{
+					Auth:   "auth-secret",
+					P256DH: "p256dh-key",
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("could not write push subscribe event: %v", err)
+	}
+}
+
+func writePushUnsubscribeEvent(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: message.EventPushUnsubscribe,
+		},
+	}); err != nil {
+		t.Fatalf("could not write push unsubscribe event: %v", err)
 	}
 }
 
