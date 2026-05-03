@@ -11,6 +11,7 @@ import {
 } from "/js/chat/reconnect-session.js";
 import {
     currentPushSubscription,
+    preloadVAPIDPublicKey,
     pushPermission,
     pushSupported
 } from "/js/chat/push-subscription.js";
@@ -174,6 +175,7 @@ new Vue({
         pushSupported: pushSupported(),
         pushPermission: pushPermission(),
         pushSubscriptionChangeHandler: null,
+        pushPermissionGestureHandler: null,
     },
     computed: {
         presenceLabel: function() {
@@ -250,6 +252,11 @@ new Vue({
             };
             navigator.serviceWorker.addEventListener('message', this.pushSubscriptionChangeHandler);
         }
+        if (this.pushSupported) {
+            preloadVAPIDPublicKey().catch(function(e) {
+                console.warn('could not preload VAPID public key', e);
+            });
+        }
     },
     beforeDestroy: function() {
         if (this.typingCleanupTimer) {
@@ -264,6 +271,7 @@ new Vue({
         if ('serviceWorker' in navigator && this.pushSubscriptionChangeHandler) {
             navigator.serviceWorker.removeEventListener('message', this.pushSubscriptionChangeHandler);
         }
+        this.uninstallPushPermissionGestureHandler();
     },
     methods: {
         setupEncryptedChat: async function(id, key) {
@@ -291,7 +299,16 @@ new Vue({
                 this.username = session.name;
             }
             await this.renderStoredPushMessages();
-            await this.refreshPushSubscription(true);
+            var vapidPublicKey = '';
+            try {
+                vapidPublicKey = await preloadVAPIDPublicKey();
+            } catch (e) {
+                console.warn('could not preload VAPID public key', e);
+            }
+            await this.refreshPushSubscription(false);
+            if (vapidPublicKey) {
+                this.installPushPermissionGestureHandler();
+            }
             this.openChatSocket(Boolean(this.reconnectToken));
         },
         openChatSocket: function(useReconnect) {
@@ -473,6 +490,9 @@ new Vue({
             try {
                 this.pushSubscription = await currentPushSubscription(requestPermission);
                 this.pushPermission = pushPermission();
+                if (this.pushSubscription || this.pushPermission !== 'default') {
+                    this.uninstallPushPermissionGestureHandler();
+                }
             } catch (e) {
                 console.warn('could not refresh push subscription', e);
                 reportChatDiagnostic('chat_push_subscription_failed', Object.assign({
@@ -483,6 +503,32 @@ new Vue({
                 this.pushSubscription = null;
                 this.pushPermission = pushPermission();
             }
+        },
+        installPushPermissionGestureHandler: function() {
+            var self = this;
+            if (!this.pushSupported || this.pushPermission !== 'default' || this.pushPermissionGestureHandler) {
+                return;
+            }
+
+            this.pushPermissionGestureHandler = function() {
+                self.refreshPushSubscription(true).then(function() {
+                    self.sendPushSubscription();
+                });
+            };
+
+            document.addEventListener('click', this.pushPermissionGestureHandler, { once: true });
+            document.addEventListener('keydown', this.pushPermissionGestureHandler, { once: true });
+            document.addEventListener('touchend', this.pushPermissionGestureHandler, { once: true });
+        },
+        uninstallPushPermissionGestureHandler: function() {
+            if (!this.pushPermissionGestureHandler) {
+                return;
+            }
+
+            document.removeEventListener('click', this.pushPermissionGestureHandler);
+            document.removeEventListener('keydown', this.pushPermissionGestureHandler);
+            document.removeEventListener('touchend', this.pushPermissionGestureHandler);
+            this.pushPermissionGestureHandler = null;
         },
         sendPushSubscription: function() {
             if (!this.pushSubscription || !this.ws || this.ws.readyState !== 1) {

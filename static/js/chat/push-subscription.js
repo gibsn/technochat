@@ -1,4 +1,7 @@
 const vapidPublicKeyURL = '/api/v1/push/vapid-public-key';
+let vapidPublicKeyPromise = null;
+let vapidPublicKeyLoaded = false;
+let vapidPublicKey = '';
 
 export async function currentPushSubscription(requestPermission) {
     if (!pushSupported()) {
@@ -12,7 +15,12 @@ export async function currentPushSubscription(requestPermission) {
         return null;
     }
 
-    const publicKey = await loadVAPIDPublicKey();
+    let publicKey = '';
+    if (vapidPublicKeyLoaded) {
+        publicKey = vapidPublicKey;
+    } else {
+        publicKey = await loadCachedVAPIDPublicKey();
+    }
     if (!publicKey) {
         return null;
     }
@@ -40,6 +48,14 @@ export async function currentPushSubscription(requestPermission) {
     return normalizeSubscription(subscription);
 }
 
+export function preloadVAPIDPublicKey() {
+    if (!pushSupported() || isLocalDevHost()) {
+        return Promise.resolve('');
+    }
+
+    return loadCachedVAPIDPublicKey();
+}
+
 export function pushSupported() {
     return 'Notification' in window &&
         'serviceWorker' in navigator &&
@@ -52,6 +68,20 @@ export function pushPermission() {
     }
 
     return Notification.permission;
+}
+
+async function loadCachedVAPIDPublicKey() {
+    if (vapidPublicKeyLoaded) {
+        return vapidPublicKey;
+    }
+    if (!vapidPublicKeyPromise) {
+        vapidPublicKeyPromise = loadVAPIDPublicKey();
+    }
+
+    vapidPublicKey = await vapidPublicKeyPromise;
+    vapidPublicKeyLoaded = true;
+
+    return vapidPublicKey;
 }
 
 async function loadVAPIDPublicKey() {
