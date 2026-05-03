@@ -29,6 +29,7 @@ type Server struct {
 	addr string
 
 	db     db.DB
+	chats  *chat.Registry
 	server *http.Server
 
 	pushPublicKey string
@@ -57,6 +58,7 @@ func NewServer(addr string, db db.DB) *Server {
 	return &Server{
 		addr:          addr,
 		db:            db,
+		chats:         chat.NewRegistry(db, pushSender),
 		pushPublicKey: pushPublicKey,
 		pushSender:    pushSender,
 		server: &http.Server{
@@ -65,6 +67,14 @@ func NewServer(addr string, db db.DB) *Server {
 			ReadHeaderTimeout: gracefulTime,
 		},
 	}
+}
+
+func (s *Server) chatRegistry() *chat.Registry {
+	if s.chats == nil {
+		s.chats = chat.NewRegistry(s.db, s.pushSender)
+	}
+
+	return s.chats
 }
 
 func (s *Server) Init() {

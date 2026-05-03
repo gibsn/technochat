@@ -13,11 +13,16 @@ const (
 const (
 	msgKeyPrefix   = "msg"
 	imageKeyPrefix = "img"
+	chatKeyPrefix  = "chat"
 
 	msgTextKey   = "text"
 	msgImagesKey = "imgs"
 
 	imgBodyKey = "body"
+
+	chatMaxUsersKey     = "max_users"
+	chatRestJoinsKey    = "rest_joins"
+	chatParticipantsKey = "participants"
 )
 
 type Redis struct {

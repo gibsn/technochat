@@ -35,8 +35,8 @@ func main() {
 
 	log.Println("technochat: initialising")
 
-	httpServer.Init()
 	db.Init()
+	httpServer.Init()
 
 	log.Println("technochat: successfully initialised")
 	log.Println("technochat: starting")

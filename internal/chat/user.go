@@ -3,6 +3,7 @@ package chat
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"time"
 
@@ -25,6 +26,16 @@ func (c *Chat) AddUser(ws *websocket.Conn) (*user.User, error) {
 	}
 
 	c.restJoins--
+	if c.store != nil {
+		if err := c.store.UpdateChat(c.stateLocked()); err != nil {
+			c.restJoins++
+			delete(c.participants, participant.ReconnectToken)
+			delete(c.participantByID, participant.ID)
+			c.correspsMx.Unlock()
+
+			return nil, fmt.Errorf("could not persist chat state: %w", err)
+		}
+	}
 	c.correspsMx.Unlock()
 
 	return c.connectParticipant(ws, participant), nil
@@ -36,6 +47,9 @@ func (c *Chat) ReconnectUser(ws *websocket.Conn, reconnectToken string) (*user.U
 	c.correspsMx.RUnlock()
 	if !ok {
 		return nil, ErrInvalidReconnectToken
+	}
+	if err := c.persistState(); err != nil {
+		return nil, fmt.Errorf("could not persist chat state: %w", err)
 	}
 
 	return c.connectParticipant(ws, participant), nil

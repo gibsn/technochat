@@ -36,6 +36,7 @@ fi
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-technochat_tests_${safe_user}_${safe_name}_$$}"
 export TECHNOCHAT_HTTP_PORT="${TECHNOCHAT_HTTP_PORT:-$(find_free_port $((18080 + port_offset)))}"
 export TECHNOCHAT_HTTPS_PORT="${TECHNOCHAT_HTTPS_PORT:-$(find_free_port $((18443 + port_offset)))}"
+export TECHNOCHAT_REDIS_PORT="${TECHNOCHAT_REDIS_PORT:-$(find_free_port $((16379 + port_offset)))}"
 
 cleanup() {
     ./deploy.sh --tests --down >/dev/null 2>&1 || true
@@ -61,6 +62,7 @@ done
 
 export UI_TEST_BASE_URL="https://127.0.0.1:${TECHNOCHAT_HTTPS_PORT}"
 export TECHNOCHAT_TEST_API_URL="$UI_TEST_BASE_URL"
+export TECHNOCHAT_TEST_REDIS_ADDR="127.0.0.1:${TECHNOCHAT_REDIS_PORT}"
 
 set +e
 if [ "$#" = 0 ]; then
