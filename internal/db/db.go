@@ -15,7 +15,9 @@ type DB interface {
 	DeleteImage(imageID string) error
 
 	AddChat(chat entity.Chat) error
-	UpdateChat(chat entity.Chat) error
+	AddParticipant(chatID string, participant entity.ChatParticipant, restJoins int, ttl int) error
+	UpdateParticipant(chatID string, participant entity.ChatParticipant, ttl int) error
+	TouchChat(chatID string, ttl int) error
 	GetChat(chatID string) (entity.Chat, error)
 	DeleteChat(chatID string) error
 }

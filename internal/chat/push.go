@@ -140,9 +140,24 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 	}
 
 	c.pushSubscriptions[participantID] = subscription
+	chatParticipant, ok := c.participantStateLocked(participantID)
 	c.correspsMx.Unlock()
+	if !ok {
+		return false
+	}
+	if c.store == nil {
+		log.Printf(
+			"info: chat: upserted push subscription chat=%s participant_id=%d",
+			c.ID, participantID,
+		)
+		return true
+	}
 
-	if err := c.persistState(); err != nil {
+	if err := c.store.UpdateParticipant(
+		c.ID,
+		chatParticipant,
+		int(c.offlineTTL.Seconds()),
+	); err != nil {
 		log.Printf(
 			"error: chat: could not persist push subscription chat=%s participant_id=%d: %v",
 			c.ID, participantID, err,
@@ -155,15 +170,27 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 	return true
 }
 
-func (c *Chat) deletePushSubscription(participantID int) {
+func (c *Chat) DeletePushSubscription(participantID int) {
 	c.correspsMx.Lock()
 	delete(c.pushSubscriptions, participantID)
+	chatParticipant, ok := c.participantStateLocked(participantID)
 	c.correspsMx.Unlock()
-}
+	if !ok {
+		return
+	}
+	if c.store == nil {
+		log.Printf(
+			"info: chat: deleted push subscription chat=%s participant_id=%d",
+			c.ID, participantID,
+		)
+		return
+	}
 
-func (c *Chat) DeletePushSubscription(participantID int) {
-	c.deletePushSubscription(participantID)
-	if err := c.persistState(); err != nil {
+	if err := c.store.UpdateParticipant(
+		c.ID,
+		chatParticipant,
+		int(c.offlineTTL.Seconds()),
+	); err != nil {
 		log.Printf(
 			"error: chat: could not persist push subscription delete chat=%s participant_id=%d: %v",
 			c.ID, participantID, err,
@@ -227,8 +254,16 @@ func (c *Chat) sendPushToOfflineParticipants(senderID int, msg *messageForPush) 
 			}
 
 			if errors.Is(err, ErrPushSubscriptionGone) {
-				c.deletePushSubscription(participantID)
-				if err := c.persistState(); err != nil {
+				c.correspsMx.Lock()
+				delete(c.pushSubscriptions, participantID)
+				chatParticipant, ok := c.participantStateLocked(participantID)
+				c.correspsMx.Unlock()
+				if ok && c.store != nil {
+					err = c.store.UpdateParticipant(c.ID, chatParticipant, int(c.offlineTTL.Seconds()))
+				} else {
+					err = nil
+				}
+				if err != nil {
 					log.Printf(
 						"error: chat: could not persist expired push subscription removal chat=%s "+
 							"participant_id=%d: %v",

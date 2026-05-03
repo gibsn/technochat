@@ -20,7 +20,15 @@ type testRestoreStore struct {
 	deleteDone     chan struct{}
 }
 
-func (s *testRestoreStore) UpdateChat(entity.Chat) error {
+func (s *testRestoreStore) AddParticipant(string, entity.ChatParticipant, int, int) error {
+	return nil
+}
+
+func (s *testRestoreStore) UpdateParticipant(string, entity.ChatParticipant, int) error {
+	return nil
+}
+
+func (s *testRestoreStore) TouchChat(string, int) error {
 	return nil
 }
 

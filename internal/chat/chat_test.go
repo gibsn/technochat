@@ -48,9 +48,15 @@ type testChatStateStore struct {
 	mx     sync.Mutex
 	err    error
 	states []entity.Chat
+	touch  int
 }
 
-func (s *testChatStateStore) UpdateChat(chat entity.Chat) error {
+func (s *testChatStateStore) AddParticipant(
+	chatID string,
+	participant entity.ChatParticipant,
+	restJoins int,
+	ttl int,
+) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
@@ -58,7 +64,50 @@ func (s *testChatStateStore) UpdateChat(chat entity.Chat) error {
 		return s.err
 	}
 
-	s.states = append(s.states, chat)
+	s.states = append(s.states, entity.Chat{
+		ID:           chatID,
+		RestJoins:    restJoins,
+		Participants: []entity.ChatParticipant{participant},
+		TTL:          ttl,
+	})
+
+	return nil
+}
+
+func (s *testChatStateStore) UpdateParticipant(
+	chatID string,
+	participant entity.ChatParticipant,
+	ttl int,
+) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.states = append(s.states, entity.Chat{
+		ID:           chatID,
+		Participants: []entity.ChatParticipant{participant},
+		TTL:          ttl,
+	})
+
+	return nil
+}
+
+func (s *testChatStateStore) TouchChat(chatID string, ttl int) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.touch++
+	s.states = append(s.states, entity.Chat{
+		ID:  chatID,
+		TTL: ttl,
+	})
 
 	return nil
 }
@@ -79,6 +128,13 @@ func (s *testChatStateStore) stateCount() int {
 	defer s.mx.Unlock()
 
 	return len(s.states)
+}
+
+func (s *testChatStateStore) touchCount() int {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	return s.touch
 }
 
 func TestPresenceReportsConfiguredMaxUsers(t *testing.T) {
@@ -131,9 +187,6 @@ func TestAddUserPersistsChatState(t *testing.T) {
 	}
 	if state.ID != c.ID {
 		t.Fatalf("expected chat ID %q, got %q", c.ID, state.ID)
-	}
-	if state.MaxUsers != 2 {
-		t.Fatalf("expected max users 2, got %d", state.MaxUsers)
 	}
 	if state.RestJoins != 1 {
 		t.Fatalf("expected 1 rest join, got %d", state.RestJoins)
@@ -401,15 +454,12 @@ func TestReconnectRefreshesPersistedChatState(t *testing.T) {
 	defer closeTestClient(t, client)
 	readConnInitEvent(t, client)
 
+	if store.touchCount() == 0 {
+		t.Fatalf("expected reconnect to refresh chat TTL")
+	}
 	state, ok := store.lastState()
-	if !ok {
-		t.Fatalf("expected reconnect to refresh persisted chat state")
-	}
-	if state.TTL != int(ChatOfflineTTL.Seconds()) {
-		t.Fatalf("expected TTL %d, got %d", int(ChatOfflineTTL.Seconds()), state.TTL)
-	}
-	if len(state.Participants) != 1 || state.Participants[0].ReconnectToken != "restored-token" {
-		t.Fatalf("expected restored participant to stay persisted, got %#v", state.Participants)
+	if !ok || state.TTL != int(ChatOfflineTTL.Seconds()) {
+		t.Fatalf("expected TTL %d, got %#v", int(ChatOfflineTTL.Seconds()), state)
 	}
 }
 
@@ -430,12 +480,9 @@ func TestOpenWebSocketPeriodicallyRefreshesPersistedChatState(t *testing.T) {
 	defer closeTestClient(t, client)
 	readConnInitEvent(t, client)
 
-	initialStateCount := store.stateCount()
-	if initialStateCount == 0 {
-		t.Fatalf("expected join to persist initial chat state")
-	}
+	initialTouchCount := store.touchCount()
 
-	waitForPersistedStates(t, store, initialStateCount+1)
+	waitForPersistedTouches(t, store, initialTouchCount+1)
 
 	state, ok := store.lastState()
 	if !ok {
@@ -463,17 +510,14 @@ func TestOfflineChatDoesNotPeriodicallyRefreshPersistedState(t *testing.T) {
 	client := dialTestChat(t, server)
 	readConnInitEvent(t, client)
 
-	initialStateCount := store.stateCount()
-	if initialStateCount == 0 {
-		t.Fatalf("expected join to persist initial chat state")
-	}
+	initialTouchCount := store.touchCount()
 
 	closeTestClient(t, client)
 	waitForOnlineUsers(t, c, 0)
 	time.Sleep(150 * time.Millisecond)
 
-	if stateCount := store.stateCount(); stateCount != initialStateCount {
-		t.Fatalf("expected offline chat not to refresh persisted state, got %d states", stateCount)
+	if touchCount := store.touchCount(); touchCount != initialTouchCount {
+		t.Fatalf("expected offline chat not to refresh persisted state, got %d touches", touchCount)
 	}
 }
 
@@ -901,19 +945,19 @@ func waitForOnlineUsers(t *testing.T, c *Chat, expectedOnline int) {
 	t.Fatalf("timed out waiting for %d online users, got %d", expectedOnline, c.Presence().Online)
 }
 
-func waitForPersistedStates(t *testing.T, store *testChatStateStore, expectedStates int) {
+func waitForPersistedTouches(t *testing.T, store *testChatStateStore, expectedTouches int) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if store.stateCount() >= expectedStates {
+		if store.touchCount() >= expectedTouches {
 			return
 		}
 
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Fatalf("timed out waiting for %d persisted states, got %d", expectedStates, store.stateCount())
+	t.Fatalf("timed out waiting for %d persisted touches, got %d", expectedTouches, store.touchCount())
 }
 
 func dialTestChat(t *testing.T, server *httptest.Server) *websocket.Conn {

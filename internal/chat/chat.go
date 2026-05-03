@@ -86,7 +86,9 @@ type Participant struct {
 }
 
 type StateStore interface {
-	UpdateChat(chat entity.Chat) error
+	AddParticipant(chatID string, participant entity.ChatParticipant, restJoins int, ttl int) error
+	UpdateParticipant(chatID string, participant entity.ChatParticipant, ttl int) error
+	TouchChat(chatID string, ttl int) error
 }
 
 type NewChatOpts struct {
@@ -236,15 +238,36 @@ func (c *Chat) State() entity.Chat {
 	return c.stateLocked()
 }
 
-func (c *Chat) persistState() error {
+func (c *Chat) touchState() error {
 	if c.store == nil {
 		return nil
 	}
 
-	c.correspsMx.RLock()
-	defer c.correspsMx.RUnlock()
+	return c.store.TouchChat(c.ID, int(c.offlineTTL.Seconds()))
+}
 
-	return c.store.UpdateChat(c.stateLocked())
+func (c *Chat) participantStateLocked(participantID int) (entity.ChatParticipant, bool) {
+	participant, ok := c.participantByID[participantID]
+	if !ok {
+		return entity.ChatParticipant{}, false
+	}
+
+	chatParticipant := entity.ChatParticipant{
+		ID:             participant.ID,
+		Name:           participant.Name,
+		ReconnectToken: participant.ReconnectToken,
+	}
+	if subscription, ok := c.pushSubscriptions[participant.ID]; ok {
+		chatParticipant.PushSubscription = &entity.ChatPushSubscription{
+			Endpoint: subscription.Endpoint,
+			Keys: entity.ChatPushKeys{
+				Auth:   subscription.Keys.Auth,
+				P256DH: subscription.Keys.P256DH,
+			},
+		}
+	}
+
+	return chatParticipant, true
 }
 
 func (c *Chat) RestJoins() int {
@@ -486,7 +509,7 @@ func (c *Chat) handleCommunication() {
 
 		case <-stateRefreshTicker.C:
 			if c.Presence().Online > 0 {
-				if err := c.persistState(); err != nil {
+				if err := c.touchState(); err != nil {
 					log.Printf("error: chat: could not refresh persisted state for chat %s: %v", c.ID, err)
 				}
 			}

@@ -64,3 +64,50 @@ func TestNewChatFromRedisRestoresParticipants(t *testing.T) {
 		)
 	}
 }
+
+func TestNewChatFromRedisRestoresParticipantFields(t *testing.T) {
+	participant := entity.ChatParticipant{
+		ID:             42,
+		Name:           "restored user",
+		ReconnectToken: "reconnect-token",
+		PushSubscription: &entity.ChatPushSubscription{
+			Endpoint: "https://push.example/subscription",
+			Keys: entity.ChatPushKeys{
+				Auth:   "auth-secret",
+				P256DH: "p256dh-key",
+			},
+		},
+	}
+	participantJSON, err := json.Marshal(participant)
+	if err != nil {
+		t.Fatalf("could not marshal participant: %v", err)
+	}
+
+	chat, err := newChatFromRedis("chat-id", map[string]string{
+		chatMaxUsersKey:                       "3",
+		chatRestJoinsKey:                      "2",
+		newChatParticipantKey(participant.ID): string(participantJSON),
+	})
+	if err != nil {
+		t.Fatalf("could not restore chat: %v", err)
+	}
+
+	if len(chat.Participants) != 1 {
+		t.Fatalf("expected 1 participant, got %d", len(chat.Participants))
+	}
+	if chat.Participants[0].ID != participant.ID ||
+		chat.Participants[0].Name != participant.Name ||
+		chat.Participants[0].ReconnectToken != participant.ReconnectToken {
+		t.Fatalf("expected participant %#v, got %#v", participant, chat.Participants[0])
+	}
+	if chat.Participants[0].PushSubscription == nil {
+		t.Fatalf("expected participant push subscription to be restored")
+	}
+	if *chat.Participants[0].PushSubscription != *participant.PushSubscription {
+		t.Fatalf(
+			"expected push subscription %#v, got %#v",
+			participant.PushSubscription,
+			chat.Participants[0].PushSubscription,
+		)
+	}
+}

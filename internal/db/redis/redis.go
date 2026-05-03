@@ -23,6 +23,7 @@ const (
 	chatMaxUsersKey     = "max_users"
 	chatRestJoinsKey    = "rest_joins"
 	chatParticipantsKey = "participants"
+	chatParticipantKey  = "participant:"
 )
 
 type Redis struct {
