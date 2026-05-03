@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"technochat/internal/chat"
@@ -52,6 +53,7 @@ func NewServer(addr string, db db.DB) *Server {
 	if pushPublicKey != "" && pushPrivateKey != "" && pushSubject != "" {
 		pushSender = chat.NewVAPIDPushSender(pushPublicKey, pushPrivateKey, pushSubject)
 	} else {
+		log.Printf("warning: http: web push disabled: missing %s", missingVAPIDEnvNames())
 		pushPublicKey = ""
 	}
 
@@ -67,6 +69,17 @@ func NewServer(addr string, db db.DB) *Server {
 			ReadHeaderTimeout: gracefulTime,
 		},
 	}
+}
+
+func missingVAPIDEnvNames() string {
+	missing := make([]string, 0, 3)
+	for _, envName := range []string{"VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"} {
+		if os.Getenv(envName) == "" {
+			missing = append(missing, envName)
+		}
+	}
+
+	return strings.Join(missing, ", ")
 }
 
 func (s *Server) chatRegistry() *chat.Registry {
