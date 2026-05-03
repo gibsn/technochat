@@ -155,7 +155,11 @@ func TestAddUserRollsBackJoinWhenStateStoreFails(t *testing.T) {
 			t.Errorf("could not upgrade websocket: %v", err)
 			return
 		}
-		defer ws.Close()
+		defer func() {
+			if err := ws.Close(); err != nil {
+				t.Errorf("could not close websocket: %v", err)
+			}
+		}()
 
 		_, err = c.AddUser(ws)
 		addErr <- err
