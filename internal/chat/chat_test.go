@@ -318,12 +318,13 @@ func TestReconnectRefreshesPersistedChatState(t *testing.T) {
 	}
 }
 
-func TestIncomingMessageRefreshesPersistedChatState(t *testing.T) {
+func TestOpenWebSocketPeriodicallyRefreshesPersistedChatState(t *testing.T) {
 	store := &testChatStateStore{}
 	c := NewChat(NewChatOpts{
-		ID:       "message-refresh-state-test",
-		MaxJoins: 1,
-		Store:    store,
+		ID:               "online-refresh-state-test",
+		MaxJoins:         1,
+		StateRefreshRate: 50 * time.Millisecond,
+		Store:            store,
 	})
 
 	server, done := serveTestChat(t, c)
@@ -339,21 +340,45 @@ func TestIncomingMessageRefreshesPersistedChatState(t *testing.T) {
 		t.Fatalf("expected join to persist initial chat state")
 	}
 
-	if err := client.WriteJSON(message.WSMessage{
-		Type: message.WSMsgTypeMessage,
-		Data: "hello",
-	}); err != nil {
-		t.Fatalf("could not write chat message: %v", err)
-	}
-
 	waitForPersistedStates(t, store, initialStateCount+1)
 
 	state, ok := store.lastState()
 	if !ok {
-		t.Fatalf("expected message activity to refresh persisted chat state")
+		t.Fatalf("expected online chat to refresh persisted chat state")
 	}
 	if state.TTL != int(ChatOfflineTTL.Seconds()) {
 		t.Fatalf("expected TTL %d, got %d", int(ChatOfflineTTL.Seconds()), state.TTL)
+	}
+}
+
+func TestOfflineChatDoesNotPeriodicallyRefreshPersistedState(t *testing.T) {
+	store := &testChatStateStore{}
+	c := NewChat(NewChatOpts{
+		ID:               "offline-refresh-state-test",
+		MaxJoins:         1,
+		OfflineTTL:       time.Second,
+		StateRefreshRate: 50 * time.Millisecond,
+		Store:            store,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChatIfRunning(c, done)
+
+	client := dialTestChat(t, server)
+	readConnInitEvent(t, client)
+
+	initialStateCount := store.stateCount()
+	if initialStateCount == 0 {
+		t.Fatalf("expected join to persist initial chat state")
+	}
+
+	closeTestClient(t, client)
+	waitForOnlineUsers(t, c, 0)
+	time.Sleep(150 * time.Millisecond)
+
+	if stateCount := store.stateCount(); stateCount != initialStateCount {
+		t.Fatalf("expected offline chat not to refresh persisted state, got %d states", stateCount)
 	}
 }
 

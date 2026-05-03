@@ -22,6 +22,7 @@ const (
 	MaxPeopleInChat  = 100
 
 	ChatOfflineTTL        time.Duration = 24 * time.Hour
+	ChatStateRefreshRate  time.Duration = time.Minute
 	PresenceBroadcastRate time.Duration = 30 * time.Second
 	TypingTTL             time.Duration = 3 * time.Second
 	TypingExpireRate      time.Duration = 500 * time.Millisecond
@@ -55,6 +56,7 @@ type Chat struct {
 	broadcastChan    chan *message.WSMessage
 	offlineStateChan chan bool
 	offlineTTL       time.Duration
+	stateRefreshRate time.Duration
 	typingUsers      *typingusers.TypingUsers
 
 	restJoins         int // how many available invitations are left
@@ -87,6 +89,7 @@ type NewChatOpts struct {
 	RestoreRestJoins bool
 	Participants     []Participant
 	OfflineTTL       time.Duration
+	StateRefreshRate time.Duration
 	Store            StateStore
 }
 
@@ -94,6 +97,10 @@ func NewChat(opts NewChatOpts) *Chat {
 	offlineTTL := opts.OfflineTTL
 	if offlineTTL <= 0 {
 		offlineTTL = ChatOfflineTTL
+	}
+	stateRefreshRate := opts.StateRefreshRate
+	if stateRefreshRate <= 0 {
+		stateRefreshRate = ChatStateRefreshRate
 	}
 
 	restJoins := opts.MaxJoins
@@ -118,6 +125,7 @@ func NewChat(opts NewChatOpts) *Chat {
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
 		offlineStateChan:     make(chan bool, 1),
 		offlineTTL:           offlineTTL,
+		stateRefreshRate:     stateRefreshRate,
 		typingUsers:          typingusers.New(TypingTTL),
 		restJoins:            restJoins,
 		maxUsers:             opts.MaxJoins,
@@ -172,9 +180,10 @@ func (c *Chat) persistState() error {
 	}
 
 	c.correspsMx.RLock()
-	defer c.correspsMx.RUnlock()
+	state := c.stateLocked()
+	c.correspsMx.RUnlock()
 
-	return c.store.UpdateChat(c.stateLocked())
+	return c.store.UpdateChat(state)
 }
 
 func (c *Chat) RestJoins() int {
@@ -378,6 +387,9 @@ func (c *Chat) handleCommunication() {
 	typingTicker := time.NewTicker(TypingExpireRate)
 	defer typingTicker.Stop()
 
+	stateRefreshTicker := time.NewTicker(c.stateRefreshRate)
+	defer stateRefreshTicker.Stop()
+
 	lastTypingBroadcastAt := time.Now()
 	typingBroadcastPending := false
 
@@ -409,6 +421,13 @@ func (c *Chat) handleCommunication() {
 
 		case <-presenceTicker.C:
 			c.broadcast(c.PresenceMessage())
+
+		case <-stateRefreshTicker.C:
+			if c.Presence().Online > 0 {
+				if err := c.persistState(); err != nil {
+					log.Printf("error: chat: could not refresh persisted state for chat %s: %v", c.ID, err)
+				}
+			}
 
 		case <-typingTicker.C:
 			now := time.Now()
@@ -458,9 +477,6 @@ func (c *Chat) handleIncomingMessage(
 ) bool {
 	if incoming == nil || incoming.msg == nil || incoming.user == nil {
 		return typingBroadcastPending
-	}
-	if err := c.persistState(); err != nil {
-		log.Printf("error: chat: could not refresh persisted state for chat %s: %v", c.ID, err)
 	}
 
 	switch incoming.msg.Type {
