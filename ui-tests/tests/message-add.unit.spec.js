@@ -4,6 +4,7 @@ const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64"
 );
+const chatKeyBase64 = "AAAAAAAAAAAAAAAAAAAAAA==";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -133,6 +134,93 @@ test("@unit starts the global loader before navigating to chat creation", async 
   await expect(page.locator("#network_loader")).toHaveClass(
     /network-loader--visible/
   );
+});
+
+test("@unit offers to reconnect to a stored chat from the start page", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    ({ roomKey }) => {
+      const sessions = [
+        {
+          chatId: "old-chat",
+          name: "Axe",
+          updatedAt: "2026-05-02T05:00:00.000Z",
+        },
+        {
+          chatId: "chat-id",
+          name: "Tiny",
+          updatedAt: "2026-05-02T06:00:00.000Z",
+        },
+        {
+          chatId: "third-chat",
+          name: "Lina",
+          updatedAt: "2026-05-02T04:00:00.000Z",
+        },
+        {
+          chatId: "fourth-chat",
+          name: "Pudge",
+          updatedAt: "2026-05-02T03:00:00.000Z",
+        },
+        {
+          chatId: "fifth-chat",
+          name: "Riki",
+          updatedAt: "2026-05-02T02:00:00.000Z",
+        },
+      ];
+
+      for (const session of sessions) {
+        localStorage.setItem(
+          `technochat:chat:${session.chatId}`,
+          JSON.stringify({
+            chatId: session.chatId,
+            reconnectToken: `token-${session.chatId}`,
+            name: session.name,
+            roomKey,
+            updatedAt: session.updatedAt,
+          })
+        );
+      }
+    },
+    { roomKey: chatKeyBase64 }
+  );
+
+  await page.goto("/html/messageadd.html");
+
+  const reconnectLink = page.locator(".reconnect_modal__button").first();
+  await expect(page.locator(".reconnect_modal")).toBeVisible();
+  await expect(reconnectLink).toHaveText("Reconnect as Tiny");
+  await expect(page.locator(".reconnect_modal__button")).toHaveCount(5);
+  await expect(page.locator(".reconnect_modal__button").nth(1)).toHaveText(
+    "Reconnect as Axe"
+  );
+
+  const listOverflow = await page
+    .locator(".reconnect_modal__list")
+    .evaluate((element) => {
+      return window.getComputedStyle(element).overflowY;
+    });
+  expect(listOverflow).toBe("auto");
+
+  const href = await reconnectLink.getAttribute("href");
+  const url = new URL(href, "https://technochat.test");
+  const hashParams = new URLSearchParams(url.hash.slice(1));
+
+  expect(url.pathname).toBe("/html/joinchat.html");
+  expect(url.searchParams.get("id")).toBe("chat-id");
+  expect(hashParams.get("key")).toBe(chatKeyBase64);
+});
+
+test("@unit warns when the start page is opened inside Telegram webview", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.Telegram = { WebApp: {} };
+  });
+
+  await page.goto("/html/messageadd.html");
+
+  await expect(page.locator(".webview_warning")).toContainText("Telegram");
 });
 
 test("@unit renders API validation errors without clearing the original text", async ({

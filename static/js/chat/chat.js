@@ -4,6 +4,12 @@ import {
     Decrypter,
     Encrypter
 } from "/js/message/crypto.js";
+import {
+    clearReconnectSession,
+    loadReconnectSession,
+    storeReconnectSession
+} from "/js/chat/reconnect-session.js";
+import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const WSMsgTypeService  = 0;
 const WSMsgTypeMessage = 1;
@@ -13,12 +19,13 @@ const EventConnInitNoSuchChat = 1;
 const EventConnInitMaxUsrsReached = 2;
 const EventPresence = 3;
 const EventTyping = 4;
+const EventConnInitInvalidReconnectToken = 5;
 
 const NewMsgTitle = "New message!";
 const TypingNotifyRateMs = 1000;
 const TypingCleanupRateMs = 250;
-const WSConnectMaxAttempts = 3;
-const WSConnectRetryBaseMs = 500;
+const InitialConnectRetryDelaysMs = [500, 1000];
+const ReconnectDelaysMs = [1000, 2000, 5000, 10000, 30000];
 const DiagnosticPageID = createDiagnosticPageID();
 var diagnosticSequence = 0;
 
@@ -117,6 +124,7 @@ function installPageLifecycleDiagnostics() {
 }
 
 installPageLifecycleDiagnostics();
+installRestrictedWebViewWarning();
 
 new Vue({
     el: '#app',
@@ -143,6 +151,13 @@ new Vue({
         typingUsers: [],
         typingCleanupTimer: null,
         lastTypingSentAt: 0,
+        chatID: '',
+        reconnectToken: '',
+        reconnectTimer: null,
+        reconnectAttempt: 0,
+        connectionStatus: '',
+        chatFinished: false,
+        manualReconnectAvailable: false,
     },
     computed: {
         presenceLabel: function() {
@@ -172,6 +187,10 @@ new Vue({
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
 
+        if (id && !key) {
+            key = loadReconnectSession(id).roomKey;
+        }
+
         reportChatDiagnostic('chat_join_page_start', {
             chat_id: id || '',
             has_id: Boolean(id),
@@ -187,6 +206,7 @@ new Vue({
                 missing_key: !key,
             });
             this.okconnected = false;
+            this.connectionStatus = 'Chat link is invalid';
             return;
         }
 
@@ -202,12 +222,17 @@ new Vue({
         if (this.typingCleanupTimer) {
             window.clearInterval(this.typingCleanupTimer);
         }
+        if (this.reconnectTimer) {
+            window.clearTimeout(this.reconnectTimer);
+        }
+        if (this.ws) {
+            this.ws.close();
+        }
     },
     methods: {
         setupEncryptedChat: async function(id, key) {
-            var self = this;
-
             try {
+                this.chatID = id;
                 this.roomKey = key;
                 this.encrypter = new Encrypter(new AESGCM128());
                 await this.encrypter.setupWithKey(Base64ToArrayBuffer(key));
@@ -219,127 +244,287 @@ new Vue({
                     key_mod4: key.length % 4,
                 }, errorDiagnostic(e)));
                 this.okconnected = false;
+                this.connectionStatus = 'Chat link is invalid';
                 return;
             }
 
+            var session = loadReconnectSession(id);
+            this.reconnectToken = session.reconnectToken;
+            if (session.name) {
+                this.name = session.name;
+                this.username = session.name;
+            }
+            this.openChatSocket(Boolean(this.reconnectToken));
+        },
+        openChatSocket: function(useReconnect) {
+            var self = this;
             var wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-            var wsURL = wsProtocol + window.location.host + '/api/v1/chat/connect?id=' + encodeURIComponent(id);
-            var connectAttempt = 0;
+            var path = useReconnect ? '/api/v1/chat/reconnect' : '/api/v1/chat/connect';
+            var wsURL = wsProtocol + window.location.host + path + '?id=' + encodeURIComponent(this.chatID);
+            if (useReconnect) {
+                wsURL += '&reconnect_token=' + encodeURIComponent(this.reconnectToken);
+            }
 
-            function connectWebSocket() {
-                connectAttempt += 1;
-                var attempt = connectAttempt;
+            reportChatDiagnostic('chat_ws_connect_start', {
+                chat_id: this.chatID,
+                mode: useReconnect ? 'reconnect' : 'connect',
+                ws_protocol: wsProtocol,
+                reconnect_attempt: this.reconnectAttempt,
+                has_reconnect_token: Boolean(this.reconnectToken),
+            });
 
-                reportChatDiagnostic('chat_ws_connect_start', {
-                    chat_id: id,
+            var socket;
+            try {
+                socket = new WebSocket(wsURL);
+            } catch (e) {
+                console.error('could not create chat websocket', e);
+                reportChatDiagnostic('chat_ws_create_failed', Object.assign({
+                    chat_id: this.chatID,
+                    mode: useReconnect ? 'reconnect' : 'connect',
                     ws_protocol: wsProtocol,
-                    attempt: attempt,
-                });
-
-                var wsOpened = false;
-
-                try {
-                    self.ws = new WebSocket(wsURL);
-                } catch (e) {
-                    console.error('could not create chat websocket', e);
-                    reportChatDiagnostic('chat_ws_create_failed', Object.assign({
-                        chat_id: id,
-                        ws_protocol: wsProtocol,
-                        attempt: attempt,
-                    }, errorDiagnostic(e)));
-                    retryOrFailWebSocket();
+                    reconnect_attempt: this.reconnectAttempt,
+                }, errorDiagnostic(e)));
+                if (this.reconnectToken) {
+                    this.scheduleReconnect(true);
                     return;
                 }
 
-                self.ws.addEventListener('open', function() {
-                    wsOpened = true;
-                    console.log('chat websocket opened for chat', id);
-                    reportChatDiagnostic('chat_ws_open', {
-                        chat_id: id,
-                        attempt: attempt,
-                    });
-                });
-
-                self.ws.addEventListener('message', function(e) {
-                    var msg = JSON.parse(e.data);
-                    console.log(msg);
-                    switch (msg.type){
-                        case WSMsgTypeService:
-                            if (msg.data.event_id == EventConnInitOk ){
-                                self.name = msg.data.event_data;
-                                self.username = msg.data.event_data;
-                            }
-                            if (msg.data.event_id == EventConnInitNoSuchChat || msg.data.event_id == EventConnInitMaxUsrsReached ){
-                                self.okconnected = false;
-                            }
-                            if (msg.data.event_id == EventPresence) {
-                                self.updatePresence(msg.data.event_data);
-                            }
-                            if (msg.data.event_id == EventTyping) {
-                                self.updateTypingUsers(msg.data.event_data);
-                            }
-                            break;
-                        case WSMsgTypeMessage:
-                            self.addmsg(msg);
-                            break;
-                        default:
-                            alert("unknown response type:"+msg.type);
-                    }
-                });
-
-                self.ws.addEventListener('error', function(e) {
-                    console.log('chat websocket error', e);
-                    reportChatDiagnostic('chat_ws_error', {
-                        chat_id: id,
-                        ready_state: self.ws ? self.ws.readyState : null,
-                        attempt: attempt,
-                    });
-                });
-
-                self.ws.addEventListener('close', function(e) {
-                    console.log('chat websocket closed', {
-                        code: e.code,
-                        reason: e.reason,
-                        wasClean: e.wasClean,
-                    });
-                    reportChatDiagnostic('chat_ws_close', {
-                        chat_id: id,
-                        code: e.code,
-                        reason: e.reason,
-                        was_clean: e.wasClean,
-                        opened: wsOpened,
-                        attempt: attempt,
-                    });
-
-                    if (!wsOpened) {
-                        retryOrFailWebSocket();
-                        return;
-                    }
-
-                    self.okconnected = false;
-                });
+                this.scheduleReconnect(false);
+                return;
             }
 
-            function retryOrFailWebSocket() {
-                if (connectAttempt >= WSConnectMaxAttempts) {
-                    reportChatDiagnostic('chat_ws_connect_failed', {
-                        chat_id: id,
-                        attempts: connectAttempt,
-                    });
-                    self.okconnected = false;
+            this.ws = socket;
+            this.manualReconnectAvailable = false;
+            this.connectionStatus = useReconnect ? this.reconnectingStatus() : '';
+            var wsOpened = false;
+            socket.addEventListener('open', function() {
+                wsOpened = true;
+                console.log('chat websocket opened for chat', self.chatID);
+                reportChatDiagnostic('chat_ws_open', {
+                    chat_id: self.chatID,
+                    mode: useReconnect ? 'reconnect' : 'connect',
+                    reconnect_attempt: self.reconnectAttempt,
+                });
+            });
+            socket.addEventListener('message', function(e) {
+                if (socket !== self.ws) {
                     return;
                 }
 
-                var retryDelayMs = WSConnectRetryBaseMs * connectAttempt;
-                reportChatDiagnostic('chat_ws_retry_scheduled', {
-                    chat_id: id,
-                    attempts: connectAttempt,
-                    delay_ms: retryDelayMs,
+                var msg = JSON.parse(e.data);
+                console.log(msg);
+                switch (msg.type){
+                    case WSMsgTypeService:
+                        if (msg.data.event_id == EventConnInitOk ){
+                            self.handleConnInitOk(msg.data.event_data);
+                        }
+                        if (msg.data.event_id == EventConnInitNoSuchChat) {
+                            reportChatDiagnostic('chat_ws_no_such_chat', {
+                                chat_id: self.chatID,
+                                mode: useReconnect ? 'reconnect' : 'connect',
+                            });
+                            self.finishChat('Chat finished');
+                        }
+                        if (msg.data.event_id == EventConnInitMaxUsrsReached ){
+                            reportChatDiagnostic('chat_ws_chat_full', {
+                                chat_id: self.chatID,
+                                mode: useReconnect ? 'reconnect' : 'connect',
+                            });
+                            self.stopConnecting('Chat is full', true);
+                        }
+                        if (msg.data.event_id == EventConnInitInvalidReconnectToken) {
+                            reportChatDiagnostic('chat_ws_invalid_reconnect_token', {
+                                chat_id: self.chatID,
+                                mode: useReconnect ? 'reconnect' : 'connect',
+                            });
+                            clearReconnectSession(self.chatID);
+                            self.reconnectToken = '';
+                            if (useReconnect) {
+                                self.reconnectAttempt = 0;
+                                self.openChatSocket(false);
+                            } else {
+                                self.stopConnecting('Could not reconnect', true);
+                            }
+                        }
+                        if (msg.data.event_id == EventPresence) {
+                            self.updatePresence(msg.data.event_data);
+                        }
+                        if (msg.data.event_id == EventTyping) {
+                            self.updateTypingUsers(msg.data.event_data);
+                        }
+                        break;
+                    case WSMsgTypeMessage:
+                        self.addmsg(msg);
+                        break;
+                    default:
+                        alert("unknown response type:"+msg.type);
+                }
+            });
+            socket.addEventListener('error', function(e) {
+                console.log('chat websocket error', e);
+                reportChatDiagnostic('chat_ws_error', {
+                    chat_id: self.chatID,
+                    mode: useReconnect ? 'reconnect' : 'connect',
+                    ready_state: socket.readyState,
+                    reconnect_attempt: self.reconnectAttempt,
                 });
-                window.setTimeout(connectWebSocket, retryDelayMs);
+            });
+            socket.addEventListener('close', function(e) {
+                if (socket !== self.ws) {
+                    return;
+                }
+
+                console.log('chat websocket closed', {
+                    code: e.code,
+                    reason: e.reason,
+                    wasClean: e.wasClean,
+                });
+                reportChatDiagnostic('chat_ws_close', {
+                    chat_id: self.chatID,
+                    mode: useReconnect ? 'reconnect' : 'connect',
+                    code: e.code,
+                    reason: e.reason,
+                    was_clean: e.wasClean,
+                    opened: wsOpened,
+                    reconnect_attempt: self.reconnectAttempt,
+                });
+                if (self.chatFinished) {
+                    return;
+                }
+                if (self.reconnectToken) {
+                    self.scheduleReconnect(true);
+                    return;
+                }
+                if (!wsOpened) {
+                    self.scheduleReconnect(false);
+                    return;
+                }
+
+                self.stopConnecting('Connection lost');
+            });
+        },
+        handleConnInitOk: function(data) {
+            var name = data;
+            var reconnectToken = '';
+
+            if (data && typeof data === 'object') {
+                name = data.name;
+                reconnectToken = data.reconnect_token || '';
             }
 
-            connectWebSocket();
+            this.name = name;
+            this.username = name;
+            this.okconnected = true;
+            this.connectionStatus = '';
+            this.chatFinished = false;
+            this.manualReconnectAvailable = false;
+            this.reconnectAttempt = 0;
+
+            if (reconnectToken) {
+                this.reconnectToken = reconnectToken;
+                storeReconnectSession(this.chatID, reconnectToken, name, this.roomKey);
+            }
+        },
+        reconnectingStatus: function() {
+            if (this.name) {
+                return 'Reconnecting as ' + this.name + '...';
+            }
+
+            return 'Reconnecting...';
+        },
+        scheduleReconnect: function(useReconnect) {
+            var self = this;
+
+            if (this.reconnectTimer) {
+                return;
+            }
+
+            if (!useReconnect && this.reconnectAttempt >= InitialConnectRetryDelaysMs.length) {
+                reportChatDiagnostic('chat_ws_connect_failed', {
+                    chat_id: this.chatID,
+                    mode: 'connect',
+                    attempts: this.reconnectAttempt + 1,
+                });
+                this.stopConnecting('Connection lost', false, true);
+                return;
+            }
+
+            var retryDelays = useReconnect ? ReconnectDelaysMs : InitialConnectRetryDelaysMs;
+            var delay = retryDelays[Math.min(this.reconnectAttempt, retryDelays.length - 1)];
+            this.reconnectAttempt++;
+            this.connectionStatus = useReconnect ? this.reconnectingStatus() : 'Connecting...';
+
+            reportChatDiagnostic('chat_ws_retry_scheduled', {
+                chat_id: this.chatID,
+                mode: useReconnect ? 'reconnect' : 'connect',
+                attempts: this.reconnectAttempt,
+                delay_ms: delay,
+            });
+
+            this.reconnectTimer = window.setTimeout(function() {
+                self.reconnectTimer = null;
+                self.openChatSocket(useReconnect);
+            }, delay);
+        },
+        manualReconnect: function() {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+
+            reportChatDiagnostic('chat_manual_reconnect', {
+                chat_id: this.chatID,
+                has_reconnect_token: Boolean(this.reconnectToken),
+            });
+
+            this.chatFinished = false;
+            this.manualReconnectAvailable = false;
+            this.reconnectAttempt = 0;
+            this.okconnected = true;
+            this.connectionStatus = this.reconnectToken ? this.reconnectingStatus() : 'Connecting...';
+            this.openChatSocket(Boolean(this.reconnectToken));
+        },
+        stopConnecting: function(status, terminal, manualReconnectAvailable) {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+            if (terminal) {
+                this.chatFinished = true;
+            }
+            this.connectionStatus = status;
+            this.manualReconnectAvailable = Boolean(manualReconnectAvailable);
+            this.okconnected = false;
+        },
+        finishChat: function(status) {
+            this.chatFinished = true;
+            clearReconnectSession(this.chatID);
+            this.reconnectToken = '';
+            this.stopConnecting(status);
+        },
+        leaveChat: function() {
+            if (this.reconnectTimer) {
+                window.clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = null;
+            }
+
+            reportChatDiagnostic('chat_leave_local', {
+                chat_id: this.chatID,
+                has_reconnect_token: Boolean(this.reconnectToken),
+            });
+
+            this.chatFinished = true;
+            clearReconnectSession(this.chatID);
+            this.reconnectToken = '';
+            this.manualReconnectAvailable = false;
+
+            if (this.ws) {
+                var socket = this.ws;
+                this.ws = null;
+                socket.close();
+            }
+
+            window.location.href = '/html/messageadd.html';
         },
         decryptMessageData: async function(msg) {
             if (msg.username === 'server') {
@@ -384,6 +569,10 @@ new Vue({
         },
         send: async function () {
             if (this.newMsg != '') {
+                if (!this.ws || this.ws.readyState !== 1) {
+                    return;
+                }
+
                 var plaintext = this.newMsg;
                 var encryptedData;
 

@@ -7,8 +7,11 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 
 	"technochat/internal/chat"
+	"technochat/internal/chat/message"
+	"technochat/internal/chat/user"
 )
 
 type ChatInitRequest struct {
@@ -61,6 +64,14 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 }
 
 func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
+	s.chatConnectWithMode(w, r, false)
+}
+
+func (s *Server) chatReconnect(w http.ResponseWriter, r *http.Request) {
+	s.chatConnectWithMode(w, r, true)
+}
+
+func (s *Server) chatConnectWithMode(w http.ResponseWriter, r *http.Request, reconnect bool) {
 	ws, err := chat.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("error: chat: error upgrading chat connection: %v", err)
@@ -79,25 +90,26 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 	c := chat.GetChat(chatIDStr)
 	if c == nil {
 		log.Printf("info: chat: chat %s does not exist for %s", chatIDStr, remoteAddr)
-		return
-	}
-	if c.RestJoins() <= 0 {
-		log.Printf("info: chat: maxUsers limit reached for chat %s from %s", chatIDStr, remoteAddr)
+		sendChatInitEvent(ws, message.EventConnInitNoSuchChat)
 		return
 	}
 
-	log.Printf("info: chat: incoming connect for chat %s from %s, joins left before add: %d",
-		chatIDStr, remoteAddr, c.RestJoins())
-
-	usr, err := c.AddUser(ws)
+	usr, err := connectChatUser(c, ws, r, reconnect)
 	if err != nil {
 		level := "error"
+		eventID := message.EventConnInitNoSuchChat
 
 		if err == chat.ErrInvitationQuotaExceeded {
 			level = "warning"
+			eventID = message.EventConnInitMaxUsrsReached
+		}
+		if err == chat.ErrInvalidReconnectToken {
+			level = "warning"
+			eventID = message.EventConnInitInvalidReconnectToken
 		}
 
 		log.Printf("%s: chat: could not add new user to chat %s: %v", level, chatIDStr, err)
+		sendChatInitEvent(ws, eventID)
 		return
 	}
 
@@ -106,5 +118,29 @@ func (s *Server) chatConnect(w http.ResponseWriter, r *http.Request) {
 
 	usr.Routine()
 
-	c.DelUser(usr.ID)
+	c.DelUser(usr)
+}
+
+func connectChatUser(
+	c *chat.Chat,
+	ws *websocket.Conn,
+	r *http.Request,
+	reconnect bool,
+) (*user.User, error) {
+	if reconnect {
+		return c.ReconnectUser(ws, r.FormValue("reconnect_token"))
+	}
+
+	return c.AddUser(ws)
+}
+
+func sendChatInitEvent(ws *websocket.Conn, eventID message.EventID) {
+	if err := ws.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: eventID,
+		},
+	}); err != nil {
+		log.Printf("error: chat: could not send init event %d: %v", eventID, err)
+	}
 }

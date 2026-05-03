@@ -1,5 +1,10 @@
 import {Encrypter, AESGCM128, ArrayBufferToBase64} from "/js/message/crypto.js";
 import * as util from "/js/util.js";
+import {
+    loadReconnectSessions,
+    reconnectSessionLink
+} from "/js/chat/reconnect-session.js";
+import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
 
 const maxTextAreaLength = 1024;
 // say we have N bytes of text on client, AES-GCM will add 16 bytes,
@@ -46,6 +51,57 @@ function setUploadStatus(message, isError = false) {
 
     uploadStatus.textContent = message;
     uploadStatus.style.color = isError ? 'red' : '#6d6d6d';
+}
+
+function renderReconnectModal() {
+    const sessions = loadReconnectSessions();
+    if (sessions.length === 0 || document.querySelector('.reconnect_modal')) {
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'reconnect_modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'reconnect_modal_title');
+
+    const panel = document.createElement('div');
+    panel.className = 'reconnect_modal__panel';
+
+    const title = document.createElement('h2');
+    title.className = 'reconnect_modal__title';
+    title.id = 'reconnect_modal_title';
+    title.textContent = 'Reconnect to chat';
+    panel.appendChild(title);
+
+    const list = document.createElement('div');
+    list.className = 'reconnect_modal__list';
+
+    sessions.forEach((session) => {
+        const link = document.createElement('a');
+        link.className = 'button reconnect_modal__button';
+        link.href = reconnectSessionLink(session);
+        link.textContent = session.name ? 'Reconnect as ' + session.name : 'Reconnect';
+        list.appendChild(link);
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'reconnect_modal__actions';
+
+    actions.appendChild(list);
+
+    const dismissButton = document.createElement('button');
+    dismissButton.className = 'reconnect_modal__secondary';
+    dismissButton.type = 'button';
+    dismissButton.textContent = 'Not now';
+    dismissButton.addEventListener('click', () => {
+        modal.remove();
+    });
+    actions.appendChild(dismissButton);
+
+    panel.appendChild(actions);
+    modal.appendChild(panel);
+    document.body.appendChild(modal);
 }
 
 function renderImagesPlaceholder(count) {
@@ -400,6 +456,9 @@ function onMessageSubmitError(e) {
 }
 
 function initPage() {
+    installRestrictedWebViewWarning();
+    renderReconnectModal();
+
     $('#loading').hide();
     $('#result_text').html('');
     $('#result_link').html('');

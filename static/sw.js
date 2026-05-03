@@ -79,10 +79,13 @@ if (IS_LOCAL_DEV) {
   });
 
   self.addEventListener('activate', function (event) {
+    let deletedOldCache = false;
+
     event.waitUntil(
       caches.keys().then(function (cacheNames) {
         return Promise.all(cacheNames.map(function (cacheName) {
           if (cacheName !== CACHE_NAME) {
+            deletedOldCache = true;
             return caches.delete(cacheName);
           }
 
@@ -90,6 +93,16 @@ if (IS_LOCAL_DEV) {
         }));
       }).then(function () {
         return self.clients.claim();
+      }).then(function () {
+        if (!deletedOldCache) {
+          return Promise.resolve();
+        }
+
+        return self.clients.matchAll({ type: 'window' }).then(function (clients) {
+          return Promise.all(clients.map(function (client) {
+            return client.navigate(client.url);
+          }));
+        });
       })
     );
   });
@@ -116,21 +129,9 @@ if (IS_LOCAL_DEV) {
       });
     }
 
-    event.respondWith(
-      caches.match(event.request).then(function (cachedResponse) {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        if (event.request.mode === 'navigate') {
-          return caches.match(url.pathname).then(function (cachedPageResponse) {
-            return cachedPageResponse || fetchAndCache(event.request);
-          });
-        }
-
-        return fetchAndCache(event.request);
-      }).catch(function () {
-        if (event.request.mode === 'navigate') {
+    if (event.request.mode === 'navigate') {
+      event.respondWith(
+        fetchAndCache(event.request).catch(function () {
           return caches.match(url.pathname).then(function (cachedResponse) {
             if (cachedResponse) {
               return cachedResponse;
@@ -143,8 +144,19 @@ if (IS_LOCAL_DEV) {
               headers: { 'Content-Type': 'text/plain' }
             });
           });
+        })
+      );
+      return;
+    }
+
+    event.respondWith(
+      caches.match(event.request).then(function (cachedResponse) {
+        if (cachedResponse) {
+          return cachedResponse;
         }
 
+        return fetchAndCache(event.request);
+      }).catch(function () {
         return new Response('', { status: 503 });
       })
     );

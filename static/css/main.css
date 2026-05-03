@@ -146,6 +146,97 @@ a {
     background-color: #000000;
 }
 
+.webview_warning {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 9500;
+    width: min(620px, calc(100% - 24px));
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 14px;
+    border: 1px solid #111111;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111111;
+    font-size: 16px;
+    line-height: 1.35;
+    text-align: center;
+    transform: translateX(-50%);
+}
+
+.reconnect_modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.reconnect_modal__panel {
+    width: min(420px, 100%);
+    max-height: min(640px, calc(100vh - 32px));
+    box-sizing: border-box;
+    padding: 20px;
+    border: 1px solid #111111;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111111;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.reconnect_modal__title {
+    margin: 0 0 16px;
+    font-size: 24px;
+    line-height: 1.25;
+}
+
+.reconnect_modal__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    min-height: 0;
+}
+
+.reconnect_modal__list {
+    display: flex;
+    max-height: min(360px, 55vh);
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px;
+}
+
+.reconnect_modal__button {
+    justify-content: center;
+    min-height: 44px;
+    height: auto;
+    padding: 8px 16px;
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+.reconnect_modal__secondary {
+    min-height: 40px;
+    border: 0;
+    background: transparent;
+    color: #111111;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.reconnect_modal__secondary:focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 2px;
+}
+
 .button__generate input {
     padding: 10px 40px;
     font-size: 30px;
