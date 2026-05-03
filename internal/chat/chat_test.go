@@ -149,6 +149,93 @@ func TestAddUserPersistsChatState(t *testing.T) {
 	}
 }
 
+func TestPushSubscriptionPersistsChatState(t *testing.T) {
+	store := &testChatStateStore{}
+	subscription := PushSubscription{
+		Endpoint: "https://push.example/subscription",
+		Keys: PushKeys{
+			Auth:   "auth-secret",
+			P256DH: "p256dh-key",
+		},
+	}
+	c := NewChat(NewChatOpts{
+		ID:       "push-state-persist-test",
+		MaxJoins: 2,
+		Participants: []Participant{
+			{
+				ID:             7,
+				Name:           "restored user",
+				ReconnectToken: "reconnect-token",
+			},
+		},
+		Store: store,
+	})
+
+	if ok := c.UpsertPushSubscription(7, subscription); !ok {
+		t.Fatalf("expected push subscription to be upserted")
+	}
+
+	state, ok := store.lastState()
+	if !ok {
+		t.Fatalf("expected chat state to be persisted")
+	}
+	if len(state.PushSubscriptions) != 1 {
+		t.Fatalf("expected 1 push subscription, got %d", len(state.PushSubscriptions))
+	}
+
+	persistedSubscription := state.PushSubscriptions[0]
+	if persistedSubscription.ParticipantID != 7 {
+		t.Fatalf("expected participant id 7, got %d", persistedSubscription.ParticipantID)
+	}
+	if persistedSubscription.Endpoint != subscription.Endpoint {
+		t.Fatalf("expected endpoint %q, got %q", subscription.Endpoint, persistedSubscription.Endpoint)
+	}
+	if persistedSubscription.Keys.Auth != subscription.Keys.Auth {
+		t.Fatalf("expected auth key %q, got %q", subscription.Keys.Auth, persistedSubscription.Keys.Auth)
+	}
+	if persistedSubscription.Keys.P256DH != subscription.Keys.P256DH {
+		t.Fatalf("expected p256dh key %q, got %q", subscription.Keys.P256DH, persistedSubscription.Keys.P256DH)
+	}
+}
+
+func TestRestoredPushSubscriptionIsAvailableForOfflineTarget(t *testing.T) {
+	subscription := PushSubscription{
+		Endpoint: "https://push.example/subscription",
+		Keys: PushKeys{
+			Auth:   "auth-secret",
+			P256DH: "p256dh-key",
+		},
+	}
+	c := NewChat(NewChatOpts{
+		ID:       "restored-push-target-test",
+		MaxJoins: 2,
+		Participants: []Participant{
+			{
+				ID:             1,
+				Name:           "sender",
+				ReconnectToken: "sender-token",
+			},
+			{
+				ID:             2,
+				Name:           "offline receiver",
+				ReconnectToken: "receiver-token",
+			},
+		},
+		PushSubscriptions: map[int]PushSubscription{
+			2: subscription,
+		},
+	})
+
+	targets := c.offlinePushTargets(1)
+	restoredSubscription, ok := targets[2]
+	if !ok {
+		t.Fatalf("expected restored push subscription to be available")
+	}
+	if restoredSubscription != subscription {
+		t.Fatalf("expected subscription %#v, got %#v", subscription, restoredSubscription)
+	}
+}
+
 func TestAddUserRollsBackJoinWhenStateStoreFails(t *testing.T) {
 	storeErr := errors.New("store unavailable")
 	store := &testChatStateStore{err: storeErr}

@@ -45,3 +45,40 @@ func TestNewChatFromRedisRestoresParticipants(t *testing.T) {
 		t.Fatalf("expected participant %#v, got %#v", participants[0], chat.Participants[0])
 	}
 }
+
+func TestNewChatFromRedisRestoresPushSubscriptions(t *testing.T) {
+	pushSubscriptions := []entity.ChatPushSubscription{
+		{
+			ParticipantID: 42,
+			Endpoint:      "https://push.example/subscription",
+			Keys: entity.ChatPushKeys{
+				Auth:   "auth-secret",
+				P256DH: "p256dh-key",
+			},
+		},
+	}
+	pushSubscriptionsJSON, err := json.Marshal(pushSubscriptions)
+	if err != nil {
+		t.Fatalf("could not marshal push subscriptions: %v", err)
+	}
+
+	chat, err := newChatFromRedis("chat-id", map[string]string{
+		chatMaxUsersKey:          "3",
+		chatRestJoinsKey:         "2",
+		chatPushSubscriptionsKey: string(pushSubscriptionsJSON),
+	})
+	if err != nil {
+		t.Fatalf("could not restore chat: %v", err)
+	}
+
+	if len(chat.PushSubscriptions) != 1 {
+		t.Fatalf("expected 1 push subscription, got %d", len(chat.PushSubscriptions))
+	}
+	if chat.PushSubscriptions[0] != pushSubscriptions[0] {
+		t.Fatalf(
+			"expected push subscription %#v, got %#v",
+			pushSubscriptions[0],
+			chat.PushSubscriptions[0],
+		)
+	}
+}

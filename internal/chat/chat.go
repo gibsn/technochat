@@ -89,15 +89,16 @@ type StateStore interface {
 }
 
 type NewChatOpts struct {
-	ID               string
-	MaxJoins         int
-	RestJoins        int
-	RestoreRestJoins bool
-	Participants     []Participant
-	OfflineTTL       time.Duration
-	StateRefreshRate time.Duration
-	Store            StateStore
-	PushSender       PushSender
+	ID                string
+	MaxJoins          int
+	RestJoins         int
+	RestoreRestJoins  bool
+	Participants      []Participant
+	PushSubscriptions map[int]PushSubscription
+	OfflineTTL        time.Duration
+	StateRefreshRate  time.Duration
+	Store             StateStore
+	PushSender        PushSender
 }
 
 func NewChat(opts NewChatOpts) *Chat {
@@ -129,7 +130,7 @@ func NewChat(opts NewChatOpts) *Chat {
 		participants:         participants,
 		participantByID:      participantByIDFromParticipants(participants),
 		corresps:             make(map[int]*user.User),
-		pushSubscriptions:    make(map[int]PushSubscription),
+		pushSubscriptions:    validPushSubscriptions(opts.PushSubscriptions, participants),
 		pushSender:           opts.PushSender,
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
@@ -158,6 +159,28 @@ func participantByIDFromParticipants(participants map[string]*Participant) map[i
 	return byID
 }
 
+func validPushSubscriptions(
+	subscriptions map[int]PushSubscription,
+	participants map[string]*Participant,
+) map[int]PushSubscription {
+	byParticipantID := participantByIDFromParticipants(participants)
+	valid := make(map[int]PushSubscription, len(subscriptions))
+	for participantID, subscription := range subscriptions {
+		if _, ok := byParticipantID[participantID]; !ok {
+			continue
+		}
+		if subscription.Endpoint == "" ||
+			subscription.Keys.Auth == "" ||
+			subscription.Keys.P256DH == "" {
+			continue
+		}
+
+		valid[participantID] = subscription
+	}
+
+	return valid
+}
+
 func (c *Chat) Start() {
 	c.start.Do(func() {
 		c.WG.Add(2)
@@ -181,12 +204,29 @@ func (c *Chat) stateLocked() entity.Chat {
 		return participants[i].ID < participants[j].ID
 	})
 
+	pushSubscriptions := make([]entity.ChatPushSubscription, 0, len(c.pushSubscriptions))
+	for participantID, subscription := range c.pushSubscriptions {
+		pushSubscriptions = append(pushSubscriptions, entity.ChatPushSubscription{
+			ParticipantID: participantID,
+			Endpoint:      subscription.Endpoint,
+			Keys: entity.ChatPushKeys{
+				Auth:   subscription.Keys.Auth,
+				P256DH: subscription.Keys.P256DH,
+			},
+		})
+	}
+
+	sort.Slice(pushSubscriptions, func(i, j int) bool {
+		return pushSubscriptions[i].ParticipantID < pushSubscriptions[j].ParticipantID
+	})
+
 	return entity.Chat{
-		ID:           c.ID,
-		MaxUsers:     c.maxUsers,
-		RestJoins:    c.restJoins,
-		Participants: participants,
-		TTL:          int(c.offlineTTL.Seconds()),
+		ID:                c.ID,
+		MaxUsers:          c.maxUsers,
+		RestJoins:         c.restJoins,
+		Participants:      participants,
+		PushSubscriptions: pushSubscriptions,
+		TTL:               int(c.offlineTTL.Seconds()),
 	}
 }
 

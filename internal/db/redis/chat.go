@@ -45,11 +45,19 @@ func newChatFromRedis(id string, redisResp map[string]string) (entity.Chat, erro
 		}
 	}
 
+	pushSubscriptions := []entity.ChatPushSubscription{}
+	if pushSubscriptionsJSON := redisResp[chatPushSubscriptionsKey]; pushSubscriptionsJSON != "" {
+		if err := json.Unmarshal([]byte(pushSubscriptionsJSON), &pushSubscriptions); err != nil {
+			return entity.Chat{}, fmt.Errorf("invalid chat %s: push subscriptions are invalid: %w", id, err)
+		}
+	}
+
 	return entity.Chat{
-		ID:           id,
-		MaxUsers:     maxUsers,
-		RestJoins:    restJoins,
-		Participants: participants,
+		ID:                id,
+		MaxUsers:          maxUsers,
+		RestJoins:         restJoins,
+		Participants:      participants,
+		PushSubscriptions: pushSubscriptions,
 	}, nil
 }
 
@@ -66,12 +74,17 @@ func (r *Redis) saveChat(chat entity.Chat) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal chat %s participants: %w", chat.ID, err)
 	}
+	pushSubscriptionsJSON, err := json.Marshal(chat.PushSubscriptions)
+	if err != nil {
+		return fmt.Errorf("could not marshal chat %s push subscriptions: %w", chat.ID, err)
+	}
 
 	if err := r.pool.Cmd(
 		"HMSET", key,
 		chatMaxUsersKey, chat.MaxUsers,
 		chatRestJoinsKey, chat.RestJoins,
 		chatParticipantsKey, string(participantsJSON),
+		chatPushSubscriptionsKey, string(pushSubscriptionsJSON),
 	).Err; err != nil {
 		return fmt.Errorf("could not save chat %s: %w", chat.ID, err)
 	}

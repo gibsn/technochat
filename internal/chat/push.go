@@ -133,13 +133,23 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 	}
 
 	c.correspsMx.Lock()
-	defer c.correspsMx.Unlock()
 
 	if _, ok := c.participantByID[participantID]; !ok {
+		c.correspsMx.Unlock()
 		return false
 	}
 
 	c.pushSubscriptions[participantID] = subscription
+	c.correspsMx.Unlock()
+
+	if err := c.persistState(); err != nil {
+		log.Printf(
+			"error: chat: could not persist push subscription chat=%s participant_id=%d: %v",
+			c.ID, participantID, err,
+		)
+		return false
+	}
+
 	log.Printf("info: chat: upserted push subscription chat=%s participant_id=%d", c.ID, participantID)
 
 	return true
@@ -147,13 +157,20 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 
 func (c *Chat) deletePushSubscription(participantID int) {
 	c.correspsMx.Lock()
-	defer c.correspsMx.Unlock()
-
 	delete(c.pushSubscriptions, participantID)
+	c.correspsMx.Unlock()
 }
 
 func (c *Chat) DeletePushSubscription(participantID int) {
 	c.deletePushSubscription(participantID)
+	if err := c.persistState(); err != nil {
+		log.Printf(
+			"error: chat: could not persist push subscription delete chat=%s participant_id=%d: %v",
+			c.ID, participantID, err,
+		)
+		return
+	}
+
 	log.Printf("info: chat: deleted push subscription chat=%s participant_id=%d", c.ID, participantID)
 }
 
@@ -211,6 +228,13 @@ func (c *Chat) sendPushToOfflineParticipants(senderID int, msg *messageForPush) 
 
 			if errors.Is(err, ErrPushSubscriptionGone) {
 				c.deletePushSubscription(participantID)
+				if err := c.persistState(); err != nil {
+					log.Printf(
+						"error: chat: could not persist expired push subscription removal chat=%s "+
+							"participant_id=%d: %v",
+						c.ID, participantID, err,
+					)
+				}
 				log.Printf(
 					"info: chat: removed expired push subscription chat=%s participant_id=%d",
 					c.ID, participantID,
