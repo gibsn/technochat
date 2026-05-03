@@ -1,4 +1,8 @@
 services:
+    redis:
+        ports:
+            - "${TECHNOCHAT_REDIS_PORT:-6379}:6379"
+
     nginx:
         build:
             args:
