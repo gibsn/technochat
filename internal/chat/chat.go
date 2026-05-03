@@ -79,9 +79,10 @@ type incomingMessage struct {
 }
 
 type Participant struct {
-	ID             int
-	Name           string
-	ReconnectToken string
+	ID               int
+	Name             string
+	ReconnectToken   string
+	PushSubscription *PushSubscription
 }
 
 type StateStore interface {
@@ -89,16 +90,15 @@ type StateStore interface {
 }
 
 type NewChatOpts struct {
-	ID                string
-	MaxJoins          int
-	RestJoins         int
-	RestoreRestJoins  bool
-	Participants      []Participant
-	PushSubscriptions map[int]PushSubscription
-	OfflineTTL        time.Duration
-	StateRefreshRate  time.Duration
-	Store             StateStore
-	PushSender        PushSender
+	ID               string
+	MaxJoins         int
+	RestJoins        int
+	RestoreRestJoins bool
+	Participants     []Participant
+	OfflineTTL       time.Duration
+	StateRefreshRate time.Duration
+	Store            StateStore
+	PushSender       PushSender
 }
 
 func NewChat(opts NewChatOpts) *Chat {
@@ -117,9 +117,14 @@ func NewChat(opts NewChatOpts) *Chat {
 	}
 
 	participants := make(map[string]*Participant, len(opts.Participants))
+	pushSubscriptions := make(map[int]PushSubscription, len(opts.Participants))
 	chatNames := NewChatNames()
 	for _, participant := range opts.Participants {
 		participant := participant
+		if participant.PushSubscription != nil {
+			pushSubscriptions[participant.ID] = *participant.PushSubscription
+			participant.PushSubscription = nil
+		}
 		participants[participant.ReconnectToken] = &participant
 		chatNames.usedNames[participant.ID] = true
 	}
@@ -130,7 +135,7 @@ func NewChat(opts NewChatOpts) *Chat {
 		participants:         participants,
 		participantByID:      participantByIDFromParticipants(participants),
 		corresps:             make(map[int]*user.User),
-		pushSubscriptions:    validPushSubscriptions(opts.PushSubscriptions, participants),
+		pushSubscriptions:    validPushSubscriptions(pushSubscriptions, participants),
 		pushSender:           opts.PushSender,
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
@@ -193,40 +198,34 @@ func (c *Chat) Start() {
 func (c *Chat) stateLocked() entity.Chat {
 	participants := make([]entity.ChatParticipant, 0, len(c.participants))
 	for _, participant := range c.participants {
-		participants = append(participants, entity.ChatParticipant{
+		chatParticipant := entity.ChatParticipant{
 			ID:             participant.ID,
 			Name:           participant.Name,
 			ReconnectToken: participant.ReconnectToken,
-		})
+		}
+		if subscription, ok := c.pushSubscriptions[participant.ID]; ok {
+			chatParticipant.PushSubscription = &entity.ChatPushSubscription{
+				Endpoint: subscription.Endpoint,
+				Keys: entity.ChatPushKeys{
+					Auth:   subscription.Keys.Auth,
+					P256DH: subscription.Keys.P256DH,
+				},
+			}
+		}
+
+		participants = append(participants, chatParticipant)
 	}
 
 	sort.Slice(participants, func(i, j int) bool {
 		return participants[i].ID < participants[j].ID
 	})
 
-	pushSubscriptions := make([]entity.ChatPushSubscription, 0, len(c.pushSubscriptions))
-	for participantID, subscription := range c.pushSubscriptions {
-		pushSubscriptions = append(pushSubscriptions, entity.ChatPushSubscription{
-			ParticipantID: participantID,
-			Endpoint:      subscription.Endpoint,
-			Keys: entity.ChatPushKeys{
-				Auth:   subscription.Keys.Auth,
-				P256DH: subscription.Keys.P256DH,
-			},
-		})
-	}
-
-	sort.Slice(pushSubscriptions, func(i, j int) bool {
-		return pushSubscriptions[i].ParticipantID < pushSubscriptions[j].ParticipantID
-	})
-
 	return entity.Chat{
-		ID:                c.ID,
-		MaxUsers:          c.maxUsers,
-		RestJoins:         c.restJoins,
-		Participants:      participants,
-		PushSubscriptions: pushSubscriptions,
-		TTL:               int(c.offlineTTL.Seconds()),
+		ID:           c.ID,
+		MaxUsers:     c.maxUsers,
+		RestJoins:    c.restJoins,
+		Participants: participants,
+		TTL:          int(c.offlineTTL.Seconds()),
 	}
 }
 
@@ -243,10 +242,9 @@ func (c *Chat) persistState() error {
 	}
 
 	c.correspsMx.RLock()
-	state := c.stateLocked()
-	c.correspsMx.RUnlock()
+	defer c.correspsMx.RUnlock()
 
-	return c.store.UpdateChat(state)
+	return c.store.UpdateChat(c.stateLocked())
 }
 
 func (c *Chat) RestJoins() int {

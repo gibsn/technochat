@@ -179,14 +179,14 @@ func TestPushSubscriptionPersistsChatState(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected chat state to be persisted")
 	}
-	if len(state.PushSubscriptions) != 1 {
-		t.Fatalf("expected 1 push subscription, got %d", len(state.PushSubscriptions))
+	if len(state.Participants) != 1 {
+		t.Fatalf("expected 1 persisted participant, got %d", len(state.Participants))
+	}
+	persistedSubscription := state.Participants[0].PushSubscription
+	if persistedSubscription == nil {
+		t.Fatalf("expected push subscription to be persisted on participant")
 	}
 
-	persistedSubscription := state.PushSubscriptions[0]
-	if persistedSubscription.ParticipantID != 7 {
-		t.Fatalf("expected participant id 7, got %d", persistedSubscription.ParticipantID)
-	}
 	if persistedSubscription.Endpoint != subscription.Endpoint {
 		t.Fatalf("expected endpoint %q, got %q", subscription.Endpoint, persistedSubscription.Endpoint)
 	}
@@ -216,13 +216,11 @@ func TestRestoredPushSubscriptionIsAvailableForOfflineTarget(t *testing.T) {
 				ReconnectToken: "sender-token",
 			},
 			{
-				ID:             2,
-				Name:           "offline receiver",
-				ReconnectToken: "receiver-token",
+				ID:               2,
+				Name:             "offline receiver",
+				ReconnectToken:   "receiver-token",
+				PushSubscription: &subscription,
 			},
-		},
-		PushSubscriptions: map[int]PushSubscription{
-			2: subscription,
 		},
 	})
 

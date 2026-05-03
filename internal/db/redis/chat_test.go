@@ -13,6 +13,13 @@ func TestNewChatFromRedisRestoresParticipants(t *testing.T) {
 			ID:             42,
 			Name:           "restored user",
 			ReconnectToken: "reconnect-token",
+			PushSubscription: &entity.ChatPushSubscription{
+				Endpoint: "https://push.example/subscription",
+				Keys: entity.ChatPushKeys{
+					Auth:   "auth-secret",
+					P256DH: "p256dh-key",
+				},
+			},
 		},
 	}
 	participantsJSON, err := json.Marshal(participants)
@@ -41,44 +48,19 @@ func TestNewChatFromRedisRestoresParticipants(t *testing.T) {
 	if len(chat.Participants) != 1 {
 		t.Fatalf("expected 1 participant, got %d", len(chat.Participants))
 	}
-	if chat.Participants[0] != participants[0] {
+	if chat.Participants[0].ID != participants[0].ID ||
+		chat.Participants[0].Name != participants[0].Name ||
+		chat.Participants[0].ReconnectToken != participants[0].ReconnectToken {
 		t.Fatalf("expected participant %#v, got %#v", participants[0], chat.Participants[0])
 	}
-}
-
-func TestNewChatFromRedisRestoresPushSubscriptions(t *testing.T) {
-	pushSubscriptions := []entity.ChatPushSubscription{
-		{
-			ParticipantID: 42,
-			Endpoint:      "https://push.example/subscription",
-			Keys: entity.ChatPushKeys{
-				Auth:   "auth-secret",
-				P256DH: "p256dh-key",
-			},
-		},
+	if chat.Participants[0].PushSubscription == nil {
+		t.Fatalf("expected participant push subscription to be restored")
 	}
-	pushSubscriptionsJSON, err := json.Marshal(pushSubscriptions)
-	if err != nil {
-		t.Fatalf("could not marshal push subscriptions: %v", err)
-	}
-
-	chat, err := newChatFromRedis("chat-id", map[string]string{
-		chatMaxUsersKey:          "3",
-		chatRestJoinsKey:         "2",
-		chatPushSubscriptionsKey: string(pushSubscriptionsJSON),
-	})
-	if err != nil {
-		t.Fatalf("could not restore chat: %v", err)
-	}
-
-	if len(chat.PushSubscriptions) != 1 {
-		t.Fatalf("expected 1 push subscription, got %d", len(chat.PushSubscriptions))
-	}
-	if chat.PushSubscriptions[0] != pushSubscriptions[0] {
+	if *chat.Participants[0].PushSubscription != *participants[0].PushSubscription {
 		t.Fatalf(
 			"expected push subscription %#v, got %#v",
-			pushSubscriptions[0],
-			chat.PushSubscriptions[0],
+			participants[0].PushSubscription,
+			chat.Participants[0].PushSubscription,
 		)
 	}
 }

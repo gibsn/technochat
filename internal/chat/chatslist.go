@@ -153,32 +153,32 @@ func newChatOptsFromState(
 ) NewChatOpts {
 	participants := make([]Participant, 0, len(savedChat.Participants))
 	for _, participant := range savedChat.Participants {
+		var pushSubscription *PushSubscription
+		if participant.PushSubscription != nil {
+			pushSubscription = &PushSubscription{
+				Endpoint: participant.PushSubscription.Endpoint,
+				Keys: PushKeys{
+					Auth:   participant.PushSubscription.Keys.Auth,
+					P256DH: participant.PushSubscription.Keys.P256DH,
+				},
+			}
+		}
+
 		participants = append(participants, Participant{
-			ID:             participant.ID,
-			Name:           participant.Name,
-			ReconnectToken: participant.ReconnectToken,
+			ID:               participant.ID,
+			Name:             participant.Name,
+			ReconnectToken:   participant.ReconnectToken,
+			PushSubscription: pushSubscription,
 		})
 	}
 
-	pushSubscriptions := make(map[int]PushSubscription, len(savedChat.PushSubscriptions))
-	for _, subscription := range savedChat.PushSubscriptions {
-		pushSubscriptions[subscription.ParticipantID] = PushSubscription{
-			Endpoint: subscription.Endpoint,
-			Keys: PushKeys{
-				Auth:   subscription.Keys.Auth,
-				P256DH: subscription.Keys.P256DH,
-			},
-		}
-	}
-
 	return NewChatOpts{
-		ID:                savedChat.ID,
-		MaxJoins:          savedChat.MaxUsers,
-		RestJoins:         savedChat.RestJoins,
-		RestoreRestJoins:  true,
-		Participants:      participants,
-		PushSubscriptions: pushSubscriptions,
-		Store:             store,
-		PushSender:        pushSender,
+		ID:               savedChat.ID,
+		MaxJoins:         savedChat.MaxUsers,
+		RestJoins:        savedChat.RestJoins,
+		RestoreRestJoins: true,
+		Participants:     participants,
+		Store:            store,
+		PushSender:       pushSender,
 	}
 }

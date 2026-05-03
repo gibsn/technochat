@@ -20,10 +20,9 @@ const (
 
 	imgBodyKey = "body"
 
-	chatMaxUsersKey          = "max_users"
-	chatRestJoinsKey         = "rest_joins"
-	chatParticipantsKey      = "participants"
-	chatPushSubscriptionsKey = "push_subscriptions"
+	chatMaxUsersKey     = "max_users"
+	chatRestJoinsKey    = "rest_joins"
+	chatParticipantsKey = "participants"
 )
 
 type Redis struct {

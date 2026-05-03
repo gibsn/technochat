@@ -173,7 +173,6 @@ new Vue({
         pushSubscription: null,
         pushSupported: pushSupported(),
         pushPermission: pushPermission(),
-        pushSubscribeInProgress: false,
         pushSubscriptionChangeHandler: null,
     },
     computed: {
@@ -292,7 +291,7 @@ new Vue({
                 this.username = session.name;
             }
             await this.renderStoredPushMessages();
-            await this.refreshPushSubscription(false);
+            await this.refreshPushSubscription(true);
             this.openChatSocket(Boolean(this.reconnectToken));
         },
         openChatSocket: function(useReconnect) {
@@ -471,7 +470,6 @@ new Vue({
                 return;
             }
 
-            this.pushSubscribeInProgress = true;
             try {
                 this.pushSubscription = await currentPushSubscription(requestPermission);
                 this.pushPermission = pushPermission();
@@ -484,18 +482,7 @@ new Vue({
                 }, errorDiagnostic(e)));
                 this.pushSubscription = null;
                 this.pushPermission = pushPermission();
-            } finally {
-                this.pushSubscribeInProgress = false;
             }
-        },
-        enablePushNotifications: async function() {
-            reportChatDiagnostic('chat_push_enable_clicked', {
-                chat_id: this.chatID,
-                permission: pushPermission(),
-            });
-
-            await this.refreshPushSubscription(true);
-            this.sendPushSubscription();
         },
         sendPushSubscription: function() {
             if (!this.pushSubscription || !this.ws || this.ws.readyState !== 1) {

@@ -1,24 +1,23 @@
 package entity
 
 type Chat struct {
-	ID                string
-	MaxUsers          int
-	RestJoins         int
-	Participants      []ChatParticipant
-	PushSubscriptions []ChatPushSubscription
-	TTL               int
+	ID           string
+	MaxUsers     int
+	RestJoins    int
+	Participants []ChatParticipant
+	TTL          int
 }
 
 type ChatParticipant struct {
-	ID             int
-	Name           string
-	ReconnectToken string
+	ID               int
+	Name             string
+	ReconnectToken   string
+	PushSubscription *ChatPushSubscription
 }
 
 type ChatPushSubscription struct {
-	ParticipantID int          `json:"participant_id"`
-	Endpoint      string       `json:"endpoint"`
-	Keys          ChatPushKeys `json:"keys"`
+	Endpoint string       `json:"endpoint"`
+	Keys     ChatPushKeys `json:"keys"`
 }
 
 type ChatPushKeys struct {
