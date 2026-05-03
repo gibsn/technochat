@@ -120,7 +120,7 @@ func TestChatConnectRestoresChatLazily(t *testing.T) {
 	defer server.Close()
 
 	client := dialTestWebsocket(t, server.URL, "?id="+url.QueryEscape(chatID)+"&reconnect_token="+reconnectToken)
-	defer client.Close()
+	defer closeTestWebsocket(t, client)
 
 	init := readTestConnInit(t, client)
 	if init.Name != "restored user" {
@@ -189,6 +189,14 @@ func dialTestWebsocket(t *testing.T, serverURL string, rawQuery string) *websock
 	}
 
 	return client
+}
+
+func closeTestWebsocket(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("could not close websocket client: %v", err)
+	}
 }
 
 func readTestConnInit(t *testing.T, client *websocket.Conn) testConnInit {
