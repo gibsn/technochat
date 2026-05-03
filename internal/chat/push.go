@@ -109,8 +109,11 @@ func handlePushResponse(response *http.Response) error {
 	if response == nil {
 		return nil
 	}
-	defer response.Body.Close()
 	if _, err := io.Copy(io.Discard, response.Body); err != nil {
+		_ = response.Body.Close()
+		return err
+	}
+	if err := response.Body.Close(); err != nil {
 		return err
 	}
 
