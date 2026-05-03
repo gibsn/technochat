@@ -11,6 +11,12 @@ export async function currentPushSubscription(requestPermission) {
     if (Notification.permission === 'denied') {
         return null;
     }
+
+    const publicKey = await loadVAPIDPublicKey();
+    if (!publicKey) {
+        return null;
+    }
+
     if (Notification.permission !== 'granted') {
         if (!requestPermission) {
             return null;
@@ -20,11 +26,6 @@ export async function currentPushSubscription(requestPermission) {
         if (permission !== 'granted') {
             return null;
         }
-    }
-
-    const publicKey = await loadVAPIDPublicKey();
-    if (!publicKey) {
-        return null;
     }
 
     const registration = await navigator.serviceWorker.register('/sw.js');
