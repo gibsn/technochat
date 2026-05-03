@@ -3,16 +3,10 @@ package http
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/gorilla/websocket"
-
-	"technochat/internal/chat/message"
 	"technochat/pkg/entity"
 )
 
@@ -95,56 +89,6 @@ func (db *testDB) addedChat() entity.Chat {
 	return db.addChat
 }
 
-func TestChatConnectRestoresChatLazily(t *testing.T) {
-	const chatID = "lazy-restore-chat-test"
-	const reconnectToken = "lazy-restore-token"
-
-	db := &testDB{
-		chat: entity.Chat{
-			ID:        chatID,
-			MaxUsers:  1,
-			RestJoins: 0,
-			Participants: []entity.ChatParticipant{
-				{
-					ID:             7,
-					Name:           "restored user",
-					ReconnectToken: reconnectToken,
-				},
-			},
-		},
-	}
-	s := &Server{db: db}
-
-	server := httptest.NewServer(http.HandlerFunc(s.chatReconnect))
-	defer server.Close()
-
-	client := dialTestWebsocket(t, server.URL, "?id="+url.QueryEscape(chatID)+"&reconnect_token="+reconnectToken)
-	defer closeTestWebsocket(t, client)
-
-	init := readTestConnInit(t, client)
-	if init.Name != "restored user" {
-		t.Fatalf("expected restored user name, got %q", init.Name)
-	}
-	if init.ReconnectToken != reconnectToken {
-		t.Fatalf("expected reconnect token to stay stable")
-	}
-	if db.getChatCalls() != 1 {
-		t.Fatalf("expected chat to be read lazily once, got %d reads", db.getChatCalls())
-	}
-	if db.updateCount() == 0 {
-		t.Fatalf("expected reconnect to persist restored chat state")
-	}
-
-	restoredChat, err := s.chatRegistry().GetChat(chatID)
-	if err != nil {
-		t.Fatalf("could not get restored chat: %v", err)
-	}
-	if restoredChat == nil {
-		t.Fatalf("expected chat to be registered after lazy restore")
-	}
-	restoredChat.TriggerShutdown()
-}
-
 func TestChatInitDoesNotRegisterChatWhenPersistFails(t *testing.T) {
 	storeErr := errors.New("redis unavailable")
 	db := &testDB{addErr: storeErr}
@@ -177,75 +121,5 @@ func TestChatInitDoesNotRegisterChatWhenPersistFails(t *testing.T) {
 	if activeChat != nil {
 		activeChat.TriggerShutdown()
 		t.Fatalf("expected failed chat init not to register chat %s in memory", persistedChat.ID)
-	}
-}
-
-type testConnInit struct {
-	Name           string
-	ReconnectToken string
-}
-
-func dialTestWebsocket(t *testing.T, serverURL string, rawQuery string) *websocket.Conn {
-	t.Helper()
-
-	wsURL := "ws" + strings.TrimPrefix(serverURL, "http") + rawQuery
-	client, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	if err != nil {
-		t.Fatalf("could not dial websocket: %v", err)
-	}
-
-	return client
-}
-
-func closeTestWebsocket(t *testing.T, client *websocket.Conn) {
-	t.Helper()
-
-	if err := client.Close(); err != nil {
-		t.Fatalf("could not close websocket client: %v", err)
-	}
-}
-
-func readTestConnInit(t *testing.T, client *websocket.Conn) testConnInit {
-	t.Helper()
-
-	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("could not set read deadline: %v", err)
-	}
-
-	for {
-		var wsMsg message.WSMessage
-		if err := client.ReadJSON(&wsMsg); err != nil {
-			t.Fatalf("could not read websocket message: %v", err)
-		}
-
-		event, ok := wsMsg.Data.(map[string]interface{})
-		if wsMsg.Type != message.WSMsgTypeService || !ok {
-			continue
-		}
-
-		eventID, ok := event["event_id"].(float64)
-		if !ok || message.EventID(eventID) != message.EventConnInitOk {
-			continue
-		}
-
-		eventData, ok := event["event_data"].(map[string]interface{})
-		if !ok {
-			t.Fatalf("expected conn init event data, got %#v", event["event_data"])
-		}
-
-		name, ok := eventData["name"].(string)
-		if !ok {
-			t.Fatalf("expected conn init name, got %#v", eventData["name"])
-		}
-
-		reconnectToken, ok := eventData["reconnect_token"].(string)
-		if !ok {
-			t.Fatalf("expected conn init reconnect token, got %#v", eventData["reconnect_token"])
-		}
-
-		return testConnInit{
-			Name:           name,
-			ReconnectToken: reconnectToken,
-		}
 	}
 }

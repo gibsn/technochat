@@ -9,9 +9,16 @@ import (
 )
 
 type Registry struct {
-	chats map[string]*Chat
-	store RestoreStore
-	mx    sync.Mutex
+	chats     map[string]*Chat
+	restoring map[string]*restoreCall
+	store     RestoreStore
+	mx        sync.Mutex
+}
+
+type restoreCall struct {
+	done chan struct{}
+	chat *Chat
+	err  error
 }
 
 type RestoreStore interface {
@@ -22,8 +29,9 @@ type RestoreStore interface {
 
 func NewRegistry(store RestoreStore) *Registry {
 	return &Registry{
-		chats: make(map[string]*Chat),
-		store: store,
+		chats:     make(map[string]*Chat),
+		restoring: make(map[string]*restoreCall),
+		store:     store,
 	}
 }
 
@@ -51,12 +59,35 @@ func (r *Registry) GetChat(id string) (*Chat, error) {
 	r.mx.Lock()
 	c := r.chats[id]
 	store := r.store
-	r.mx.Unlock()
-
 	if c != nil || store == nil {
+		r.mx.Unlock()
+
 		return c, nil
 	}
 
+	if call, ok := r.restoring[id]; ok {
+		r.mx.Unlock()
+		<-call.done
+
+		return call.chat, call.err
+	}
+
+	call := &restoreCall{done: make(chan struct{})}
+	r.restoring[id] = call
+	r.mx.Unlock()
+
+	call.chat, call.err = r.restoreChat(id, store)
+
+	r.mx.Lock()
+	delete(r.restoring, id)
+	r.mx.Unlock()
+
+	close(call.done)
+
+	return call.chat, call.err
+}
+
+func (r *Registry) restoreChat(id string, store RestoreStore) (*Chat, error) {
 	savedChat, err := store.GetChat(id)
 	if err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
