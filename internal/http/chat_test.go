@@ -13,11 +13,9 @@ import (
 type testDB struct {
 	mx sync.Mutex
 
-	chat      entity.Chat
-	addChat   entity.Chat
-	addErr    error
-	getCalls  int
-	updateNum int
+	chat    entity.Chat
+	addChat entity.Chat
+	addErr  error
 }
 
 func (db *testDB) Init()     {}
@@ -40,18 +38,12 @@ func (db *testDB) AddChat(chat entity.Chat) error {
 }
 
 func (db *testDB) UpdateChat(entity.Chat) error {
-	db.mx.Lock()
-	defer db.mx.Unlock()
-
-	db.updateNum++
-
 	return nil
 }
 func (db *testDB) withGetChat(chatID string) (entity.Chat, error) {
 	db.mx.Lock()
 	defer db.mx.Unlock()
 
-	db.getCalls++
 	if db.chat.ID != chatID {
 		return entity.Chat{}, entity.ErrNotFound
 	}
@@ -66,20 +58,6 @@ func (db *testDB) withAddChat(chat entity.Chat) error {
 	db.addChat = chat
 
 	return db.addErr
-}
-
-func (db *testDB) updateCount() int {
-	db.mx.Lock()
-	defer db.mx.Unlock()
-
-	return db.updateNum
-}
-
-func (db *testDB) getChatCalls() int {
-	db.mx.Lock()
-	defer db.mx.Unlock()
-
-	return db.getCalls
 }
 
 func (db *testDB) addedChat() entity.Chat {
