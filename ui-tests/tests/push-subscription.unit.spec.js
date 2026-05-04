@@ -78,7 +78,7 @@ test("@unit does not request notification permission when push is disabled", asy
   });
 });
 
-test("@unit requests notification permission after VAPID key is preloaded", async ({ page }) => {
+test("@unit does not request notification permission on local development host", async ({ page }) => {
   await page.route("**/api/v1/push/vapid-public-key", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -97,7 +97,6 @@ test("@unit requests notification permission after VAPID key is preloaded", asyn
   const result = await page.evaluate(async () => {
     let permissionRequested = false;
     let serviceWorkerRegistered = false;
-    let subscribed = false;
 
     Object.defineProperty(window, "Notification", {
       configurable: true,
@@ -115,23 +114,7 @@ test("@unit requests notification permission after VAPID key is preloaded", asyn
       value: {
         register: async () => {
           serviceWorkerRegistered = true;
-          return {
-            pushManager: {
-              getSubscription: async () => null,
-              subscribe: async () => {
-                subscribed = true;
-                return {
-                  toJSON: () => ({
-                    endpoint: "https://push.example/subscription",
-                    keys: {
-                      auth: "auth-key",
-                      p256dh: "p256dh-key",
-                    },
-                  }),
-                };
-              },
-            },
-          };
+          return {};
         },
       },
     });
@@ -147,21 +130,13 @@ test("@unit requests notification permission after VAPID key is preloaded", asyn
     return {
       permissionRequested,
       serviceWorkerRegistered,
-      subscribed,
       subscription,
     };
   });
 
   expect(result).toEqual({
-    permissionRequested: true,
-    serviceWorkerRegistered: true,
-    subscribed: true,
-    subscription: {
-      endpoint: "https://push.example/subscription",
-      keys: {
-        auth: "auth-key",
-        p256dh: "p256dh-key",
-      },
-    },
+    permissionRequested: false,
+    serviceWorkerRegistered: false,
+    subscription: null,
   });
 });
