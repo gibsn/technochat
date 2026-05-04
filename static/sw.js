@@ -199,10 +199,11 @@ function handlePush(event) {
       body: payload.sender ? 'Message from ' + payload.sender : 'Open chat to read it',
       icon: '/images/icon-192x192.png',
       badge: '/images/icon-192x192.png',
-      tag: 'technochat:' + payload.chatId,
+      tag: 'technochat:' + payload.chatId + ':' + payload.messageId,
       renotify: true,
       data: {
-        chatId: payload.chatId
+        chatId: payload.chatId,
+        messageId: payload.messageId
       }
     });
   });
