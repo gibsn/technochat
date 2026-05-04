@@ -23,8 +23,8 @@ github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# golang.org/x/crypto v0.31.0
-## explicit; go 1.20
+# golang.org/x/crypto v0.45.0
+## explicit; go 1.24.0
 golang.org/x/crypto/hkdf
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
