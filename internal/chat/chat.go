@@ -580,6 +580,11 @@ func (c *Chat) handleIncomingMessage(
 		if eventID == message.EventPushSubscribe {
 			if subscription, ok := pushSubscriptionFromMessage(incoming.msg); ok {
 				c.UpsertPushSubscription(incoming.user.ID, subscription)
+			} else {
+				log.Printf(
+					"warning: chat: invalid push subscription chat=%s user_id=%d user_name=%q remote=%s",
+					c.ID, incoming.user.ID, incoming.user.Name, incoming.user.Addr(),
+				)
 			}
 			return typingBroadcastPending
 		}

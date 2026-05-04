@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -147,8 +148,9 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 	}
 	if c.store == nil {
 		log.Printf(
-			"info: chat: upserted push subscription chat=%s participant_id=%d",
-			c.ID, participantID,
+			"info: chat: participant subscribed to push chat=%s participant_id=%d participant_name=%q "+
+				"endpoint_origin=%q",
+			c.ID, participantID, chatParticipant.Name, pushEndpointOrigin(subscription.Endpoint),
 		)
 		return true
 	}
@@ -165,7 +167,11 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 		return false
 	}
 
-	log.Printf("info: chat: upserted push subscription chat=%s participant_id=%d", c.ID, participantID)
+	log.Printf(
+		"info: chat: participant subscribed to push chat=%s participant_id=%d participant_name=%q "+
+			"endpoint_origin=%q",
+		c.ID, participantID, chatParticipant.Name, pushEndpointOrigin(subscription.Endpoint),
+	)
 
 	return true
 }
@@ -180,8 +186,8 @@ func (c *Chat) DeletePushSubscription(participantID int) {
 	}
 	if c.store == nil {
 		log.Printf(
-			"info: chat: deleted push subscription chat=%s participant_id=%d",
-			c.ID, participantID,
+			"info: chat: participant unsubscribed from push chat=%s participant_id=%d participant_name=%q",
+			c.ID, participantID, chatParticipant.Name,
 		)
 		return
 	}
@@ -198,7 +204,10 @@ func (c *Chat) DeletePushSubscription(participantID int) {
 		return
 	}
 
-	log.Printf("info: chat: deleted push subscription chat=%s participant_id=%d", c.ID, participantID)
+	log.Printf(
+		"info: chat: participant unsubscribed from push chat=%s participant_id=%d participant_name=%q",
+		c.ID, participantID, chatParticipant.Name,
+	)
 }
 
 func (c *Chat) offlinePushTargets(senderID int) map[int]PushSubscription {
@@ -218,6 +227,15 @@ func (c *Chat) offlinePushTargets(senderID int) map[int]PushSubscription {
 	}
 
 	return targets
+}
+
+func pushEndpointOrigin(endpoint string) string {
+	parsedURL, err := url.Parse(endpoint)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return ""
+	}
+
+	return parsedURL.Scheme + "://" + parsedURL.Host
 }
 
 func (c *Chat) sendPushToOfflineParticipants(senderID int, msg *messageForPush) {
