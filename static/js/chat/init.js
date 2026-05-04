@@ -3,12 +3,10 @@ import {AESGCM128, ArrayBufferToBase64, Encrypter} from "/js/message/crypto.js";
 
 let copyButtonView;
 let joinButtonView;
-let createChatButtonView;
-let chatEntryView;
-let createChatFormView;
 let joinLinkFormView;
 let joinLinkInputView;
 let joinLinkErrorView;
+let joinLinkDividerView;
 
 function isStandalonePWA() {
     return window.matchMedia('(display-mode: standalone)').matches ||
@@ -59,11 +57,6 @@ function chatLinkPath(rawLink) {
     return url.pathname + url.search + url.hash;
 }
 
-function onShowCreateChat() {
-    chatEntryView.style.display = 'none';
-    createChatFormView.style.display = 'flex';
-}
-
 function onJoinLinkSubmit(e) {
     e.preventDefault();
 
@@ -83,9 +76,11 @@ function onJoinLinkSubmit(e) {
 function onSubmit(e) {
     $("#loading").show();
     util.resetCopyButton('copy_button');
+    joinLinkDividerView.style.display = "none";
+    joinLinkFormView.style.display = "none";
     e.preventDefault();
 
-    var fd = new FormData($("form")[0]);
+    var fd = new FormData(this);
     var obj = {};
     fd.forEach(function (value, key) {
         obj[key] = value;
@@ -156,15 +151,9 @@ function initPage() {
 
     util.copyButton('copy_button', 'to_copy');
 
-    chatEntryView = document.getElementById("chat_entry");
-    createChatFormView = document.getElementById("text_form");
-    createChatFormView.style.display = "none";
-
-    createChatButtonView = document.getElementById("show_create_chat");
-    createChatButtonView.addEventListener('click', onShowCreateChat);
-
     joinLinkFormView = document.getElementById("join_link_form");
     joinLinkFormView.addEventListener('submit', onJoinLinkSubmit);
+    joinLinkDividerView = document.getElementById("join_link_divider");
 
     joinLinkErrorView = document.getElementById("join_link_error");
     joinLinkInputView = document.getElementById("join_link");
@@ -179,7 +168,7 @@ function initPage() {
     joinButtonView.style.display = "none";
     joinButtonView.addEventListener('click', onJoinClick);
 
-    $("form").submit(onSubmit);
+    $("#text_form").submit(onSubmit);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

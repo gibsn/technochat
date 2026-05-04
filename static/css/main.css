@@ -469,22 +469,16 @@ chat styles
     margin-bottom: 20px;
 }
 
-.chat_entry,
 .chat_join_form {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-.chat_entry {
-    width: 100%;
-    gap: 18px;
-    margin-bottom: 20px;
-}
-
 .chat_join_form {
     width: min(100%, 430px);
     gap: 12px;
+    margin-bottom: 20px;
 }
 
 .chat_join_input {

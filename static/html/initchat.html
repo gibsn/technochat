@@ -27,23 +27,6 @@
         </h1>
     </div>
 
-    <div class="chat_entry" id="chat_entry">
-        <p>Create a new chat or join by link:</p>
-        <button class="button" id="show_create_chat" type="button">Create a new chat</button>
-        <form class="chat_join_form" id="join_link_form">
-            <input
-                class="chat_join_input"
-                id="join_link"
-                type="text"
-                placeholder="Paste chat link"
-                autocomplete="off"
-                inputmode="url"
-            >
-            <button class="button" type="submit">Join by link</button>
-            <div class="chat_join_error" id="join_link_error"></div>
-        </form>
-    </div>
-
     <form class="user__form" id="text_form" action="/api/v1/chat/init" method="post" enctype="application/json">
         <p>Set how many times your chat can be joined:</p>
         <input class="user__input" type="number" name="max_users" step="1" value=2 min=2>
@@ -52,6 +35,22 @@
             Create chat
         </button>
     </form>
+
+    <p id="join_link_divider">or</p>
+
+    <form class="chat_join_form" id="join_link_form">
+        <input
+            class="chat_join_input"
+            id="join_link"
+            type="text"
+            placeholder="Paste chat link"
+            autocomplete="off"
+            inputmode="url"
+        >
+        <button class="button" type="submit">Join by link</button>
+        <div class="chat_join_error" id="join_link_error"></div>
+    </form>
+
     <div id="loading">loading</div>
     <div id="link_box" class="link">
         <p>Link: </p>
