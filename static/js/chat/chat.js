@@ -50,6 +50,18 @@ function isStandalonePWA() {
         window.navigator.standalone === true;
 }
 
+function isIOSBrowser() {
+    var ua = window.navigator.userAgent || '';
+    var platform = window.navigator.platform || '';
+
+    return /iPad|iPhone|iPod/.test(ua) ||
+        (platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+}
+
+function shouldPromptIOSHomeScreen() {
+    return isIOSBrowser() && !isStandalonePWA();
+}
+
 function createDiagnosticPageID() {
     return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
@@ -168,6 +180,8 @@ new Vue({
         reconnectToken: '',
         reconnectTimer: null,
         reconnectAttempt: 0,
+        reconnectDeferredWhileHidden: false,
+        reconnectDeferredUseReconnect: false,
         connectionStatus: '',
         chatFinished: false,
         manualReconnectAvailable: false,
@@ -176,6 +190,7 @@ new Vue({
         pushPermission: pushPermission(),
         pushSubscriptionChangeHandler: null,
         pushPermissionGestureHandler: null,
+        iosHomePromptVisible: false,
     },
     computed: {
         presenceLabel: function() {
@@ -257,6 +272,7 @@ new Vue({
                 console.warn('could not preload VAPID public key', e);
             });
         }
+        document.addEventListener('visibilitychange', this.resumeDeferredReconnect);
     },
     beforeDestroy: function() {
         if (this.typingCleanupTimer) {
@@ -271,6 +287,7 @@ new Vue({
         if ('serviceWorker' in navigator && this.pushSubscriptionChangeHandler) {
             navigator.serviceWorker.removeEventListener('message', this.pushSubscriptionChangeHandler);
         }
+        document.removeEventListener('visibilitychange', this.resumeDeferredReconnect);
         this.uninstallPushPermissionGestureHandler();
     },
     methods: {
@@ -306,6 +323,14 @@ new Vue({
                 console.warn('could not preload VAPID public key', e);
             }
             await this.refreshPushSubscription(false);
+            if (!this.reconnectToken && shouldPromptIOSHomeScreen()) {
+                this.iosHomePromptVisible = true;
+                reportChatDiagnostic('chat_ios_home_prompt_shown', {
+                    chat_id: this.chatID,
+                });
+                return;
+            }
+
             if (vapidPublicKey) {
                 this.installPushPermissionGestureHandler();
             }
@@ -378,7 +403,7 @@ new Vue({
                                 chat_id: self.chatID,
                                 mode: useReconnect ? 'reconnect' : 'connect',
                             });
-                            self.finishChat('Chat finished');
+                            self.finishChat('Chat not found');
                         }
                         if (msg.data.event_id == EventConnInitMaxUsrsReached ){
                             reportChatDiagnostic('chat_ws_chat_full', {
@@ -444,6 +469,10 @@ new Vue({
                     reconnect_attempt: self.reconnectAttempt,
                 });
                 if (self.chatFinished) {
+                    return;
+                }
+                if (document.visibilityState === 'hidden') {
+                    self.deferReconnectUntilVisible(Boolean(self.reconnectToken || useReconnect));
                     return;
                 }
                 if (self.reconnectToken) {
@@ -550,6 +579,31 @@ new Vue({
 
             return 'Reconnecting...';
         },
+        deferReconnectUntilVisible: function(useReconnect) {
+            this.reconnectDeferredWhileHidden = true;
+            this.reconnectDeferredUseReconnect = Boolean(useReconnect);
+            reportChatDiagnostic('chat_ws_reconnect_deferred_hidden', {
+                chat_id: this.chatID,
+                mode: useReconnect ? 'reconnect' : 'connect',
+                reconnect_attempt: this.reconnectAttempt,
+            });
+        },
+        resumeDeferredReconnect: function() {
+            if (document.visibilityState !== 'visible' || !this.reconnectDeferredWhileHidden) {
+                return;
+            }
+
+            var useReconnect = this.reconnectDeferredUseReconnect;
+            this.reconnectDeferredWhileHidden = false;
+            this.reconnectDeferredUseReconnect = false;
+            this.connectionStatus = useReconnect ? this.reconnectingStatus() : 'Connecting...';
+            reportChatDiagnostic('chat_ws_reconnect_resumed_visible', {
+                chat_id: this.chatID,
+                mode: useReconnect ? 'reconnect' : 'connect',
+                reconnect_attempt: this.reconnectAttempt,
+            });
+            this.openChatSocket(useReconnect);
+        },
         scheduleReconnect: function(useReconnect) {
             var self = this;
 
@@ -589,6 +643,8 @@ new Vue({
                 window.clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
             }
+            this.reconnectDeferredWhileHidden = false;
+            this.reconnectDeferredUseReconnect = false;
 
             reportChatDiagnostic('chat_manual_reconnect', {
                 chat_id: this.chatID,
@@ -601,6 +657,16 @@ new Vue({
             this.okconnected = true;
             this.connectionStatus = this.reconnectToken ? this.reconnectingStatus() : 'Connecting...';
             this.openChatSocket(Boolean(this.reconnectToken));
+        },
+        continueWithoutIOSPush: function() {
+            this.iosHomePromptVisible = false;
+            this.okconnected = true;
+            this.connectionStatus = 'Connecting...';
+            reportChatDiagnostic('chat_ios_home_prompt_skipped', {
+                chat_id: this.chatID,
+            });
+            this.installPushPermissionGestureHandler();
+            this.openChatSocket(false);
         },
         stopConnecting: function(status, terminal, manualReconnectAvailable) {
             if (this.reconnectTimer) {
@@ -635,6 +701,8 @@ new Vue({
             clearReconnectSession(this.chatID);
             this.reconnectToken = '';
             this.manualReconnectAvailable = false;
+            this.reconnectDeferredWhileHidden = false;
+            this.reconnectDeferredUseReconnect = false;
 
             if (this.ws) {
                 var socket = this.ws;

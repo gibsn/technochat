@@ -34,7 +34,21 @@
             </div>
         </div>
         <div class="main" id="app" v-cloak>
-            <div v-if="okconnected" class="chat_shell">
+            <div v-if="iosHomePromptVisible" class="ios_home_prompt">
+                <h2>Open from Home Screen for notifications</h2>
+                <p>
+                    Push notifications on iPhone work only when Technochat is launched from the Home Screen.
+                </p>
+                <p>
+                    Use Share > Add to Home Screen, open Technochat from there, then join by this link.
+                </p>
+                <div class="ios_home_prompt_actions">
+                    <button class="chat_button ios_home_prompt_button" type="button" @click="continueWithoutIOSPush">
+                        Continue without notifications
+                    </button>
+                </div>
+            </div>
+            <div v-else-if="okconnected" class="chat_shell">
                 <div class="presence_bar">
                     <button
                         class="presence_button"
@@ -141,7 +155,7 @@
                     </div>
                 </div>
             </div>
-            <div v-if="!okconnected" class="chat_error">
+            <div v-if="!okconnected && !iosHomePromptVisible" class="chat_error">
                 <div>{{ connectionStatus || 'Could not connect to chat' }}</div>
                 <button
                     v-if="manualReconnectAvailable"

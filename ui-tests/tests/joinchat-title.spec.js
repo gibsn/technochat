@@ -205,6 +205,85 @@ async function openJoinChatWithStoredReconnectToken(
   await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
 }
 
+async function openJoinChatOnIOS(page, standalone = false) {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript((isStandalone) => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      get() {
+        return "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+      },
+    });
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      get() {
+        return "iPhone";
+      },
+    });
+    Object.defineProperty(navigator, "standalone", {
+      configurable: true,
+      get() {
+        return isStandalone;
+      },
+    });
+
+    const originalMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      if (query === "(display-mode: standalone)") {
+        return {
+          matches: isStandalone,
+          media: query,
+          onchange: null,
+          addListener() {},
+          removeListener() {},
+          addEventListener() {},
+          removeEventListener() {},
+          dispatchEvent() {
+            return false;
+          },
+        };
+      }
+
+      return originalMatchMedia(query);
+    };
+  }, standalone);
+  await page.goto(
+    `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
+    { waitUntil: "commit" }
+  );
+}
+
+test("@unit warns iOS browser users before connecting from an invite link", async ({
+  page,
+}) => {
+  await openJoinChatOnIOS(page);
+
+  await expect(page.locator(".ios_home_prompt")).toContainText(
+    "Open from Home Screen"
+  );
+  expect(await page.evaluate(() => Boolean(window.__technochatMockSocket))).toBe(
+    false
+  );
+
+  await page.locator("button", { hasText: "Continue without notifications" }).click();
+  await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
+
+  const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
+  expect(socketURL).toContain("/api/v1/chat/connect");
+});
+
+test("@unit connects immediately when an iOS chat link is opened from the Home Screen", async ({
+  page,
+}) => {
+  await openJoinChatOnIOS(page, true);
+
+  await page.waitForFunction(() => Boolean(window.__technochatMockSocket));
+  await expect(page.locator(".ios_home_prompt")).toBeHidden();
+
+  const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
+  expect(socketURL).toContain("/api/v1/chat/connect");
+});
+
 test("@unit keeps the unread title until the tab receives focus", async ({
   page,
 }) => {
@@ -699,6 +778,72 @@ test("@unit shows a manual reconnect button after connect retries fail", async (
 
   expect(socketURLs[3]).toContain("/api/v1/chat/connect");
   await expect(page.locator(".chat_error_reconnect")).toBeHidden();
+});
+
+test("@unit defers websocket reconnect while the chat page is hidden", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: {
+          name: "Axe",
+          reconnect_token: "hidden-reconnect-token",
+        },
+      },
+    });
+  });
+
+  await page.evaluate(() => {
+    window.__setJoinChatHiddenState(true);
+    document.dispatchEvent(new Event("visibilitychange"));
+    const socket = window.__technochatMockSocket;
+    socket.readyState = 3;
+    socket.dispatch("close", {
+      code: 1006,
+      reason: "",
+      wasClean: false,
+    });
+  });
+
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.__technochatMockSockets.length)).toBe(
+    1
+  );
+
+  await page.evaluate(() => {
+    window.__setJoinChatHiddenState(false);
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(() => window.__technochatMockSockets.length === 2);
+
+  const socketURLs = await page.evaluate(() => {
+    return window.__technochatMockSockets.map((socket) => socket.url);
+  });
+
+  expect(socketURLs[1]).toContain("/api/v1/chat/reconnect");
+});
+
+test("@unit shows chat not found when the server rejects the chat id", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 1,
+        event_data: {},
+      },
+    });
+  });
+
+  await expect(page.locator(".chat_error")).toContainText("Chat not found");
 });
 
 test("@unit shows online count and scrollable online users popup", async ({
