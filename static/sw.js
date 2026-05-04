@@ -306,11 +306,14 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function openClientURL(url) {
+  const targetURL = new URL(url, self.location.origin);
+
   return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clients) {
     for (let i = 0; i < clients.length; i++) {
       const clientURL = new URL(clients[i].url);
       if (clientURL.origin === self.location.origin && clientURL.pathname === '/html/joinchat.html') {
-        clientURL.search = new URL(url, self.location.origin).search;
+        clientURL.search = targetURL.search;
+        clientURL.hash = targetURL.hash;
         return clients[i].navigate(clientURL.toString()).then(function (client) {
           return client.focus();
         });
