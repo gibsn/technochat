@@ -5,6 +5,7 @@ test("@e2e creates a temporary chat and exchanges messages over WebSocket", asyn
   browser,
 }) => {
   await page.goto("/html/initchat.html", { waitUntil: "domcontentloaded" });
+  await page.locator("button", { hasText: "Create a new chat" }).click();
   await page.locator("button", { hasText: "Create chat" }).click();
 
   const linkInput = page.locator("#to_copy");
@@ -50,6 +51,7 @@ test("@e2e reopens an invite link with stored reconnect token", async ({
   browser,
 }) => {
   await page.goto("/html/initchat.html", { waitUntil: "domcontentloaded" });
+  await page.locator("button", { hasText: "Create a new chat" }).click();
   await page.locator("button", { hasText: "Create chat" }).click();
 
   const linkInput = page.locator("#to_copy");

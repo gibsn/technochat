@@ -37,6 +37,7 @@ test("@unit resets the copy button when a new chat link is generated", async ({
   });
 
   await page.goto("/html/initchat.html");
+  await page.locator("button", { hasText: "Create a new chat" }).click();
   await page.locator("button", { hasText: "Create chat" }).click();
 
   await expect(page.locator("#to_copy")).toHaveValue(
@@ -78,6 +79,7 @@ test("@unit shows a global loader while chat init request is pending", async ({
   });
 
   await page.goto("/html/initchat.html");
+  await page.locator("button", { hasText: "Create a new chat" }).click();
   await page.locator("button", { hasText: "Create chat" }).click();
 
   await expect(page.locator("#network_loader")).toHaveClass(
@@ -130,6 +132,7 @@ test("@unit keeps Join in the same window and starts loader in PWA mode", async 
   });
 
   await page.goto("/html/initchat.html");
+  await page.locator("button", { hasText: "Create a new chat" }).click();
   await page.locator("button", { hasText: "Create chat" }).click();
 
   const joinButton = page.locator("#join_button");
@@ -143,4 +146,31 @@ test("@unit keeps Join in the same window and starts loader in PWA mode", async 
   await expect(page.locator("#network_loader")).toHaveClass(
     /network-loader--visible/
   );
+});
+
+test("@unit joins a chat from a pasted invite link", async ({ page }) => {
+  await page.goto("/html/initchat.html");
+
+  await page.locator("#join_link").fill(
+    "https://technochat.test/html/joinchat.html?id=chat-id#key=secret-key"
+  );
+  await page.locator("button", { hasText: "Join by link" }).click();
+
+  await expect(page).toHaveURL(
+    /\/html\/joinchat\.html\?id=chat-id#key=secret-key$/
+  );
+});
+
+test("@unit keeps the invite input visible until create mode is selected", async ({
+  page,
+}) => {
+  await page.goto("/html/initchat.html");
+
+  await expect(page.locator("#join_link")).toBeVisible();
+  await expect(page.locator("#text_form")).toBeHidden();
+
+  await page.locator("button", { hasText: "Create a new chat" }).click();
+
+  await expect(page.locator("#join_link")).toBeHidden();
+  await expect(page.locator("#text_form")).toBeVisible();
 });
