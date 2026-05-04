@@ -22,13 +22,17 @@ const (
 	EventPresence
 	EventTyping
 	EventConnInitInvalidReconnectToken
+	EventPushSubscribe
+	EventPushUnsubscribe
 )
 
 type WSMessage struct {
-	Type      TypeID      `json:"type"`
-	Data      interface{} `json:"data"`
-	Name      string      `json:"username"`
-	CreatedAt *time.Time  `json:"created_at,omitempty"`
+	Type       TypeID      `json:"type"`
+	Data       interface{} `json:"data"`
+	Name       string      `json:"username"`
+	CreatedAt  *time.Time  `json:"created_at,omitempty"`
+	MessageID  string      `json:"message_id,omitempty"`
+	MessageSeq uint64      `json:"message_seq,omitempty"`
 }
 
 type ConnInit struct {

@@ -144,3 +144,73 @@ test("@unit keeps Join in the same window and starts loader in PWA mode", async 
     /network-loader--visible/
   );
 });
+
+test("@unit joins a chat from a pasted invite link", async ({ page }) => {
+  await page.goto("/html/initchat.html");
+
+  await page.locator("#join_link").fill(
+    "https://technochat.test/html/joinchat.html?id=chat-id#key=secret-key"
+  );
+  await page.locator("button", { hasText: "Join by link" }).click();
+
+  await expect(page).toHaveURL(
+    /\/html\/joinchat\.html\?id=chat-id#key=secret-key$/
+  );
+});
+
+test("@unit hides join-by-link after creating a chat", async ({
+  page,
+}) => {
+  await page.route("**/api/v1/chat/init", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: {
+          id: "created-chat",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/html/initchat.html");
+
+  await expect(page.locator("#text_form")).toBeVisible();
+  await expect(page.locator("#join_link")).toBeVisible();
+  await expect(page.locator("#join_link_divider")).toBeVisible();
+
+  await page.locator("button", { hasText: "Create chat" }).click();
+
+  await expect(page.locator("#join_link")).toBeHidden();
+  await expect(page.locator("#join_link_divider")).toBeHidden();
+  await expect(page.locator("#to_copy")).toHaveValue(/created-chat#key=/);
+});
+
+test("@unit does not create a chat when the pasted invite link is invalid", async ({
+  page,
+}) => {
+  let initRequests = 0;
+  await page.route("**/api/v1/chat/init", async (route) => {
+    initRequests += 1;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        body: {
+          id: "unexpected-chat",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/html/initchat.html");
+
+  await page.locator("#join_link").fill("42649");
+  await page.locator("button", { hasText: "Join by link" }).click();
+
+  await expect(page.locator("#join_link_error")).toHaveText(
+    "Paste a valid chat link"
+  );
+  await expect(page.locator("#link_box")).toBeHidden();
+  expect(initRequests).toBe(0);
+});

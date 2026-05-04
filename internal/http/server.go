@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"technochat/internal/chat"
@@ -21,6 +23,7 @@ const (
 	messageViewPath = "/api/v1/message/view"
 	imageAddPath    = "/api/v1/image/add"
 	imageViewPath   = "/api/v1/image/view"
+	pushVAPIDPath   = "/api/v1/push/vapid-public-key"
 )
 
 type Server struct {
@@ -29,6 +32,9 @@ type Server struct {
 	db     db.DB
 	chats  *chat.Registry
 	server *http.Server
+
+	pushPublicKey string
+	pushSender    chat.PushSender
 }
 
 type Response struct {
@@ -40,10 +46,23 @@ type TechnochatHandler func(*http.Request) (int, interface{}, error)
 type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
 func NewServer(addr string, db db.DB) *Server {
+	pushPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
+	pushPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
+	pushSubject := os.Getenv("VAPID_SUBJECT")
+	var pushSender chat.PushSender
+	if pushPublicKey != "" && pushPrivateKey != "" && pushSubject != "" {
+		pushSender = chat.NewVAPIDPushSender(pushPublicKey, pushPrivateKey, pushSubject)
+	} else {
+		log.Printf("warning: http: web push disabled: missing %s", missingVAPIDEnvNames())
+		pushPublicKey = ""
+	}
+
 	return &Server{
-		addr:  addr,
-		db:    db,
-		chats: chat.NewRegistry(db),
+		addr:          addr,
+		db:            db,
+		chats:         chat.NewRegistry(db, pushSender),
+		pushPublicKey: pushPublicKey,
+		pushSender:    pushSender,
 		server: &http.Server{
 			Addr:              addr,
 			Handler:           nil,
@@ -52,9 +71,20 @@ func NewServer(addr string, db db.DB) *Server {
 	}
 }
 
+func missingVAPIDEnvNames() string {
+	missing := make([]string, 0, 3)
+	for _, envName := range []string{"VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"} {
+		if os.Getenv(envName) == "" {
+			missing = append(missing, envName)
+		}
+	}
+
+	return strings.Join(missing, ", ")
+}
+
 func (s *Server) chatRegistry() *chat.Registry {
 	if s.chats == nil {
-		s.chats = chat.NewRegistry(s.db)
+		s.chats = chat.NewRegistry(s.db, s.pushSender)
 	}
 
 	return s.chats
@@ -71,6 +101,7 @@ func (s *Server) Init() {
 	http.HandleFunc("/api/v1/chat/init", respondAPI(s.chatInit))
 	http.HandleFunc("/api/v1/chat/connect", s.chatConnect)
 	http.HandleFunc("/api/v1/chat/reconnect", s.chatReconnect)
+	http.HandleFunc(pushVAPIDPath, respondAPI(s.pushVAPIDPublicKey))
 	http.HandleFunc("/api/v1/client/log", respondAPI(s.clientLog))
 
 	log.Println("http: successfully initialised")

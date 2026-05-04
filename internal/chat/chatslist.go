@@ -9,10 +9,11 @@ import (
 )
 
 type Registry struct {
-	chats     map[string]*Chat
-	restoring map[string]*restoreCall
-	store     RestoreStore
-	mx        sync.Mutex
+	chats      map[string]*Chat
+	restoring  map[string]*restoreCall
+	store      RestoreStore
+	pushSender PushSender
+	mx         sync.Mutex
 }
 
 type restoreCall struct {
@@ -27,11 +28,17 @@ type RestoreStore interface {
 	DeleteChat(chatID string) error
 }
 
-func NewRegistry(store RestoreStore) *Registry {
+func NewRegistry(store RestoreStore, pushSenders ...PushSender) *Registry {
+	var pushSender PushSender
+	if len(pushSenders) > 0 {
+		pushSender = pushSenders[0]
+	}
+
 	return &Registry{
-		chats:     make(map[string]*Chat),
-		restoring: make(map[string]*restoreCall),
-		store:     store,
+		chats:      make(map[string]*Chat),
+		restoring:  make(map[string]*restoreCall),
+		store:      store,
+		pushSender: pushSender,
 	}
 }
 
@@ -97,7 +104,7 @@ func (r *Registry) restoreChat(id string, store RestoreStore) (*Chat, error) {
 		return nil, err
 	}
 
-	restoredChat := NewChat(newChatOptsFromState(savedChat, store))
+	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.pushSender))
 	activeChat, added := r.AddChatIfAbsent(restoredChat)
 	if added {
 		go r.HandleChat(activeChat)
@@ -139,13 +146,29 @@ func (r *Registry) HandleChat(c *Chat) {
 	}
 }
 
-func newChatOptsFromState(savedChat entity.Chat, store StateStore) NewChatOpts {
+func newChatOptsFromState(
+	savedChat entity.Chat,
+	store StateStore,
+	pushSender PushSender,
+) NewChatOpts {
 	participants := make([]Participant, 0, len(savedChat.Participants))
 	for _, participant := range savedChat.Participants {
+		var pushSubscription *PushSubscription
+		if participant.PushSubscription != nil {
+			pushSubscription = &PushSubscription{
+				Endpoint: participant.PushSubscription.Endpoint,
+				Keys: PushKeys{
+					Auth:   participant.PushSubscription.Keys.Auth,
+					P256DH: participant.PushSubscription.Keys.P256DH,
+				},
+			}
+		}
+
 		participants = append(participants, Participant{
-			ID:             participant.ID,
-			Name:           participant.Name,
-			ReconnectToken: participant.ReconnectToken,
+			ID:               participant.ID,
+			Name:             participant.Name,
+			ReconnectToken:   participant.ReconnectToken,
+			PushSubscription: pushSubscription,
 		})
 	}
 
@@ -156,5 +179,6 @@ func newChatOptsFromState(savedChat entity.Chat, store StateStore) NewChatOpts {
 		RestoreRestJoins: true,
 		Participants:     participants,
 		Store:            store,
+		PushSender:       pushSender,
 	}
 }

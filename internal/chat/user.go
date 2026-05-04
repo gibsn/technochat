@@ -27,9 +27,24 @@ func (c *Chat) AddUser(ws *websocket.Conn) (*user.User, error) {
 
 	c.restJoins--
 	if c.store != nil {
-		if err := c.store.UpdateChat(c.stateLocked()); err != nil {
+		chatParticipant, ok := c.participantStateLocked(participant.ID)
+		if !ok {
 			c.restJoins++
 			delete(c.participants, participant.ReconnectToken)
+			delete(c.participantByID, participant.ID)
+			c.correspsMx.Unlock()
+
+			return nil, fmt.Errorf("could not persist chat state: participant is missing")
+		}
+		if err := c.store.AddParticipant(
+			c.ID,
+			chatParticipant,
+			c.restJoins,
+			int(c.offlineTTL.Seconds()),
+		); err != nil {
+			c.restJoins++
+			delete(c.participants, participant.ReconnectToken)
+			delete(c.participantByID, participant.ID)
 			c.correspsMx.Unlock()
 
 			return nil, fmt.Errorf("could not persist chat state: %w", err)
@@ -47,7 +62,7 @@ func (c *Chat) ReconnectUser(ws *websocket.Conn, reconnectToken string) (*user.U
 	if !ok {
 		return nil, ErrInvalidReconnectToken
 	}
-	if err := c.persistState(); err != nil {
+	if err := c.touchState(); err != nil {
 		return nil, fmt.Errorf("could not persist chat state: %w", err)
 	}
 
@@ -67,6 +82,7 @@ func (c *Chat) newParticipant() (*Participant, error) {
 		ReconnectToken: token,
 	}
 	c.participants[token] = participant
+	c.participantByID[participant.ID] = participant
 
 	log.Printf(
 		"info: chat: new participant [%d %s] in chat %s",

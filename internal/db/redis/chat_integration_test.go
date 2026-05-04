@@ -45,8 +45,8 @@ func TestChatTTLIsSetRefreshedAndExpires(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond)
 
-	if err := r.UpdateChat(chat); err != nil {
-		t.Fatalf("could not update chat: %v", err)
+	if err := r.TouchChat(chat.ID, chat.TTL); err != nil {
+		t.Fatalf("could not touch chat: %v", err)
 	}
 
 	refreshedTTL := redisTTL(t, r, key)

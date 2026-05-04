@@ -70,6 +70,53 @@ docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml down
 docker compose -f dist/docker-compose.yml -f dist/docker-compose-dev.yml up -d
 ```
 
+## Web Push
+
+Web Push is optional. If VAPID settings are not provided, the application starts
+normally, logs a warning, and does not request browser notification permission.
+
+Generate a VAPID key pair:
+
+```bash
+make vapid-keys
+```
+
+The command prints:
+
+```bash
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+```
+
+Set these values for the Go application together with `VAPID_SUBJECT`:
+
+```bash
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=admin@example.com
+```
+
+`VAPID_SUBJECT` is a contact for push services. Use an email address or an
+`https://` URL. For email, do not add the `mailto:` prefix; the Web Push library
+adds it automatically.
+
+The Docker Compose config passes these variables from the host environment into
+the `technochat` container. For manual deploy, export them before running
+`deploy.sh`:
+
+```bash
+export VAPID_PUBLIC_KEY=...
+export VAPID_PRIVATE_KEY=...
+export VAPID_SUBJECT=admin@example.com
+./deploy.sh
+```
+
+For automatic deploy, add the same variables to
+`/etc/default/autodeploy_technochat`.
+
+RC and production can technically share one VAPID key pair, but separate key
+pairs are recommended so they can be rotated independently.
+
 ## How to test
 
 If `Makefile` is available, the main entry points are:
@@ -115,6 +162,9 @@ For automatic deploy, define `GITHUB_TOKEN`, `TG_BOT_TOKEN`, and `TG_CHAT_ID` in
 GITHUB_TOKEN=github_pat...
 TG_BOT_TOKEN=123456:ABCDEF...
 TG_CHAT_ID=-1001234567890
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=admin@example.com
 ```
 
 Then run:

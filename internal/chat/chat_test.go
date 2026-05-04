@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -34,13 +35,28 @@ type testConnInit struct {
 	ReconnectToken string
 }
 
+type testPushSender struct {
+	sent chan PushPayload
+}
+
+func (s *testPushSender) Send(_ context.Context, _ PushSubscription, payload PushPayload) error {
+	s.sent <- payload
+	return nil
+}
+
 type testChatStateStore struct {
 	mx     sync.Mutex
 	err    error
 	states []entity.Chat
+	touch  int
 }
 
-func (s *testChatStateStore) UpdateChat(chat entity.Chat) error {
+func (s *testChatStateStore) AddParticipant(
+	chatID string,
+	participant entity.ChatParticipant,
+	restJoins int,
+	ttl int,
+) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
 
@@ -48,7 +64,50 @@ func (s *testChatStateStore) UpdateChat(chat entity.Chat) error {
 		return s.err
 	}
 
-	s.states = append(s.states, chat)
+	s.states = append(s.states, entity.Chat{
+		ID:           chatID,
+		RestJoins:    restJoins,
+		Participants: []entity.ChatParticipant{participant},
+		TTL:          ttl,
+	})
+
+	return nil
+}
+
+func (s *testChatStateStore) UpdateParticipant(
+	chatID string,
+	participant entity.ChatParticipant,
+	ttl int,
+) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.states = append(s.states, entity.Chat{
+		ID:           chatID,
+		Participants: []entity.ChatParticipant{participant},
+		TTL:          ttl,
+	})
+
+	return nil
+}
+
+func (s *testChatStateStore) TouchChat(chatID string, ttl int) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.touch++
+	s.states = append(s.states, entity.Chat{
+		ID:  chatID,
+		TTL: ttl,
+	})
 
 	return nil
 }
@@ -69,6 +128,13 @@ func (s *testChatStateStore) stateCount() int {
 	defer s.mx.Unlock()
 
 	return len(s.states)
+}
+
+func (s *testChatStateStore) touchCount() int {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	return s.touch
 }
 
 func TestPresenceReportsConfiguredMaxUsers(t *testing.T) {
@@ -122,9 +188,6 @@ func TestAddUserPersistsChatState(t *testing.T) {
 	if state.ID != c.ID {
 		t.Fatalf("expected chat ID %q, got %q", c.ID, state.ID)
 	}
-	if state.MaxUsers != 2 {
-		t.Fatalf("expected max users 2, got %d", state.MaxUsers)
-	}
 	if state.RestJoins != 1 {
 		t.Fatalf("expected 1 rest join, got %d", state.RestJoins)
 	}
@@ -136,6 +199,91 @@ func TestAddUserPersistsChatState(t *testing.T) {
 	}
 	if state.TTL != int(ChatOfflineTTL.Seconds()) {
 		t.Fatalf("expected TTL %d, got %d", int(ChatOfflineTTL.Seconds()), state.TTL)
+	}
+}
+
+func TestPushSubscriptionPersistsChatState(t *testing.T) {
+	store := &testChatStateStore{}
+	subscription := PushSubscription{
+		Endpoint: "https://push.example/subscription",
+		Keys: PushKeys{
+			Auth:   "auth-secret",
+			P256DH: "p256dh-key",
+		},
+	}
+	c := NewChat(NewChatOpts{
+		ID:       "push-state-persist-test",
+		MaxJoins: 2,
+		Participants: []Participant{
+			{
+				ID:             7,
+				Name:           "restored user",
+				ReconnectToken: "reconnect-token",
+			},
+		},
+		Store: store,
+	})
+
+	if ok := c.UpsertPushSubscription(7, subscription); !ok {
+		t.Fatalf("expected push subscription to be upserted")
+	}
+
+	state, ok := store.lastState()
+	if !ok {
+		t.Fatalf("expected chat state to be persisted")
+	}
+	if len(state.Participants) != 1 {
+		t.Fatalf("expected 1 persisted participant, got %d", len(state.Participants))
+	}
+	persistedSubscription := state.Participants[0].PushSubscription
+	if persistedSubscription == nil {
+		t.Fatalf("expected push subscription to be persisted on participant")
+	}
+
+	if persistedSubscription.Endpoint != subscription.Endpoint {
+		t.Fatalf("expected endpoint %q, got %q", subscription.Endpoint, persistedSubscription.Endpoint)
+	}
+	if persistedSubscription.Keys.Auth != subscription.Keys.Auth {
+		t.Fatalf("expected auth key %q, got %q", subscription.Keys.Auth, persistedSubscription.Keys.Auth)
+	}
+	if persistedSubscription.Keys.P256DH != subscription.Keys.P256DH {
+		t.Fatalf("expected p256dh key %q, got %q", subscription.Keys.P256DH, persistedSubscription.Keys.P256DH)
+	}
+}
+
+func TestRestoredPushSubscriptionIsAvailableForOfflineTarget(t *testing.T) {
+	subscription := PushSubscription{
+		Endpoint: "https://push.example/subscription",
+		Keys: PushKeys{
+			Auth:   "auth-secret",
+			P256DH: "p256dh-key",
+		},
+	}
+	c := NewChat(NewChatOpts{
+		ID:       "restored-push-target-test",
+		MaxJoins: 2,
+		Participants: []Participant{
+			{
+				ID:             1,
+				Name:           "sender",
+				ReconnectToken: "sender-token",
+			},
+			{
+				ID:               2,
+				Name:             "offline receiver",
+				ReconnectToken:   "receiver-token",
+				PushSubscription: &subscription,
+			},
+		},
+	})
+
+	targets := c.offlinePushTargets(1).targets
+	restoredSubscription, ok := targets[2]
+	if !ok {
+		t.Fatalf("expected restored push subscription to be available")
+	}
+	if restoredSubscription != subscription {
+		t.Fatalf("expected subscription %#v, got %#v", subscription, restoredSubscription)
 	}
 }
 
@@ -306,15 +454,12 @@ func TestReconnectRefreshesPersistedChatState(t *testing.T) {
 	defer closeTestClient(t, client)
 	readConnInitEvent(t, client)
 
+	if store.touchCount() == 0 {
+		t.Fatalf("expected reconnect to refresh chat TTL")
+	}
 	state, ok := store.lastState()
-	if !ok {
-		t.Fatalf("expected reconnect to refresh persisted chat state")
-	}
-	if state.TTL != int(ChatOfflineTTL.Seconds()) {
-		t.Fatalf("expected TTL %d, got %d", int(ChatOfflineTTL.Seconds()), state.TTL)
-	}
-	if len(state.Participants) != 1 || state.Participants[0].ReconnectToken != "restored-token" {
-		t.Fatalf("expected restored participant to stay persisted, got %#v", state.Participants)
+	if !ok || state.TTL != int(ChatOfflineTTL.Seconds()) {
+		t.Fatalf("expected TTL %d, got %#v", int(ChatOfflineTTL.Seconds()), state)
 	}
 }
 
@@ -335,12 +480,9 @@ func TestOpenWebSocketPeriodicallyRefreshesPersistedChatState(t *testing.T) {
 	defer closeTestClient(t, client)
 	readConnInitEvent(t, client)
 
-	initialStateCount := store.stateCount()
-	if initialStateCount == 0 {
-		t.Fatalf("expected join to persist initial chat state")
-	}
+	initialTouchCount := store.touchCount()
 
-	waitForPersistedStates(t, store, initialStateCount+1)
+	waitForPersistedTouches(t, store, initialTouchCount+1)
 
 	state, ok := store.lastState()
 	if !ok {
@@ -368,17 +510,14 @@ func TestOfflineChatDoesNotPeriodicallyRefreshPersistedState(t *testing.T) {
 	client := dialTestChat(t, server)
 	readConnInitEvent(t, client)
 
-	initialStateCount := store.stateCount()
-	if initialStateCount == 0 {
-		t.Fatalf("expected join to persist initial chat state")
-	}
+	initialTouchCount := store.touchCount()
 
 	closeTestClient(t, client)
 	waitForOnlineUsers(t, c, 0)
 	time.Sleep(150 * time.Millisecond)
 
-	if stateCount := store.stateCount(); stateCount != initialStateCount {
-		t.Fatalf("expected offline chat not to refresh persisted state, got %d states", stateCount)
+	if touchCount := store.touchCount(); touchCount != initialTouchCount {
+		t.Fatalf("expected offline chat not to refresh persisted state, got %d touches", touchCount)
 	}
 }
 
@@ -598,6 +737,137 @@ func TestMessageClearsTypingState(t *testing.T) {
 	}
 }
 
+func TestPushSubscriptionSentToOfflineParticipant(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "offline-push-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	firstInit := readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	secondInit := readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+	closeTestClient(t, secondClient)
+	waitForOnlineUsers(t, c, 1)
+
+	encryptedData := map[string]interface{}{
+		"alg":        "AES-GCM-128",
+		"iv":         "test-iv",
+		"ciphertext": "test-ciphertext",
+	}
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: encryptedData,
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		if payload.ChatID != c.ID {
+			t.Fatalf("expected chat id %q, got %q", c.ID, payload.ChatID)
+		}
+		if payload.Sender != firstInit.Name {
+			t.Fatalf("expected sender %q, got %q", firstInit.Name, payload.Sender)
+		}
+		if payload.MessageID == "" {
+			t.Fatalf("expected message id")
+		}
+		if payload.MessageSeq != 1 {
+			t.Fatalf("expected message seq 1, got %d", payload.MessageSeq)
+		}
+		if payload.Timestamp == "" {
+			t.Fatalf("expected timestamp")
+		}
+		if fmt.Sprintf("%v", payload.Data) != fmt.Sprintf("%v", encryptedData) {
+			t.Fatalf("expected encrypted payload %v, got %v", encryptedData, payload.Data)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for push to offline participant %q", secondInit.Name)
+	}
+}
+
+func TestPushSubscriptionNotSentToOnlineParticipant(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "online-no-push-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	defer closeTestClient(t, secondClient)
+	readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: "hello",
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		t.Fatalf("unexpected push to online participant: %#v", payload)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestPushUnsubscribeRemovesSubscription(t *testing.T) {
+	pushSender := &testPushSender{sent: make(chan PushPayload, 1)}
+	c := NewChat(NewChatOpts{
+		ID:         "push-unsubscribe-test",
+		MaxJoins:   2,
+		PushSender: pushSender,
+	})
+
+	server, done := serveTestChat(t, c)
+	defer server.Close()
+	defer stopTestChat(c, done)
+
+	firstClient := dialTestChat(t, server)
+	defer closeTestClient(t, firstClient)
+	readConnInitEvent(t, firstClient)
+
+	secondClient := dialTestChat(t, server)
+	readConnInitEvent(t, secondClient)
+	writePushSubscribeEvent(t, secondClient)
+	writePushUnsubscribeEvent(t, secondClient)
+	closeTestClient(t, secondClient)
+	waitForOnlineUsers(t, c, 1)
+
+	if err := firstClient.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeMessage,
+		Data: "hello",
+	}); err != nil {
+		t.Fatalf("could not write chat message: %v", err)
+	}
+
+	select {
+	case payload := <-pushSender.sent:
+		t.Fatalf("unexpected push after unsubscribe: %#v", payload)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func serveTestChat(t *testing.T, c *Chat) (*httptest.Server, chan struct{}) {
 	t.Helper()
 
@@ -675,19 +945,19 @@ func waitForOnlineUsers(t *testing.T, c *Chat, expectedOnline int) {
 	t.Fatalf("timed out waiting for %d online users, got %d", expectedOnline, c.Presence().Online)
 }
 
-func waitForPersistedStates(t *testing.T, store *testChatStateStore, expectedStates int) {
+func waitForPersistedTouches(t *testing.T, store *testChatStateStore, expectedTouches int) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if store.stateCount() >= expectedStates {
+		if store.touchCount() >= expectedTouches {
 			return
 		}
 
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	t.Fatalf("timed out waiting for %d persisted states, got %d", expectedStates, store.stateCount())
+	t.Fatalf("timed out waiting for %d persisted touches, got %d", expectedTouches, store.touchCount())
 }
 
 func dialTestChat(t *testing.T, server *httptest.Server) *websocket.Conn {
@@ -810,6 +1080,39 @@ func writeTypingEvent(t *testing.T, client *websocket.Conn) {
 		},
 	}); err != nil {
 		t.Fatalf("could not write typing event: %v", err)
+	}
+}
+
+func writePushSubscribeEvent(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: message.EventPushSubscribe,
+			EventData: PushSubscription{
+				Endpoint: "https://push.example/subscription",
+				Keys: PushKeys{
+					Auth:   "auth-secret",
+					P256DH: "p256dh-key",
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("could not write push subscribe event: %v", err)
+	}
+}
+
+func writePushUnsubscribeEvent(t *testing.T, client *websocket.Conn) {
+	t.Helper()
+
+	if err := client.WriteJSON(message.WSMessage{
+		Type: message.WSMsgTypeService,
+		Data: message.Event{
+			EventID: message.EventPushUnsubscribe,
+		},
+	}); err != nil {
+		t.Fatalf("could not write push unsubscribe event: %v", err)
 	}
 }
 
