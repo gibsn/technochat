@@ -137,18 +137,19 @@ func handlePushResponse(response *http.Response) error {
 }
 
 func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscription) bool {
-	if subscription.Endpoint == "" || subscription.Keys.Auth == "" || subscription.Keys.P256DH == "" {
+	if !validPushSubscription(subscription) {
 		return false
 	}
 
 	c.correspsMx.Lock()
 
-	if _, ok := c.participantByID[participantID]; !ok {
+	participant, ok := c.participantByID[participantID]
+	if !ok {
 		c.correspsMx.Unlock()
 		return false
 	}
 
-	c.pushSubscriptions[participantID] = subscription
+	participant.PushSubscription = &subscription
 	chatParticipant, ok := c.participantStateLocked(participantID)
 	c.correspsMx.Unlock()
 	if !ok {
@@ -186,7 +187,10 @@ func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscr
 
 func (c *Chat) DeletePushSubscription(participantID int) {
 	c.correspsMx.Lock()
-	delete(c.pushSubscriptions, participantID)
+	participant, exists := c.participantByID[participantID]
+	if exists {
+		participant.PushSubscription = nil
+	}
 	chatParticipant, ok := c.participantStateLocked(participantID)
 	c.correspsMx.Unlock()
 	if !ok {
@@ -224,21 +228,25 @@ func (c *Chat) offlinePushTargets(senderID int) pushTargetStats {
 
 	targets := make(map[int]PushSubscription)
 	stats := pushTargetStats{
-		targets:       targets,
-		subscriptions: len(c.pushSubscriptions),
-		online:        len(c.corresps),
+		targets: targets,
+		online:  len(c.corresps),
 	}
-	for participantID, subscription := range c.pushSubscriptions {
-		if participantID == senderID {
+	for _, participant := range c.participants {
+		if participant.PushSubscription == nil {
+			continue
+		}
+
+		stats.subscriptions++
+		if participant.ID == senderID {
 			stats.skippedSender++
 			continue
 		}
-		if _, online := c.corresps[participantID]; online {
+		if _, online := c.corresps[participant.ID]; online {
 			stats.skippedOnline++
 			continue
 		}
 
-		targets[participantID] = subscription
+		targets[participant.ID] = *participant.PushSubscription
 	}
 
 	return stats
@@ -302,7 +310,10 @@ func (c *Chat) sendPushToOfflineParticipants(senderID int, msg *messageForPush) 
 
 			if errors.Is(err, ErrPushSubscriptionGone) {
 				c.correspsMx.Lock()
-				delete(c.pushSubscriptions, participantID)
+				participant, exists := c.participantByID[participantID]
+				if exists {
+					participant.PushSubscription = nil
+				}
 				chatParticipant, ok := c.participantStateLocked(participantID)
 				c.correspsMx.Unlock()
 				if ok && c.store != nil {

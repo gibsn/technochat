@@ -259,7 +259,7 @@ test("@unit warns iOS browser users before connecting from an invite link", asyn
   await openJoinChatOnIOS(page);
 
   await expect(page.locator(".ios_home_prompt")).toContainText(
-    "Open from Home Screen"
+    "Start from Home Screen"
   );
   expect(await page.evaluate(() => Boolean(window.__technochatMockSocket))).toBe(
     false

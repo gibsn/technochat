@@ -66,7 +66,6 @@ type Chat struct {
 	participants      map[string]*Participant
 	participantByID   map[int]*Participant
 	corresps          map[int]*user.User
-	pushSubscriptions map[int]PushSubscription
 	pushSender        PushSender
 	nextMessageSeq    uint64
 	correspsMx        sync.RWMutex
@@ -119,12 +118,10 @@ func NewChat(opts NewChatOpts) *Chat {
 	}
 
 	participants := make(map[string]*Participant, len(opts.Participants))
-	pushSubscriptions := make(map[int]PushSubscription, len(opts.Participants))
 	chatNames := NewChatNames()
 	for _, participant := range opts.Participants {
 		participant := participant
-		if participant.PushSubscription != nil {
-			pushSubscriptions[participant.ID] = *participant.PushSubscription
+		if participant.PushSubscription != nil && !validPushSubscription(*participant.PushSubscription) {
 			participant.PushSubscription = nil
 		}
 		participants[participant.ReconnectToken] = &participant
@@ -137,7 +134,6 @@ func NewChat(opts NewChatOpts) *Chat {
 		participants:         participants,
 		participantByID:      participantByIDFromParticipants(participants),
 		corresps:             make(map[int]*user.User),
-		pushSubscriptions:    validPushSubscriptions(pushSubscriptions, participants),
 		pushSender:           opts.PushSender,
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
@@ -166,26 +162,10 @@ func participantByIDFromParticipants(participants map[string]*Participant) map[i
 	return byID
 }
 
-func validPushSubscriptions(
-	subscriptions map[int]PushSubscription,
-	participants map[string]*Participant,
-) map[int]PushSubscription {
-	byParticipantID := participantByIDFromParticipants(participants)
-	valid := make(map[int]PushSubscription, len(subscriptions))
-	for participantID, subscription := range subscriptions {
-		if _, ok := byParticipantID[participantID]; !ok {
-			continue
-		}
-		if subscription.Endpoint == "" ||
-			subscription.Keys.Auth == "" ||
-			subscription.Keys.P256DH == "" {
-			continue
-		}
-
-		valid[participantID] = subscription
-	}
-
-	return valid
+func validPushSubscription(subscription PushSubscription) bool {
+	return subscription.Endpoint != "" &&
+		subscription.Keys.Auth != "" &&
+		subscription.Keys.P256DH != ""
 }
 
 func (c *Chat) Start() {
@@ -205,12 +185,12 @@ func (c *Chat) stateLocked() entity.Chat {
 			Name:           participant.Name,
 			ReconnectToken: participant.ReconnectToken,
 		}
-		if subscription, ok := c.pushSubscriptions[participant.ID]; ok {
+		if participant.PushSubscription != nil {
 			chatParticipant.PushSubscription = &entity.ChatPushSubscription{
-				Endpoint: subscription.Endpoint,
+				Endpoint: participant.PushSubscription.Endpoint,
 				Keys: entity.ChatPushKeys{
-					Auth:   subscription.Keys.Auth,
-					P256DH: subscription.Keys.P256DH,
+					Auth:   participant.PushSubscription.Keys.Auth,
+					P256DH: participant.PushSubscription.Keys.P256DH,
 				},
 			}
 		}
@@ -257,12 +237,12 @@ func (c *Chat) participantStateLocked(participantID int) (entity.ChatParticipant
 		Name:           participant.Name,
 		ReconnectToken: participant.ReconnectToken,
 	}
-	if subscription, ok := c.pushSubscriptions[participant.ID]; ok {
+	if participant.PushSubscription != nil {
 		chatParticipant.PushSubscription = &entity.ChatPushSubscription{
-			Endpoint: subscription.Endpoint,
+			Endpoint: participant.PushSubscription.Endpoint,
 			Keys: entity.ChatPushKeys{
-				Auth:   subscription.Keys.Auth,
-				P256DH: subscription.Keys.P256DH,
+				Auth:   participant.PushSubscription.Keys.Auth,
+				P256DH: participant.PushSubscription.Keys.P256DH,
 			},
 		}
 	}
