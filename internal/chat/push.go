@@ -41,6 +41,14 @@ type PushSender interface {
 	Send(ctx context.Context, subscription PushSubscription, payload PushPayload) error
 }
 
+type pushTargetStats struct {
+	targets       map[int]PushSubscription
+	subscriptions int
+	online        int
+	skippedSender int
+	skippedOnline int
+}
+
 type NoopPushSender struct{}
 
 func (NoopPushSender) Send(context.Context, PushSubscription, PushPayload) error {
@@ -210,23 +218,30 @@ func (c *Chat) DeletePushSubscription(participantID int) {
 	)
 }
 
-func (c *Chat) offlinePushTargets(senderID int) map[int]PushSubscription {
+func (c *Chat) offlinePushTargets(senderID int) pushTargetStats {
 	c.correspsMx.RLock()
 	defer c.correspsMx.RUnlock()
 
 	targets := make(map[int]PushSubscription)
+	stats := pushTargetStats{
+		targets:       targets,
+		subscriptions: len(c.pushSubscriptions),
+		online:        len(c.corresps),
+	}
 	for participantID, subscription := range c.pushSubscriptions {
 		if participantID == senderID {
+			stats.skippedSender++
 			continue
 		}
 		if _, online := c.corresps[participantID]; online {
+			stats.skippedOnline++
 			continue
 		}
 
 		targets[participantID] = subscription
 	}
 
-	return targets
+	return stats
 }
 
 func pushEndpointOrigin(endpoint string) string {
@@ -240,11 +255,25 @@ func pushEndpointOrigin(endpoint string) string {
 
 func (c *Chat) sendPushToOfflineParticipants(senderID int, msg *messageForPush) {
 	targets := c.offlinePushTargets(senderID)
-	if len(targets) == 0 || c.pushSender == nil {
+	if len(targets.targets) == 0 {
+		log.Printf(
+			"info: chat: no offline push targets chat=%s sender_id=%d message_id=%s message_seq=%d "+
+				"subscriptions=%d online=%d skipped_sender=%d skipped_online=%d",
+			c.ID, senderID, msg.MessageID, msg.MessageSeq, targets.subscriptions, targets.online,
+			targets.skippedSender, targets.skippedOnline,
+		)
+		return
+	}
+	if c.pushSender == nil {
+		log.Printf(
+			"warning: chat: could not send push because push sender is disabled chat=%s sender_id=%d "+
+				"message_id=%s message_seq=%d targets=%d",
+			c.ID, senderID, msg.MessageID, msg.MessageSeq, len(targets.targets),
+		)
 		return
 	}
 
-	for participantID, subscription := range targets {
+	for participantID, subscription := range targets.targets {
 		participantID := participantID
 		subscription := subscription
 

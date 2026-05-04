@@ -277,7 +277,7 @@ func TestRestoredPushSubscriptionIsAvailableForOfflineTarget(t *testing.T) {
 		},
 	})
 
-	targets := c.offlinePushTargets(1)
+	targets := c.offlinePushTargets(1).targets
 	restoredSubscription, ok := targets[2]
 	if !ok {
 		t.Fatalf("expected restored push subscription to be available")

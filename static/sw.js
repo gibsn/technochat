@@ -200,6 +200,7 @@ function handlePush(event) {
       icon: '/images/icon-192x192.png',
       badge: '/images/icon-192x192.png',
       tag: 'technochat:' + payload.chatId,
+      renotify: true,
       data: {
         chatId: payload.chatId
       }
