@@ -14,6 +14,7 @@ type Registry struct {
 	restoring  map[string]*restoreCall
 	store      RestoreStore
 	offlineTTL time.Duration
+	pushSender PushSender
 	mx         sync.Mutex
 }
 
@@ -29,13 +30,22 @@ type RestoreStore interface {
 	DeleteChat(chatID string) error
 }
 
-func NewRegistry(store RestoreStore) *Registry {
-	return NewRegistryWithOfflineTTL(store, ChatOfflineTTL)
+func NewRegistry(store RestoreStore, pushSenders ...PushSender) *Registry {
+	return NewRegistryWithOfflineTTL(store, ChatOfflineTTL, pushSenders...)
 }
 
-func NewRegistryWithOfflineTTL(store RestoreStore, offlineTTL time.Duration) *Registry {
+func NewRegistryWithOfflineTTL(
+	store RestoreStore,
+	offlineTTL time.Duration,
+	pushSenders ...PushSender,
+) *Registry {
 	if offlineTTL <= 0 {
 		offlineTTL = ChatOfflineTTL
+	}
+
+	var pushSender PushSender
+	if len(pushSenders) > 0 {
+		pushSender = pushSenders[0]
 	}
 
 	return &Registry{
@@ -43,6 +53,7 @@ func NewRegistryWithOfflineTTL(store RestoreStore, offlineTTL time.Duration) *Re
 		restoring:  make(map[string]*restoreCall),
 		store:      store,
 		offlineTTL: offlineTTL,
+		pushSender: pushSender,
 	}
 }
 
@@ -108,7 +119,7 @@ func (r *Registry) restoreChat(id string, store RestoreStore) (*Chat, error) {
 		return nil, err
 	}
 
-	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.offlineTTL))
+	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.offlineTTL, r.pushSender))
 	activeChat, added := r.AddChatIfAbsent(restoredChat)
 	if added {
 		go r.HandleChat(activeChat)
@@ -154,13 +165,26 @@ func newChatOptsFromState(
 	savedChat entity.Chat,
 	store StateStore,
 	offlineTTL time.Duration,
+	pushSender PushSender,
 ) NewChatOpts {
 	participants := make([]Participant, 0, len(savedChat.Participants))
 	for _, participant := range savedChat.Participants {
+		var pushSubscription *PushSubscription
+		if participant.PushSubscription != nil {
+			pushSubscription = &PushSubscription{
+				Endpoint: participant.PushSubscription.Endpoint,
+				Keys: PushKeys{
+					Auth:   participant.PushSubscription.Keys.Auth,
+					P256DH: participant.PushSubscription.Keys.P256DH,
+				},
+			}
+		}
+
 		participants = append(participants, Participant{
-			ID:             participant.ID,
-			Name:           participant.Name,
-			ReconnectToken: participant.ReconnectToken,
+			ID:               participant.ID,
+			Name:             participant.Name,
+			ReconnectToken:   participant.ReconnectToken,
+			PushSubscription: pushSubscription,
 		})
 	}
 
@@ -172,5 +196,6 @@ func newChatOptsFromState(
 		Participants:     participants,
 		OfflineTTL:       offlineTTL,
 		Store:            store,
+		PushSender:       pushSender,
 	}
 }

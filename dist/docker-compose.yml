@@ -18,6 +18,10 @@ services:
         image: gibsn/technochat
         depends_on:
             - redis
+        environment:
+            VAPID_PUBLIC_KEY: "${VAPID_PUBLIC_KEY:-}"
+            VAPID_PRIVATE_KEY: "${VAPID_PRIVATE_KEY:-}"
+            VAPID_SUBJECT: "${VAPID_SUBJECT:-}"
         expose:
             - 8080
 

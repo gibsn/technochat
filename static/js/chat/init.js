@@ -3,6 +3,10 @@ import {AESGCM128, ArrayBufferToBase64, Encrypter} from "/js/message/crypto.js";
 
 let copyButtonView;
 let joinButtonView;
+let joinLinkFormView;
+let joinLinkInputView;
+let joinLinkErrorView;
+let joinLinkDividerView;
 
 function isStandalonePWA() {
     return window.matchMedia('(display-mode: standalone)').matches ||
@@ -34,12 +38,49 @@ function onJoinClick(e) {
     }
 }
 
+function chatLinkPath(rawLink) {
+    let url;
+
+    try {
+        url = new URL(rawLink.trim(), window.location.origin);
+    } catch (e) {
+        return '';
+    }
+
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+    if (url.pathname !== '/html/joinchat.html' ||
+        !url.searchParams.get('id') ||
+        !hashParams.get('key')) {
+        return '';
+    }
+
+    return url.pathname + url.search + url.hash;
+}
+
+function onJoinLinkSubmit(e) {
+    e.preventDefault();
+
+    const path = chatLinkPath(joinLinkInputView.value);
+    if (!path) {
+        joinLinkErrorView.textContent = 'Paste a valid chat link';
+        return;
+    }
+
+    joinLinkErrorView.textContent = '';
+    if (isStandalonePWA() && window.TechnochatNetworkLoader) {
+        window.TechnochatNetworkLoader.start();
+    }
+    window.location.href = path;
+}
+
 function onSubmit(e) {
     $("#loading").show();
     util.resetCopyButton('copy_button');
+    joinLinkDividerView.style.display = "none";
+    joinLinkFormView.style.display = "none";
     e.preventDefault();
 
-    var fd = new FormData($("form")[0]);
+    var fd = new FormData(this);
     var obj = {};
     fd.forEach(function (value, key) {
         obj[key] = value;
@@ -110,6 +151,16 @@ function initPage() {
 
     util.copyButton('copy_button', 'to_copy');
 
+    joinLinkFormView = document.getElementById("join_link_form");
+    joinLinkFormView.addEventListener('submit', onJoinLinkSubmit);
+    joinLinkDividerView = document.getElementById("join_link_divider");
+
+    joinLinkErrorView = document.getElementById("join_link_error");
+    joinLinkInputView = document.getElementById("join_link");
+    joinLinkInputView.addEventListener('input', function () {
+        joinLinkErrorView.textContent = '';
+    });
+
     copyButtonView = document.getElementById("copy_button");
     copyButtonView.style.display = "none";
 
@@ -117,7 +168,7 @@ function initPage() {
     joinButtonView.style.display = "none";
     joinButtonView.addEventListener('click', onJoinClick);
 
-    $("form").submit(onSubmit);
+    $("#text_form").submit(onSubmit);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
