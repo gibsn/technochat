@@ -108,6 +108,35 @@ func TestRegistryRestoresChatLazily(t *testing.T) {
 	stopRegistryChat(t, restoredChat, store.deleteDone)
 }
 
+func TestRegistryRestoresChatWithConfiguredOfflineTTL(t *testing.T) {
+	const chatID = "registry-restore-ttl-test"
+
+	store := &testRestoreStore{
+		chat: entity.Chat{
+			ID:        chatID,
+			MaxUsers:  1,
+			RestJoins: 0,
+		},
+		deleteDone: make(chan struct{}),
+	}
+	registry := NewRegistryWithOfflineTTL(store, 2*time.Hour)
+
+	restoredChat, err := registry.GetChat(chatID)
+	if err != nil {
+		t.Fatalf("could not restore chat: %v", err)
+	}
+	if restoredChat == nil {
+		t.Fatalf("expected chat to be restored")
+	}
+
+	state := restoredChat.State()
+	if state.TTL != int((2 * time.Hour).Seconds()) {
+		t.Fatalf("expected restored chat TTL %d, got %d", int((2 * time.Hour).Seconds()), state.TTL)
+	}
+
+	stopRegistryChat(t, restoredChat, store.deleteDone)
+}
+
 func TestRegistryCoalescesConcurrentLazyRestore(t *testing.T) {
 	const chatID = "registry-concurrent-restore-test"
 	const callers = 10

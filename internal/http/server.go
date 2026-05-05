@@ -26,9 +26,10 @@ const (
 type Server struct {
 	addr string
 
-	db     db.DB
-	chats  *chat.Registry
-	server *http.Server
+	db             db.DB
+	chats          *chat.Registry
+	chatOfflineTTL time.Duration
+	server         *http.Server
 }
 
 type Response struct {
@@ -39,22 +40,28 @@ type Response struct {
 type TechnochatHandler func(*http.Request) (int, interface{}, error)
 type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
-func NewServer(addr string, db db.DB) *Server {
+func NewServer(addr string, db db.DB) (*Server, error) {
+	chatOfflineTTL, err := chat.OfflineTTLFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Server{
-		addr:  addr,
-		db:    db,
-		chats: chat.NewRegistry(db),
+		addr:           addr,
+		db:             db,
+		chats:          chat.NewRegistryWithOfflineTTL(db, chatOfflineTTL),
+		chatOfflineTTL: chatOfflineTTL,
 		server: &http.Server{
 			Addr:              addr,
 			Handler:           nil,
 			ReadHeaderTimeout: gracefulTime,
 		},
-	}
+	}, nil
 }
 
 func (s *Server) chatRegistry() *chat.Registry {
 	if s.chats == nil {
-		s.chats = chat.NewRegistry(s.db)
+		s.chats = chat.NewRegistryWithOfflineTTL(s.db, s.chatOfflineTTL)
 	}
 
 	return s.chats

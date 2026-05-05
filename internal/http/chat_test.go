@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"technochat/pkg/entity"
 )
@@ -99,5 +100,40 @@ func TestChatInitDoesNotRegisterChatWhenPersistFails(t *testing.T) {
 	if activeChat != nil {
 		activeChat.TriggerShutdown()
 		t.Fatalf("expected failed chat init not to register chat %s in memory", persistedChat.ID)
+	}
+}
+
+func TestChatInitUsesConfiguredChatTTL(t *testing.T) {
+	db := &testDB{}
+	s := &Server{
+		db:             db,
+		chatOfflineTTL: 2 * time.Hour,
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "/api/v1/chat/init", strings.NewReader(`{"max_users":"2"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, _, err := s.chatInit(req)
+	if err != nil {
+		t.Fatalf("expected chat init to succeed: %v", err)
+	}
+	if code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, code)
+	}
+	defer func() {
+		activeChat, err := s.chatRegistry().GetChat(db.addedChat().ID)
+		if err != nil {
+			t.Fatalf("could not get chat from registry: %v", err)
+		}
+		if activeChat != nil {
+			activeChat.TriggerShutdown()
+		}
+	}()
+
+	persistedChat := db.addedChat()
+	if persistedChat.TTL != int((2 * time.Hour).Seconds()) {
+		t.Fatalf("expected chat TTL %d, got %d", int((2 * time.Hour).Seconds()), persistedChat.TTL)
 	}
 }

@@ -47,9 +47,10 @@ func (s *Server) chatInit(r *http.Request) (int, interface{}, error) {
 	}
 
 	newChat := chat.NewChat(chat.NewChatOpts{
-		ID:       chatID.String(),
-		MaxJoins: req.MaxUsers,
-		Store:    s.db,
+		ID:         chatID.String(),
+		MaxJoins:   req.MaxUsers,
+		OfflineTTL: s.chatOfflineTTL,
+		Store:      s.db,
 	})
 
 	if err := s.db.AddChat(newChat.State()); err != nil {

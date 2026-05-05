@@ -4,15 +4,17 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"technochat/pkg/entity"
 )
 
 type Registry struct {
-	chats     map[string]*Chat
-	restoring map[string]*restoreCall
-	store     RestoreStore
-	mx        sync.Mutex
+	chats      map[string]*Chat
+	restoring  map[string]*restoreCall
+	store      RestoreStore
+	offlineTTL time.Duration
+	mx         sync.Mutex
 }
 
 type restoreCall struct {
@@ -28,10 +30,19 @@ type RestoreStore interface {
 }
 
 func NewRegistry(store RestoreStore) *Registry {
+	return NewRegistryWithOfflineTTL(store, ChatOfflineTTL)
+}
+
+func NewRegistryWithOfflineTTL(store RestoreStore, offlineTTL time.Duration) *Registry {
+	if offlineTTL <= 0 {
+		offlineTTL = ChatOfflineTTL
+	}
+
 	return &Registry{
-		chats:     make(map[string]*Chat),
-		restoring: make(map[string]*restoreCall),
-		store:     store,
+		chats:      make(map[string]*Chat),
+		restoring:  make(map[string]*restoreCall),
+		store:      store,
+		offlineTTL: offlineTTL,
 	}
 }
 
@@ -97,7 +108,7 @@ func (r *Registry) restoreChat(id string, store RestoreStore) (*Chat, error) {
 		return nil, err
 	}
 
-	restoredChat := NewChat(newChatOptsFromState(savedChat, store))
+	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.offlineTTL))
 	activeChat, added := r.AddChatIfAbsent(restoredChat)
 	if added {
 		go r.HandleChat(activeChat)
@@ -139,7 +150,11 @@ func (r *Registry) HandleChat(c *Chat) {
 	}
 }
 
-func newChatOptsFromState(savedChat entity.Chat, store StateStore) NewChatOpts {
+func newChatOptsFromState(
+	savedChat entity.Chat,
+	store StateStore,
+	offlineTTL time.Duration,
+) NewChatOpts {
 	participants := make([]Participant, 0, len(savedChat.Participants))
 	for _, participant := range savedChat.Participants {
 		participants = append(participants, Participant{
@@ -155,6 +170,7 @@ func newChatOptsFromState(savedChat entity.Chat, store StateStore) NewChatOpts {
 		RestJoins:        savedChat.RestJoins,
 		RestoreRestJoins: true,
 		Participants:     participants,
+		OfflineTTL:       offlineTTL,
 		Store:            store,
 	}
 }
