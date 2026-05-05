@@ -495,6 +495,42 @@ test("@unit stores reconnect token after the first chat connection", async ({
   });
 });
 
+test("@unit stores room key before reconnect token is issued", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  const storedSession = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+  });
+
+  expect(storedSession).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "",
+    name: "",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
+  });
+});
+
+test("@unit preserves stored reconnect token when refreshing room key", async ({
+  page,
+}) => {
+  await openJoinChatWithStoredReconnectToken(page, "stored-token", "Tiny");
+
+  const storedSession = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+  });
+
+  expect(storedSession).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "stored-token",
+    name: "Tiny",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
+  });
+});
+
 test("@unit uses reconnect websocket endpoint when a token is stored", async ({
   page,
 }) => {
@@ -531,6 +567,32 @@ test("@unit can reconnect from stored room key when URL hash is missing", async 
   const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
   expect(socketURL).toContain("/api/v1/chat/reconnect");
   expect(socketURL).toContain("reconnect_token=stored-token");
+});
+
+test("@unit does not reconnect from stored room key without reconnect token", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript((roomKey) => {
+    localStorage.setItem(
+      "technochat:chat:chat-id",
+      JSON.stringify({
+        chatId: "chat-id",
+        reconnectToken: "",
+        name: "Tiny",
+        roomKey,
+        updatedAt: "2026-05-02T06:00:00.000Z",
+      })
+    );
+  }, chatKeyBase64);
+
+  await page.goto("/html/joinchat.html?id=chat-id", { waitUntil: "commit" });
+
+  await expect(page.locator(".chat_error")).toContainText("Could not reconnect");
+  const socketCount = await page.evaluate(() => {
+    return (window.__technochatMockSockets || []).length;
+  });
+  expect(socketCount).toBe(0);
 });
 
 test("@unit local leave clears reconnect token without returning chat quota", async ({
@@ -573,7 +635,7 @@ test("@unit warns when chat is opened inside Telegram webview", async ({
   await expect(page.locator(".webview_warning")).toContainText("Telegram");
 });
 
-test("@unit clears invalid reconnect token and falls back to first connect", async ({
+test("@unit clears invalid reconnect token without spending a new chat slot", async ({
   page,
 }) => {
   await openJoinChatWithStoredReconnectToken(page, "bad-token");
@@ -587,7 +649,7 @@ test("@unit clears invalid reconnect token and falls back to first connect", asy
     });
   });
 
-  await page.waitForFunction(() => window.__technochatMockSockets.length === 2);
+  await expect(page.locator(".chat_error")).toContainText("Could not reconnect");
 
   const state = await page.evaluate(() => {
     return {
@@ -596,9 +658,15 @@ test("@unit clears invalid reconnect token and falls back to first connect", asy
     };
   });
 
-  expect(state.storedSession).toBeNull();
+  expect(JSON.parse(state.storedSession)).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "",
+    name: "stored-name",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
+  });
   expect(state.socketURLs[0]).toContain("/api/v1/chat/reconnect");
-  expect(state.socketURLs[1]).toContain("/api/v1/chat/connect");
+  expect(state.socketURLs).toHaveLength(1);
 });
 
 test("@unit retries the first websocket connect before showing connection lost", async ({

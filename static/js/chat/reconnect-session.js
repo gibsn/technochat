@@ -74,6 +74,50 @@ export function storeReconnectSession(chatID, reconnectToken, name, roomKey) {
     }
 }
 
+export function storeReconnectRoomKey(chatID, roomKey) {
+    if (!chatID || !roomKey) {
+        return;
+    }
+
+    try {
+        var session = loadReconnectSession(chatID);
+        window.localStorage.setItem(reconnectStorageKey(chatID), JSON.stringify({
+            chatId: chatID,
+            reconnectToken: session.reconnectToken || '',
+            name: session.name || '',
+            roomKey: roomKey,
+            updatedAt: new Date().toISOString(),
+        }));
+    } catch (e) {
+        console.warn('could not store chat room key', e);
+    }
+}
+
+export function clearReconnectToken(chatID, roomKey) {
+    if (!chatID) {
+        return;
+    }
+
+    try {
+        var session = loadReconnectSession(chatID);
+        var preservedRoomKey = roomKey || session.roomKey;
+        if (!preservedRoomKey) {
+            window.localStorage.removeItem(reconnectStorageKey(chatID));
+            return;
+        }
+
+        window.localStorage.setItem(reconnectStorageKey(chatID), JSON.stringify({
+            chatId: chatID,
+            reconnectToken: '',
+            name: session.name || '',
+            roomKey: preservedRoomKey,
+            updatedAt: new Date().toISOString(),
+        }));
+    } catch (e) {
+        console.warn('could not clear chat reconnect token', e);
+    }
+}
+
 export function clearReconnectSession(chatID) {
     try {
         window.localStorage.removeItem(reconnectStorageKey(chatID));

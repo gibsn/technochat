@@ -5,8 +5,10 @@ import {
     Encrypter
 } from "/js/message/crypto.js";
 import {
+    clearReconnectToken,
     clearReconnectSession,
     loadReconnectSession,
+    storeReconnectRoomKey,
     storeReconnectSession
 } from "/js/chat/reconnect-session.js";
 import {installRestrictedWebViewWarning} from "/js/restricted-webview.js";
@@ -186,9 +188,17 @@ new Vue({
         var id = getParameterByName('id', window.location);
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
+        var keySource = key ? 'hash' : 'missing';
+        var session = null;
 
-        if (id && !key) {
-            key = loadReconnectSession(id).roomKey;
+        if (id) {
+            session = loadReconnectSession(id);
+            if (key) {
+                storeReconnectRoomKey(id, key);
+            } else {
+                key = session.roomKey;
+                keySource = key ? 'storage' : 'missing';
+            }
         }
 
         reportChatDiagnostic('chat_join_page_start', {
@@ -196,6 +206,10 @@ new Vue({
             has_id: Boolean(id),
             key_length: key ? key.length : 0,
             key_mod4: key ? key.length % 4 : null,
+            key_source: keySource,
+            stored_session_present: Boolean(session && session.chatId),
+            stored_has_key: Boolean(session && session.roomKey),
+            stored_has_reconnect_token: Boolean(session && session.reconnectToken),
         });
 
         if (!id || !key) {
@@ -204,9 +218,27 @@ new Vue({
                 has_id: Boolean(id),
                 missing_id: !id,
                 missing_key: !key,
+                key_source: keySource,
+                stored_session_present: Boolean(session && session.chatId),
+                stored_has_key: Boolean(session && session.roomKey),
+                stored_has_reconnect_token: Boolean(session && session.reconnectToken),
             });
             this.okconnected = false;
             this.connectionStatus = 'Chat link is invalid';
+            return;
+        }
+
+        if (keySource === 'storage' && !(session && session.reconnectToken)) {
+            reportChatDiagnostic('chat_join_reconnect_token_missing', {
+                chat_id: id || '',
+                has_id: Boolean(id),
+                key_source: keySource,
+                stored_session_present: Boolean(session && session.chatId),
+                stored_has_key: Boolean(session && session.roomKey),
+                stored_has_reconnect_token: false,
+            });
+            this.okconnected = false;
+            this.connectionStatus = 'Could not reconnect';
             return;
         }
 
@@ -337,14 +369,9 @@ new Vue({
                                 chat_id: self.chatID,
                                 mode: useReconnect ? 'reconnect' : 'connect',
                             });
-                            clearReconnectSession(self.chatID);
+                            clearReconnectToken(self.chatID, self.roomKey);
                             self.reconnectToken = '';
-                            if (useReconnect) {
-                                self.reconnectAttempt = 0;
-                                self.openChatSocket(false);
-                            } else {
-                                self.stopConnecting('Could not reconnect', true);
-                            }
+                            self.stopConnecting('Could not reconnect', true);
                         }
                         if (msg.data.event_id == EventPresence) {
                             self.updatePresence(msg.data.event_data);
