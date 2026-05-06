@@ -1,6 +1,12 @@
+# github.com/SherClockHolmes/webpush-go v1.4.0
+## explicit; go 1.13
+github.com/SherClockHolmes/webpush-go
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/golang-jwt/jwt/v5 v5.2.2
+## explicit; go 1.18
+github.com/golang-jwt/jwt/v5
 # github.com/google/uuid v0.0.0-20171129191014-dec09d789f3d
 ## explicit
 github.com/google/uuid
@@ -17,6 +23,9 @@ github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.8.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
+# golang.org/x/crypto v0.31.0
+## explicit; go 1.20
+golang.org/x/crypto/hkdf
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3

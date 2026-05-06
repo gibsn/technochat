@@ -35,6 +35,22 @@
             Create chat
         </button>
     </form>
+
+    <p id="join_link_divider">or</p>
+
+    <form class="chat_join_form" id="join_link_form">
+        <input
+            class="chat_join_input"
+            id="join_link"
+            type="text"
+            placeholder="Paste chat link"
+            autocomplete="off"
+            inputmode="url"
+        >
+        <button class="button" type="submit">Join by link</button>
+        <div class="chat_join_error" id="join_link_error"></div>
+    </form>
+
     <div id="loading">loading</div>
     <div id="link_box" class="link">
         <p>Link: </p>

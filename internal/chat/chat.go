@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
 	"technochat/internal/chat/message"
@@ -63,7 +64,10 @@ type Chat struct {
 	restJoins         int // how many available invitations are left
 	maxUsers          int
 	participants      map[string]*Participant
+	participantByID   map[int]*Participant
 	corresps          map[int]*user.User
+	pushSender        PushSender
+	nextMessageSeq    uint64
 	correspsMx        sync.RWMutex
 	typingBroadcastMx sync.Mutex
 }
@@ -74,13 +78,16 @@ type incomingMessage struct {
 }
 
 type Participant struct {
-	ID             int
-	Name           string
-	ReconnectToken string
+	ID               int
+	Name             string
+	ReconnectToken   string
+	PushSubscription *PushSubscription
 }
 
 type StateStore interface {
-	UpdateChat(chat entity.Chat) error
+	AddParticipant(chatID string, participant entity.ChatParticipant, restJoins int, ttl int) error
+	UpdateParticipant(chatID string, participant entity.ChatParticipant, ttl int) error
+	TouchChat(chatID string, ttl int) error
 }
 
 type NewChatOpts struct {
@@ -92,6 +99,7 @@ type NewChatOpts struct {
 	OfflineTTL       time.Duration
 	StateRefreshRate time.Duration
 	Store            StateStore
+	PushSender       PushSender
 }
 
 func NewChat(opts NewChatOpts) *Chat {
@@ -113,6 +121,9 @@ func NewChat(opts NewChatOpts) *Chat {
 	chatNames := NewChatNames()
 	for _, participant := range opts.Participants {
 		participant := participant
+		if participant.PushSubscription != nil && !validPushSubscription(*participant.PushSubscription) {
+			participant.PushSubscription = nil
+		}
 		participants[participant.ReconnectToken] = &participant
 		chatNames.usedNames[participant.ID] = true
 	}
@@ -121,7 +132,9 @@ func NewChat(opts NewChatOpts) *Chat {
 		ID:                   opts.ID,
 		store:                opts.Store,
 		participants:         participants,
+		participantByID:      participantByIDFromParticipants(participants),
 		corresps:             make(map[int]*user.User),
+		pushSender:           opts.PushSender,
 		incomingChan:         make(chan *incomingMessage, incomingBufferSize),
 		broadcastChan:        make(chan *message.WSMessage, broadcastBufferSize),
 		offlineStateChan:     make(chan bool, 1),
@@ -140,6 +153,21 @@ func NewChat(opts NewChatOpts) *Chat {
 	return c
 }
 
+func participantByIDFromParticipants(participants map[string]*Participant) map[int]*Participant {
+	byID := make(map[int]*Participant, len(participants))
+	for _, participant := range participants {
+		byID[participant.ID] = participant
+	}
+
+	return byID
+}
+
+func validPushSubscription(subscription PushSubscription) bool {
+	return subscription.Endpoint != "" &&
+		subscription.Keys.Auth != "" &&
+		subscription.Keys.P256DH != ""
+}
+
 func (c *Chat) Start() {
 	c.start.Do(func() {
 		c.WG.Add(2)
@@ -152,11 +180,22 @@ func (c *Chat) Start() {
 func (c *Chat) stateLocked() entity.Chat {
 	participants := make([]entity.ChatParticipant, 0, len(c.participants))
 	for _, participant := range c.participants {
-		participants = append(participants, entity.ChatParticipant{
+		chatParticipant := entity.ChatParticipant{
 			ID:             participant.ID,
 			Name:           participant.Name,
 			ReconnectToken: participant.ReconnectToken,
-		})
+		}
+		if participant.PushSubscription != nil {
+			chatParticipant.PushSubscription = &entity.ChatPushSubscription{
+				Endpoint: participant.PushSubscription.Endpoint,
+				Keys: entity.ChatPushKeys{
+					Auth:   participant.PushSubscription.Keys.Auth,
+					P256DH: participant.PushSubscription.Keys.P256DH,
+				},
+			}
+		}
+
+		participants = append(participants, chatParticipant)
 	}
 
 	sort.Slice(participants, func(i, j int) bool {
@@ -179,16 +218,36 @@ func (c *Chat) State() entity.Chat {
 	return c.stateLocked()
 }
 
-func (c *Chat) persistState() error {
+func (c *Chat) touchState() error {
 	if c.store == nil {
 		return nil
 	}
 
-	c.correspsMx.RLock()
-	state := c.stateLocked()
-	c.correspsMx.RUnlock()
+	return c.store.TouchChat(c.ID, int(c.offlineTTL.Seconds()))
+}
 
-	return c.store.UpdateChat(state)
+func (c *Chat) participantStateLocked(participantID int) (entity.ChatParticipant, bool) {
+	participant, ok := c.participantByID[participantID]
+	if !ok {
+		return entity.ChatParticipant{}, false
+	}
+
+	chatParticipant := entity.ChatParticipant{
+		ID:             participant.ID,
+		Name:           participant.Name,
+		ReconnectToken: participant.ReconnectToken,
+	}
+	if participant.PushSubscription != nil {
+		chatParticipant.PushSubscription = &entity.ChatPushSubscription{
+			Endpoint: participant.PushSubscription.Endpoint,
+			Keys: entity.ChatPushKeys{
+				Auth:   participant.PushSubscription.Keys.Auth,
+				P256DH: participant.PushSubscription.Keys.P256DH,
+			},
+		}
+	}
+
+	return chatParticipant, true
 }
 
 func (c *Chat) RestJoins() int {
@@ -291,8 +350,9 @@ func (c *Chat) broadcast(msg *message.WSMessage) {
 
 	if msg != nil && msg.Type == message.WSMsgTypeMessage {
 		log.Printf(
-			"info: chat: broadcasting message chat=%s sender=%q recipients=%d data=%s",
-			c.ID, msg.Name, len(recipients), message.DataForLog(msg.Data),
+			"info: chat: broadcasting message chat=%s sender=%q recipients=%d "+
+				"message_id=%s message_seq=%d data=%s",
+			c.ID, msg.Name, len(recipients), msg.MessageID, msg.MessageSeq, message.DataForLog(msg.Data),
 		)
 	}
 
@@ -429,7 +489,7 @@ func (c *Chat) handleCommunication() {
 
 		case <-stateRefreshTicker.C:
 			if c.Presence().Online > 0 {
-				if err := c.persistState(); err != nil {
+				if err := c.touchState(); err != nil {
 					log.Printf("error: chat: could not refresh persisted state for chat %s: %v", c.ID, err)
 				}
 			}
@@ -492,7 +552,28 @@ func (c *Chat) handleIncomingMessage(
 			message.DataForLog(incoming.msg.Data),
 		)
 
-		if !isTypingEvent(incoming.msg) {
+		eventID, ok := eventIDFromMessage(incoming.msg)
+		if !ok {
+			return typingBroadcastPending
+		}
+
+		if eventID == message.EventPushSubscribe {
+			if subscription, ok := pushSubscriptionFromMessage(incoming.msg); ok {
+				c.UpsertPushSubscription(incoming.user.ID, subscription)
+			} else {
+				log.Printf(
+					"warning: chat: invalid push subscription chat=%s user_id=%d user_name=%q remote=%s",
+					c.ID, incoming.user.ID, incoming.user.Name, incoming.user.Addr(),
+				)
+			}
+			return typingBroadcastPending
+		}
+		if eventID == message.EventPushUnsubscribe {
+			c.DeletePushSubscription(incoming.user.ID)
+			return typingBroadcastPending
+		}
+
+		if eventID != message.EventTyping {
 			return typingBroadcastPending
 		}
 
@@ -509,10 +590,13 @@ func (c *Chat) handleIncomingMessage(
 		return true
 
 	case message.WSMsgTypeMessage:
+		c.prepareChatMessage(incoming.msg)
+
 		log.Printf(
-			"info: chat: incoming chat message chat=%s user_id=%d user_name=%q remote=%s data=%s",
+			"info: chat: incoming chat message chat=%s user_id=%d user_name=%q remote=%s "+
+				"message_id=%s message_seq=%d data=%s",
 			c.ID, incoming.user.ID, incoming.user.Name, incoming.user.Addr(),
-			message.DataForLog(incoming.msg.Data),
+			incoming.msg.MessageID, incoming.msg.MessageSeq, message.DataForLog(incoming.msg.Data),
 		)
 
 		if c.typingUsers.Remove(incoming.user.ID) {
@@ -522,6 +606,13 @@ func (c *Chat) handleIncomingMessage(
 		}
 
 		c.broadcast(incoming.msg)
+		c.sendPushToOfflineParticipants(incoming.user.ID, &messageForPush{
+			MessageID:  incoming.msg.MessageID,
+			MessageSeq: incoming.msg.MessageSeq,
+			Sender:     incoming.msg.Name,
+			Data:       incoming.msg.Data,
+			Timestamp:  incoming.msg.CreatedAt.Format(time.RFC3339Nano),
+		})
 
 		return typingBroadcastPending
 	default:
@@ -529,18 +620,68 @@ func (c *Chat) handleIncomingMessage(
 	}
 }
 
-func isTypingEvent(msg *message.WSMessage) bool {
+func (c *Chat) prepareChatMessage(msg *message.WSMessage) {
+	if msg.MessageID == "" {
+		messageID, err := uuid.NewRandom()
+		if err != nil {
+			log.Printf("error: chat: could not generate message id in chat %s: %v", c.ID, err)
+		} else {
+			msg.MessageID = messageID.String()
+		}
+	}
+
+	if msg.MessageSeq == 0 {
+		c.nextMessageSeq++
+		msg.MessageSeq = c.nextMessageSeq
+	}
+
+	if msg.CreatedAt == nil {
+		createdAt := time.Now().UTC()
+		msg.CreatedAt = &createdAt
+	}
+}
+
+func eventIDFromMessage(msg *message.WSMessage) (message.EventID, bool) {
 	eventData, ok := msg.Data.(map[string]interface{})
 	if !ok {
-		return false
+		return 0, false
 	}
 
 	eventID, ok := eventData["event_id"].(float64)
 	if !ok {
-		return false
+		return 0, false
 	}
 
-	return message.EventID(eventID) == message.EventTyping
+	return message.EventID(eventID), true
+}
+
+func pushSubscriptionFromMessage(msg *message.WSMessage) (PushSubscription, bool) {
+	eventData, ok := msg.Data.(map[string]interface{})
+	if !ok {
+		return PushSubscription{}, false
+	}
+
+	rawSubscription, ok := eventData["event_data"].(map[string]interface{})
+	if !ok {
+		return PushSubscription{}, false
+	}
+
+	endpoint, _ := rawSubscription["endpoint"].(string)
+	rawKeys, _ := rawSubscription["keys"].(map[string]interface{})
+	auth, _ := rawKeys["auth"].(string)
+	p256dh, _ := rawKeys["p256dh"].(string)
+
+	subscription := PushSubscription{
+		Endpoint: endpoint,
+		Keys: PushKeys{
+			Auth:   auth,
+			P256DH: p256dh,
+		},
+	}
+
+	return subscription, subscription.Endpoint != "" &&
+		subscription.Keys.Auth != "" &&
+		subscription.Keys.P256DH != ""
 }
 
 func (c *Chat) TriggerShutdown() {

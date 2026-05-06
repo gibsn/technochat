@@ -37,7 +37,15 @@ func (db *testDB) AddChat(chat entity.Chat) error {
 	return db.withAddChat(chat)
 }
 
-func (db *testDB) UpdateChat(entity.Chat) error {
+func (db *testDB) AddParticipant(string, entity.ChatParticipant, int, int) error {
+	return nil
+}
+
+func (db *testDB) UpdateParticipant(string, entity.ChatParticipant, int) error {
+	return nil
+}
+
+func (db *testDB) TouchChat(string, int) error {
 	return nil
 }
 func (db *testDB) withGetChat(chatID string) (entity.Chat, error) {

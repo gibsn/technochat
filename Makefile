@@ -21,6 +21,9 @@ install: lint go-tests ui-tests technochat
 technochat:
 	go build $(GO_BUILD_FLAGS) -mod vendor -o bin/technochat ./cmd/technochat
 
+vapid-keys:
+	go run $(GO_BUILD_FLAGS) -mod vendor ./cmd/vapid
+
 bin/golangci-lint: Makefile
 	@echo "building golangci-lint $(GOLANGCI_LINT_VERSION) with $$(go env GOVERSION)"
 	GOCACHE=$(GO_BUILD_CACHE) GOBIN=$(CURDIR)/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
@@ -66,4 +69,4 @@ clean:
 	rm -rf ui-tests/node_modules
 
 
-.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat lint install_autodeploy
+.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat vapid-keys lint install_autodeploy
