@@ -65,9 +65,12 @@ func NewServer(addr string, db db.DB) (*Server, error) {
 	}
 
 	return &Server{
-		addr:           addr,
-		db:             db,
-		chats:          chat.NewRegistryWithOfflineTTL(db, chatOfflineTTL, pushSender),
+		addr: addr,
+		db:   db,
+		chats: chat.NewRegistry(db, chat.RegistryOpts{
+			OfflineTTL: chatOfflineTTL,
+			PushSender: pushSender,
+		}),
 		chatOfflineTTL: chatOfflineTTL,
 		pushPublicKey:  pushPublicKey,
 		pushSender:     pushSender,
@@ -92,7 +95,10 @@ func missingVAPIDEnvNames() string {
 
 func (s *Server) chatRegistry() *chat.Registry {
 	if s.chats == nil {
-		s.chats = chat.NewRegistryWithOfflineTTL(s.db, s.chatOfflineTTL, s.pushSender)
+		s.chats = chat.NewRegistry(s.db, chat.RegistryOpts{
+			OfflineTTL: s.chatOfflineTTL,
+			PushSender: s.pushSender,
+		})
 	}
 
 	return s.chats

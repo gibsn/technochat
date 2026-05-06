@@ -127,7 +127,7 @@ func TestRegistryRestoresChatWithConfiguredOfflineTTL(t *testing.T) {
 		},
 		deleteDone: make(chan struct{}),
 	}
-	registry := NewRegistryWithOfflineTTL(store, 2*time.Hour)
+	registry := NewRegistry(store, RegistryOpts{OfflineTTL: 2 * time.Hour})
 
 	restoredChat, err := registry.GetChat(chatID)
 	if err != nil {

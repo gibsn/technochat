@@ -30,30 +30,28 @@ type RestoreStore interface {
 	DeleteChat(chatID string) error
 }
 
-func NewRegistry(store RestoreStore, pushSenders ...PushSender) *Registry {
-	return NewRegistryWithOfflineTTL(store, ChatOfflineTTL, pushSenders...)
+type RegistryOpts struct {
+	OfflineTTL time.Duration
+	PushSender PushSender
 }
 
-func NewRegistryWithOfflineTTL(
-	store RestoreStore,
-	offlineTTL time.Duration,
-	pushSenders ...PushSender,
-) *Registry {
-	if offlineTTL <= 0 {
-		offlineTTL = ChatOfflineTTL
+func NewRegistry(store RestoreStore, opts ...RegistryOpts) *Registry {
+	registryOpts := RegistryOpts{
+		OfflineTTL: ChatOfflineTTL,
 	}
-
-	var pushSender PushSender
-	if len(pushSenders) > 0 {
-		pushSender = pushSenders[0]
+	if len(opts) > 0 {
+		registryOpts = opts[0]
+		if registryOpts.OfflineTTL <= 0 {
+			registryOpts.OfflineTTL = ChatOfflineTTL
+		}
 	}
 
 	return &Registry{
 		chats:      make(map[string]*Chat),
 		restoring:  make(map[string]*restoreCall),
 		store:      store,
-		offlineTTL: offlineTTL,
-		pushSender: pushSender,
+		offlineTTL: registryOpts.OfflineTTL,
+		pushSender: registryOpts.PushSender,
 	}
 }
 
