@@ -29,12 +29,14 @@ const (
 type Server struct {
 	addr string
 
-	db     db.DB
-	chats  *chat.Registry
-	server *http.Server
+	db             db.DB
+	chats          *chat.Registry
+	chatOfflineTTL time.Duration
 
 	pushPublicKey string
 	pushSender    chat.PushSender
+
+	server *http.Server
 }
 
 type Response struct {
@@ -45,7 +47,20 @@ type Response struct {
 type TechnochatHandler func(*http.Request) (int, interface{}, error)
 type TechnochatHandlerRaw func(*http.Request) (int, []byte, error)
 
-func NewServer(addr string, db db.DB) *Server {
+func NewServer(addr string, db db.DB) (*Server, error) {
+	chatOfflineTTL, err := chat.OfflineTTLFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	chatTTLValue := strings.TrimSpace(os.Getenv(chat.ChatTTLEnv))
+	if chatTTLValue == "" {
+		chatTTLValue = "<unset>"
+	}
+	chatTTLValueForLog := sanitizeClientLogValue(chatTTLValue)
+	//nolint:gosec // Environment value is sanitized before logging.
+	log.Printf("info: http: chat TTL configured: %s=%q effective=%s",
+		chat.ChatTTLEnv, chatTTLValueForLog, chatOfflineTTL)
+
 	pushPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
 	pushPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
 	pushSubject := os.Getenv("VAPID_SUBJECT")
@@ -58,17 +73,21 @@ func NewServer(addr string, db db.DB) *Server {
 	}
 
 	return &Server{
-		addr:          addr,
-		db:            db,
-		chats:         chat.NewRegistry(db, pushSender),
-		pushPublicKey: pushPublicKey,
-		pushSender:    pushSender,
+		addr: addr,
+		db:   db,
+		chats: chat.NewRegistry(db, chat.RegistryOpts{
+			OfflineTTL: chatOfflineTTL,
+			PushSender: pushSender,
+		}),
+		chatOfflineTTL: chatOfflineTTL,
+		pushPublicKey:  pushPublicKey,
+		pushSender:     pushSender,
 		server: &http.Server{
 			Addr:              addr,
 			Handler:           nil,
 			ReadHeaderTimeout: gracefulTime,
 		},
-	}
+	}, nil
 }
 
 func missingVAPIDEnvNames() string {
@@ -84,7 +103,10 @@ func missingVAPIDEnvNames() string {
 
 func (s *Server) chatRegistry() *chat.Registry {
 	if s.chats == nil {
-		s.chats = chat.NewRegistry(s.db, s.pushSender)
+		s.chats = chat.NewRegistry(s.db, chat.RegistryOpts{
+			OfflineTTL: s.chatOfflineTTL,
+			PushSender: s.pushSender,
+		})
 	}
 
 	return s.chats

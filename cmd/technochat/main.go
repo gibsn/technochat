@@ -31,7 +31,10 @@ func main() {
 	flag.Parse()
 
 	db := redis.NewRedis(*dbAddr)
-	httpServer := http.NewServer(*addr, db)
+	httpServer, err := http.NewServer(*addr, db)
+	if err != nil {
+		log.Fatalln("fatal: config:", err)
+	}
 
 	log.Println("technochat: initialising")
 

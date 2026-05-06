@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"technochat/pkg/entity"
 )
@@ -12,6 +13,7 @@ type Registry struct {
 	chats      map[string]*Chat
 	restoring  map[string]*restoreCall
 	store      RestoreStore
+	offlineTTL time.Duration
 	pushSender PushSender
 	mx         sync.Mutex
 }
@@ -28,17 +30,28 @@ type RestoreStore interface {
 	DeleteChat(chatID string) error
 }
 
-func NewRegistry(store RestoreStore, pushSenders ...PushSender) *Registry {
-	var pushSender PushSender
-	if len(pushSenders) > 0 {
-		pushSender = pushSenders[0]
+type RegistryOpts struct {
+	OfflineTTL time.Duration
+	PushSender PushSender
+}
+
+func NewRegistry(store RestoreStore, opts ...RegistryOpts) *Registry {
+	registryOpts := RegistryOpts{
+		OfflineTTL: ChatOfflineTTL,
+	}
+	if len(opts) > 0 {
+		registryOpts = opts[0]
+		if registryOpts.OfflineTTL <= 0 {
+			registryOpts.OfflineTTL = ChatOfflineTTL
+		}
 	}
 
 	return &Registry{
 		chats:      make(map[string]*Chat),
 		restoring:  make(map[string]*restoreCall),
 		store:      store,
-		pushSender: pushSender,
+		offlineTTL: registryOpts.OfflineTTL,
+		pushSender: registryOpts.PushSender,
 	}
 }
 
@@ -104,7 +117,7 @@ func (r *Registry) restoreChat(id string, store RestoreStore) (*Chat, error) {
 		return nil, err
 	}
 
-	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.pushSender))
+	restoredChat := NewChat(newChatOptsFromState(savedChat, store, r.offlineTTL, r.pushSender))
 	activeChat, added := r.AddChatIfAbsent(restoredChat)
 	if added {
 		go r.HandleChat(activeChat)
@@ -149,6 +162,7 @@ func (r *Registry) HandleChat(c *Chat) {
 func newChatOptsFromState(
 	savedChat entity.Chat,
 	store StateStore,
+	offlineTTL time.Duration,
 	pushSender PushSender,
 ) NewChatOpts {
 	participants := make([]Participant, 0, len(savedChat.Participants))
@@ -178,6 +192,7 @@ func newChatOptsFromState(
 		RestJoins:        savedChat.RestJoins,
 		RestoreRestJoins: true,
 		Participants:     participants,
+		OfflineTTL:       offlineTTL,
 		Store:            store,
 		PushSender:       pushSender,
 	}
