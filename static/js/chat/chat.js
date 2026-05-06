@@ -263,6 +263,8 @@ new Vue({
     },
     created: function() {
         var id = getParameterByName('id', window.location);
+        var openSource = getParameterByName('open_source', window.location);
+        var pushMessageID = getParameterByName('push_message_id', window.location);
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
         var keySource = key ? 'hash' : 'missing';
@@ -272,12 +274,18 @@ new Vue({
         if (id) {
             sessionInspection = inspectReconnectSession(id);
             session = sessionInspection.session;
+            if (session.name) {
+                setDiagnosticParticipantName(session.name);
+            }
             if (key) {
                 var roomKeyStoreResult = storeReconnectRoomKey(id, key);
                 sessionInspection = roomKeyStoreResult && roomKeyStoreResult.inspection ?
                     roomKeyStoreResult.inspection :
                     inspectReconnectSession(id);
                 session = sessionInspection.session;
+                if (session.name) {
+                    setDiagnosticParticipantName(session.name);
+                }
                 if (!roomKeyStoreResult || !roomKeyStoreResult.ok) {
                     reportChatDiagnostic('chat_reconnect_room_key_store_failed', Object.assign({
                         chat_id: id,
@@ -289,6 +297,15 @@ new Vue({
                 key = session.roomKey;
                 keySource = key ? 'storage' : 'missing';
             }
+        }
+
+        if (openSource === 'push') {
+            reportChatDiagnostic('chat_opened_from_push', Object.assign({
+                chat_id: id || '',
+                has_id: Boolean(id),
+                push_message_id: pushMessageID || '',
+                key_source: keySource,
+            }, reconnectSessionInspectionDiagnostic(sessionInspection)));
         }
 
         reportChatDiagnostic('chat_join_page_start', Object.assign({

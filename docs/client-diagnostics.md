@@ -44,6 +44,10 @@ Reconnect storage diagnostics may additionally include:
 
 - `chat_join_page_start` - `joinchat` page started. Includes URL parameters,
   key source, and reconnect storage inspection.
+- `chat_opened_from_push` - `joinchat` was opened from a notification click.
+  The service worker marks these opens with `open_source=push` and optionally
+  `push_message_id` in the URL query. `#key` is expected to be absent for this
+  flow; reconnect data must come from storage.
 - `chat_join_params_missing` - the page cannot continue because `id` or a room
   key is missing. For push opens, `#key` is expected to be absent, so this event
   must be interpreted together with reconnect storage fields.
@@ -93,9 +97,6 @@ Reconnect storage diagnostics may additionally include:
   subscription to the page.
 - `chat_push_subscription_failed` - obtaining or refreshing push subscription
   failed.
-
-There is currently no explicit event for opening the chat from a notification
-click. If that signal is added, document the URL marker and the new event here.
 
 ### iOS Home Screen Prompt
 
