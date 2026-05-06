@@ -52,6 +52,14 @@ func NewServer(addr string, db db.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	chatTTLValue := strings.TrimSpace(os.Getenv(chat.ChatTTLEnv))
+	if chatTTLValue == "" {
+		chatTTLValue = "<unset>"
+	}
+	chatTTLValueForLog := sanitizeClientLogValue(chatTTLValue)
+	//nolint:gosec // Environment value is sanitized before logging.
+	log.Printf("info: http: chat TTL configured: %s=%q effective=%s",
+		chat.ChatTTLEnv, chatTTLValueForLog, chatOfflineTTL)
 
 	pushPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
 	pushPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
