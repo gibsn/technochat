@@ -167,19 +167,20 @@ VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=admin@example.com
 ```
 
-By default, automatic deploy tracks the `master` branch and runs `./deploy.sh`.
-For RC, configure it once to track the force-updated `rc` branch and run the RC
-deploy mode:
-
-```bash
-AUTODEPLOY_BRANCH=rc
-AUTODEPLOY_ARGS=--rc
-```
+By default, automatic deploy tracks the `master` branch and runs production
+deploy. The autodeploy script also supports `--rc`; in that mode it tracks the
+force-updated `rc` branch and runs `./deploy.sh --rc`.
 
 Then run:
 
 ```bash
 make install_autodeploy
+```
+
+For RC automatic deploy, run:
+
+```bash
+make install_autodeploy_rc
 ```
 
 ## Let's Encrypt certificates

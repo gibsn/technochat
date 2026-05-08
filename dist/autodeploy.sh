@@ -1,12 +1,31 @@
 #!/bin/bash
 
-BRANCH="${AUTODEPLOY_BRANCH:-master}"
-DEPLOY_SCRIPT="${AUTODEPLOY_SCRIPT:-./deploy.sh}"
+BRANCH="master"
+DEPLOY_SCRIPT="./deploy.sh"
 DEPLOY_ARGS=()
 
-if [ -n "${AUTODEPLOY_ARGS:-}" ]; then
-    read -r -a DEPLOY_ARGS <<< "$AUTODEPLOY_ARGS"
-fi
+print_help() {
+    echo "$0 checks a branch for updates and runs deploy when it changes"
+    echo -e "\tdefault:\ttrack master and run production deploy"
+    echo -e "\t--rc:\ttrack rc and run RC deploy"
+    echo -e "\t--help:\tprints this text and exits"
+}
+
+while [ "$1" != "" ]; do
+    case $1 in
+        "--rc")
+            BRANCH="rc"
+            DEPLOY_ARGS=(--rc)
+            ;;
+        "--help") print_help; exit 0;;
+        *)
+            echo "error: unknown option $1"
+            print_help
+            exit 1
+            ;;
+    esac
+    shift
+done
 
 git -c safe.directory=$(pwd) remote set-url origin https://${GITHUB_TOKEN}@github.com/gibsn/technochat.git
 
