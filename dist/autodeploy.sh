@@ -3,6 +3,7 @@
 BRANCH="master"
 DEPLOY_SCRIPT="./deploy.sh"
 DEPLOY_ARGS=()
+DEPLOY_LABEL="Production"
 
 print_help() {
     echo "$0 checks a branch for updates and runs deploy when it changes"
@@ -16,6 +17,7 @@ while [ "$1" != "" ]; do
         "--rc")
             BRANCH="rc"
             DEPLOY_ARGS=(--rc)
+            DEPLOY_LABEL="RC"
             ;;
         "--help") print_help; exit 0;;
         *)
@@ -51,7 +53,7 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
         STATUS="❌ Deploy failed"
     fi
 
-    MESSAGE="$(date '+%Y-%m-%d %H:%M:%S') — $STATUS. Commit: '$REMOTE_HASH', Message: '$COMMIT_MSG'"
+    MESSAGE="$(date '+%Y-%m-%d %H:%M:%S') — [$DEPLOY_LABEL] $STATUS. Commit: '$REMOTE_HASH', Message: '$COMMIT_MSG'"
 
     if [[ "$STATUS" == "✅ Deploy successful" ]]; then
         echo -e "$MESSAGE"
