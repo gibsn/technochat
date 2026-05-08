@@ -5,7 +5,9 @@ import {
     Encrypter
 } from "/js/message/crypto.js";
 import {
+    clearReconnectToken,
     clearReconnectSession,
+    inspectReconnectSession,
     loadReconnectSession,
     storeReconnectSession
 } from "/js/chat/reconnect-session.js";
@@ -38,8 +40,10 @@ const TypingNotifyRateMs = 1000;
 const TypingCleanupRateMs = 250;
 const InitialConnectRetryDelaysMs = [500, 1000];
 const ReconnectDelaysMs = [1000, 2000, 5000, 10000, 30000];
+const ReconnectSessionStoreRetryDelaysMs = [1000, 2000, 5000, 10000, 30000];
 const DiagnosticPageID = createDiagnosticPageID();
 var diagnosticSequence = 0;
+var diagnosticParticipantName = '';
 
 window.onfocus = function() {
     pageTitleNotification.off();
@@ -77,6 +81,9 @@ function diagnosticContext(extra) {
         online: window.navigator.onLine,
         visibility_state: document.visibilityState,
     };
+    if (diagnosticParticipantName) {
+        context.participant_name = diagnosticParticipantName;
+    }
 
     Object.keys(extra || {}).forEach(function(key) {
         context[key] = extra[key];
@@ -120,6 +127,10 @@ function reportChatDiagnostic(eventName, data) {
     });
 }
 
+function setDiagnosticParticipantName(name) {
+    diagnosticParticipantName = name || '';
+}
+
 function errorDiagnostic(error) {
     if (!error) {
         return {};
@@ -129,6 +140,38 @@ function errorDiagnostic(error) {
         error_name: error.name || '',
         error_message: error.message || String(error),
     };
+}
+
+function reconnectSessionInspectionDiagnostic(inspection) {
+    var session = inspection && inspection.session ? inspection.session : {};
+
+    return {
+        storage_accessible: Boolean(inspection && inspection.storageAccessible),
+        local_storage_length: inspection ? inspection.localStorageLength : 0,
+        storage_key_present: Boolean(inspection && inspection.rawPresent),
+        storage_record_length: inspection ? inspection.rawLength : 0,
+        storage_record_parseable: Boolean(inspection && inspection.parseable),
+        storage_record_updated_at: session.updatedAt || '',
+        stored_session_present: Boolean(session.chatId),
+        stored_has_key: Boolean(session.roomKey),
+        stored_has_reconnect_token: Boolean(session.reconnectToken),
+        storage_error_name: inspection ? inspection.storageErrorName : '',
+        storage_error_message: inspection ? inspection.storageErrorMessage : '',
+        storage_parse_error_name: inspection ? inspection.parseErrorName : '',
+        storage_parse_error_message: inspection ? inspection.parseErrorMessage : '',
+    };
+}
+
+function reconnectSessionStoreRetryDelay(attempt) {
+    return ReconnectSessionStoreRetryDelaysMs[
+        Math.min(attempt - 1, ReconnectSessionStoreRetryDelaysMs.length - 1)
+    ];
+}
+
+function delay(ms) {
+    return new Promise(function(resolve) {
+        window.setTimeout(resolve, ms);
+    });
 }
 
 function installPageLifecycleDiagnostics() {
@@ -190,6 +233,8 @@ new Vue({
         pushPermission: pushPermission(),
         pushSubscriptionChangeHandler: null,
         pushPermissionGestureHandler: null,
+        reconnectSessionPersisted: false,
+        reconnectSessionPersistAttempts: 0,
         iosHomePromptVisible: false,
     },
     computed: {
@@ -217,29 +262,67 @@ new Vue({
     },
     created: function() {
         var id = getParameterByName('id', window.location);
+        var openSource = getParameterByName('open_source', window.location);
+        var pushMessageID = getParameterByName('push_message_id', window.location);
         var anchorParams = new URLSearchParams(window.location.hash.slice(1));
         var key = anchorParams.get('key');
+        var keySource = key ? 'hash' : 'missing';
+        var session = null;
+        var sessionInspection = null;
 
-        if (id && !key) {
-            key = loadReconnectSession(id).roomKey;
+        if (id) {
+            sessionInspection = inspectReconnectSession(id);
+            session = sessionInspection.session;
+            if (session.name) {
+                setDiagnosticParticipantName(session.name);
+            }
+            if (key) {
+                keySource = 'hash';
+            } else {
+                key = session.roomKey;
+                keySource = key ? 'storage' : 'missing';
+            }
         }
 
-        reportChatDiagnostic('chat_join_page_start', {
+        if (openSource === 'push') {
+            reportChatDiagnostic('chat_opened_from_push', Object.assign({
+                chat_id: id || '',
+                has_id: Boolean(id),
+                push_message_id: pushMessageID || '',
+                key_source: keySource,
+            }, reconnectSessionInspectionDiagnostic(sessionInspection)));
+        }
+
+        reportChatDiagnostic('chat_join_page_start', Object.assign({
             chat_id: id || '',
             has_id: Boolean(id),
             key_length: key ? key.length : 0,
             key_mod4: key ? key.length % 4 : null,
-        });
+            key_source: keySource,
+        }, reconnectSessionInspectionDiagnostic(sessionInspection)));
 
         if (!id || !key) {
-            reportChatDiagnostic('chat_join_params_missing', {
+            reportChatDiagnostic('chat_join_params_missing', Object.assign({
                 chat_id: id || '',
                 has_id: Boolean(id),
                 missing_id: !id,
                 missing_key: !key,
-            });
+                key_source: keySource,
+            }, reconnectSessionInspectionDiagnostic(sessionInspection)));
             this.okconnected = false;
             this.connectionStatus = 'Chat link is invalid';
+            return;
+        }
+
+        if (keySource === 'storage' && !(session && session.reconnectToken)) {
+            reportChatDiagnostic('chat_join_reconnect_token_missing', Object.assign({
+                chat_id: id || '',
+                has_id: Boolean(id),
+                key_source: keySource,
+                stored_has_reconnect_token: false,
+            }, reconnectSessionInspectionDiagnostic(sessionInspection)));
+            this.okconnected = false;
+            this.connectionStatus = 'Could not reconnect';
             return;
         }
 
@@ -311,9 +394,11 @@ new Vue({
 
             var session = loadReconnectSession(id);
             this.reconnectToken = session.reconnectToken;
+            this.reconnectSessionPersisted = Boolean(session.roomKey && session.reconnectToken);
             if (session.name) {
                 this.name = session.name;
                 this.username = session.name;
+                setDiagnosticParticipantName(session.name);
             }
             await this.renderStoredPushMessages();
             var vapidPublicKey = '';
@@ -417,14 +502,9 @@ new Vue({
                                 chat_id: self.chatID,
                                 mode: useReconnect ? 'reconnect' : 'connect',
                             });
-                            clearReconnectSession(self.chatID);
+                            clearReconnectToken(self.chatID, self.roomKey);
                             self.reconnectToken = '';
-                            if (useReconnect) {
-                                self.reconnectAttempt = 0;
-                                self.openChatSocket(false);
-                            } else {
-                                self.stopConnecting('Could not reconnect', true);
-                            }
+                            self.stopConnecting('Could not reconnect', true);
                         }
                         if (msg.data.event_id == EventPresence) {
                             self.updatePresence(msg.data.event_data);
@@ -488,6 +568,7 @@ new Vue({
             });
         },
         handleConnInitOk: function(data) {
+            var self = this;
             var name = data;
             var reconnectToken = '';
 
@@ -498,6 +579,7 @@ new Vue({
 
             this.name = name;
             this.username = name;
+            setDiagnosticParticipantName(name);
             this.okconnected = true;
             this.connectionStatus = '';
             this.chatFinished = false;
@@ -506,10 +588,42 @@ new Vue({
 
             if (reconnectToken) {
                 this.reconnectToken = reconnectToken;
-                storeReconnectSession(this.chatID, reconnectToken, name, this.roomKey);
+                this.reconnectSessionPersisted = false;
+                this.persistReconnectSessionUntilStored(reconnectToken, name).then(function() {
+                    self.sendPushSubscription();
+                });
+                return;
             }
 
             this.sendPushSubscription();
+        },
+        persistReconnectSessionUntilStored: async function(reconnectToken, name) {
+            var attempt = 1;
+
+            for (;;) {
+                this.reconnectSessionPersistAttempts = attempt;
+                var result = storeReconnectSession(this.chatID, reconnectToken, name, this.roomKey);
+                if (result && result.ok) {
+                    this.reconnectSessionPersisted = true;
+                    reportChatDiagnostic('chat_reconnect_session_store_ok', Object.assign({
+                        chat_id: this.chatID,
+                        attempts: attempt,
+                    }, reconnectSessionInspectionDiagnostic(result.inspection)));
+                    return;
+                }
+
+                this.reconnectSessionPersisted = false;
+                var retryDelay = reconnectSessionStoreRetryDelay(attempt);
+                reportChatDiagnostic('chat_reconnect_session_store_failed', Object.assign({
+                    chat_id: this.chatID,
+                    attempts: attempt,
+                    retry_delay_ms: retryDelay,
+                    error_name: result ? result.errorName : '',
+                    error_message: result ? result.errorMessage : 'unknown reconnect session storage error',
+                }, reconnectSessionInspectionDiagnostic(result && result.inspection)));
+                await delay(retryDelay);
+                attempt++;
+            }
         },
         refreshPushSubscription: async function(requestPermission) {
             if (!this.pushSupported) {
@@ -561,6 +675,16 @@ new Vue({
         },
         sendPushSubscription: function() {
             if (!this.pushSubscription || !this.ws || this.ws.readyState !== 1) {
+                return;
+            }
+            if (!this.reconnectToken || !this.reconnectSessionPersisted) {
+                reportChatDiagnostic('chat_push_subscription_blocked_until_reconnect_session_stored', {
+                    chat_id: this.chatID,
+                    has_reconnect_token: Boolean(this.reconnectToken),
+                    reconnect_session_persisted: this.reconnectSessionPersisted,
+                    reconnect_session_persist_attempts: this.reconnectSessionPersistAttempts,
+                    permission: this.pushPermission,
+                });
                 return;
             }
 

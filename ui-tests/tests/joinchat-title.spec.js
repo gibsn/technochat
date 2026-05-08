@@ -180,6 +180,90 @@ async function openJoinChatScript(page) {
   await page.waitForFunction(() => typeof window.onfocus === "function");
 }
 
+async function routeClientLogs(page, logs) {
+  await page.addInitScript(() => {
+    window.__technochatClientLogs = [];
+
+    function rememberClientLog(body) {
+      if (!body) {
+        return;
+      }
+      if (body instanceof Blob) {
+        body.text().then(rememberClientLog);
+        return;
+      }
+
+      try {
+        window.__technochatClientLogs.push(JSON.parse(String(body)));
+      } catch (error) {
+        window.__technochatClientLogs.push({ error: String(error) });
+      }
+    }
+
+    Object.defineProperty(window.navigator, "sendBeacon", {
+      configurable: true,
+      value(url, body) {
+        if (String(url).includes("/api/v1/client/log")) {
+          rememberClientLog(body);
+          return true;
+        }
+
+        return false;
+      },
+    });
+
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      if (String(url).includes("/api/v1/client/log")) {
+        rememberClientLog(options && options.body);
+        return Promise.resolve(new Response("{}", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }));
+      }
+
+      return originalFetch.apply(this, arguments);
+    };
+  });
+
+  await page.route("**/api/v1/client/log", async (route) => {
+    const body = route.request().postData();
+    if (body) {
+      logs.push(JSON.parse(body));
+    }
+
+    await route.fulfill({
+      status: 204,
+      body: "",
+    });
+  });
+}
+
+async function waitForClientLog(page, matcher) {
+  await page.waitForFunction(matcher);
+}
+
+async function installMockPushSubscription(page) {
+  await page.evaluate(() => {
+    document.querySelector("#app").__vue__.pushSubscription = {
+      endpoint: "https://web.push.apple.com/mock",
+      keys: {
+        auth: "auth",
+        p256dh: "p256dh",
+      },
+    };
+  });
+}
+
+async function sentServiceEvents(page) {
+  return await page.evaluate(() => {
+    return (window.__technochatMockSocket.sentPayloads || [])
+      .map((payload) => JSON.parse(payload))
+      .filter((payload) => payload.type === 0)
+      .map((payload) => payload.data);
+  });
+}
+
 async function openJoinChatWithStoredReconnectToken(
   page,
   reconnectToken,
@@ -228,24 +312,27 @@ async function openJoinChatOnIOS(page, standalone = false) {
     });
 
     const originalMatchMedia = window.matchMedia.bind(window);
-    window.matchMedia = (query) => {
-      if (query === "(display-mode: standalone)") {
-        return {
-          matches: isStandalone,
-          media: query,
-          onchange: null,
-          addListener() {},
-          removeListener() {},
-          addEventListener() {},
-          removeEventListener() {},
-          dispatchEvent() {
-            return false;
-          },
-        };
-      }
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value(query) {
+        if (String(query).includes("display-mode: standalone")) {
+          return {
+            matches: isStandalone,
+            media: query,
+            onchange: null,
+            addListener() {},
+            removeListener() {},
+            addEventListener() {},
+            removeEventListener() {},
+            dispatchEvent() {
+              return false;
+            },
+          };
+        }
 
-      return originalMatchMedia(query);
-    };
+        return originalMatchMedia(query);
+      },
+    });
   }, standalone);
   await page.goto(
     `/html/joinchat.html?id=chat-id#key=${encodeURIComponent(chatKeyBase64)}`,
@@ -588,6 +675,148 @@ test("@unit stores reconnect token after the first chat connection", async ({
   });
 });
 
+test("@unit sends push subscription only after reconnect session is stored", async ({
+  page,
+}) => {
+  const clientLogs = [];
+  await routeClientLogs(page, clientLogs);
+  await openJoinChat(page);
+  await installMockPushSubscription(page);
+
+  await page.evaluate(() => {
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: {
+          name: "alice",
+          reconnect_token: "token-alice",
+        },
+      },
+    });
+  });
+
+  await page.waitForFunction(() => {
+    return (window.__technochatMockSocket.sentPayloads || []).some((payload) => {
+      const message = JSON.parse(payload);
+      return message.type === 0 && message.data && message.data.event_id === 6;
+    });
+  });
+
+  const state = await page.evaluate(() => {
+    return {
+      storedSession: JSON.parse(localStorage.getItem("technochat:chat:chat-id")),
+      reconnectSessionPersisted: document.querySelector("#app").__vue__
+        .reconnectSessionPersisted,
+    };
+  });
+  const serviceEvents = await sentServiceEvents(page);
+
+  expect(state.storedSession.reconnectToken).toBe("token-alice");
+  expect(state.storedSession.roomKey).toBe(chatKeyBase64);
+  expect(state.reconnectSessionPersisted).toBe(true);
+  expect(serviceEvents.some((event) => event.event_id === 6)).toBe(true);
+  await waitForClientLog(page, () => {
+    return (window.__technochatClientLogs || []).some((log) => {
+      return log.event === "chat_reconnect_session_store_ok" &&
+        log.data.participant_name === "alice";
+    });
+  });
+});
+
+test("@unit retries reconnect session storage before push subscribe", async ({
+  page,
+}) => {
+  const clientLogs = [];
+  await routeClientLogs(page, clientLogs);
+  await openJoinChat(page);
+  await installMockPushSubscription(page);
+
+  await page.evaluate(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    window.__technochatFailedReconnectWrites = 0;
+    Storage.prototype.setItem = function(key, value) {
+      if (
+        key === "technochat:chat:chat-id" &&
+        String(value).includes("token-alice") &&
+        window.__technochatFailedReconnectWrites < 1
+      ) {
+        window.__technochatFailedReconnectWrites++;
+        throw new DOMException("mock quota failure", "QuotaExceededError");
+      }
+
+      return originalSetItem.call(this, key, value);
+    };
+
+    window.__emitJoinChatMessage({
+      type: 0,
+      data: {
+        event_id: 0,
+        event_data: {
+          name: "alice",
+          reconnect_token: "token-alice",
+        },
+      },
+    });
+  });
+
+  await page.waitForTimeout(100);
+  let serviceEvents = await sentServiceEvents(page);
+  expect(serviceEvents.some((event) => event.event_id === 6)).toBe(false);
+
+  await page.waitForFunction(() => {
+    return (window.__technochatMockSocket.sentPayloads || []).some((payload) => {
+      const message = JSON.parse(payload);
+      return message.type === 0 && message.data && message.data.event_id === 6;
+    });
+  });
+
+  serviceEvents = await sentServiceEvents(page);
+  const storedSession = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+  });
+
+  expect(storedSession.reconnectToken).toBe("token-alice");
+  expect(serviceEvents.some((event) => event.event_id === 6)).toBe(true);
+  await waitForClientLog(page, () => {
+    return (window.__technochatClientLogs || []).some((log) => {
+      return log.event === "chat_reconnect_session_store_failed" &&
+        log.data.participant_name === "alice" &&
+        log.data.error_name === "QuotaExceededError";
+    });
+  });
+});
+
+test("@unit does not store partial reconnect session before token is issued", async ({
+  page,
+}) => {
+  await openJoinChat(page);
+
+  const storedSession = await page.evaluate(() => {
+    return localStorage.getItem("technochat:chat:chat-id");
+  });
+
+  expect(storedSession).toBeNull();
+});
+
+test("@unit does not rewrite stored reconnect session when invite hash is opened", async ({
+  page,
+}) => {
+  await openJoinChatWithStoredReconnectToken(page, "stored-token", "Tiny");
+
+  const storedSession = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+  });
+
+  expect(storedSession).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "stored-token",
+    name: "Tiny",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
+  });
+});
+
 test("@unit uses reconnect websocket endpoint when a token is stored", async ({
   page,
 }) => {
@@ -624,6 +853,32 @@ test("@unit can reconnect from stored room key when URL hash is missing", async 
   const socketURL = await page.evaluate(() => window.__technochatMockSocket.url);
   expect(socketURL).toContain("/api/v1/chat/reconnect");
   expect(socketURL).toContain("reconnect_token=stored-token");
+});
+
+test("@unit does not reconnect from stored room key without reconnect token", async ({
+  page,
+}) => {
+  await routeJoinChatWorktreeStatic(page);
+  await page.addInitScript((roomKey) => {
+    localStorage.setItem(
+      "technochat:chat:chat-id",
+      JSON.stringify({
+        chatId: "chat-id",
+        reconnectToken: "",
+        name: "Tiny",
+        roomKey,
+        updatedAt: "2026-05-02T06:00:00.000Z",
+      })
+    );
+  }, chatKeyBase64);
+
+  await page.goto("/html/joinchat.html?id=chat-id", { waitUntil: "commit" });
+
+  await expect(page.locator(".chat_error")).toContainText("Could not reconnect");
+  const socketCount = await page.evaluate(() => {
+    return (window.__technochatMockSockets || []).length;
+  });
+  expect(socketCount).toBe(0);
 });
 
 test("@unit local leave clears reconnect token without returning chat quota", async ({
@@ -666,7 +921,7 @@ test("@unit warns when chat is opened inside Telegram webview", async ({
   await expect(page.locator(".webview_warning")).toContainText("Telegram");
 });
 
-test("@unit clears invalid reconnect token and falls back to first connect", async ({
+test("@unit clears invalid reconnect token without spending a new chat slot", async ({
   page,
 }) => {
   await openJoinChatWithStoredReconnectToken(page, "bad-token");
@@ -680,7 +935,7 @@ test("@unit clears invalid reconnect token and falls back to first connect", asy
     });
   });
 
-  await page.waitForFunction(() => window.__technochatMockSockets.length === 2);
+  await expect(page.locator(".chat_error")).toContainText("Could not reconnect");
 
   const state = await page.evaluate(() => {
     return {
@@ -689,9 +944,15 @@ test("@unit clears invalid reconnect token and falls back to first connect", asy
     };
   });
 
-  expect(state.storedSession).toBeNull();
+  expect(JSON.parse(state.storedSession)).toEqual({
+    chatId: "chat-id",
+    reconnectToken: "",
+    name: "stored-name",
+    roomKey: chatKeyBase64,
+    updatedAt: expect.any(String),
+  });
   expect(state.socketURLs[0]).toContain("/api/v1/chat/reconnect");
-  expect(state.socketURLs[1]).toContain("/api/v1/chat/connect");
+  expect(state.socketURLs).toHaveLength(1);
 });
 
 test("@unit retries the first websocket connect before showing connection lost", async ({

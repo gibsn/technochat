@@ -177,8 +177,11 @@ self.addEventListener('notificationclick', function (event) {
   const chatId = event.notification && event.notification.data ?
     event.notification.data.chatId :
     '';
+  const messageId = event.notification && event.notification.data ?
+    event.notification.data.messageId :
+    '';
   const url = chatId ?
-    '/html/joinchat.html?id=' + encodeURIComponent(chatId) :
+    pushChatURL(chatId, messageId) :
     '/html/messageadd.html';
 
   event.waitUntil(openClientURL(url));
@@ -304,6 +307,17 @@ function urlBase64ToUint8Array(base64String) {
   }
 
   return outputArray;
+}
+
+function pushChatURL(chatId, messageId) {
+  const url = new URL('/html/joinchat.html', self.location.origin);
+  url.searchParams.set('id', chatId);
+  url.searchParams.set('open_source', 'push');
+  if (messageId) {
+    url.searchParams.set('push_message_id', messageId);
+  }
+
+  return url.pathname + url.search;
 }
 
 function openClientURL(url) {
