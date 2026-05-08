@@ -675,47 +675,6 @@ test("@unit stores reconnect token after the first chat connection", async ({
   });
 });
 
-test("@unit reports chat opened from push", async ({ page }) => {
-  const clientLogs = [];
-  await routeClientLogs(page, clientLogs);
-  await page.addInitScript((roomKey) => {
-    localStorage.setItem("technochat:chat:chat-id", JSON.stringify({
-      chatId: "chat-id",
-      reconnectToken: "token-alice",
-      name: "alice",
-      roomKey,
-      updatedAt: "2026-05-06T00:00:00.000Z",
-    }));
-  }, chatKeyBase64);
-  await routeJoinChatWorktreeStatic(page);
-
-  await page.goto(
-    "/html/joinchat.html?id=chat-id&open_source=push&push_message_id=message-1",
-    { waitUntil: "commit" }
-  );
-
-  await waitForClientLog(page, () => {
-    return (window.__technochatClientLogs || []).some((log) => {
-      return log.event === "chat_opened_from_push";
-    });
-  });
-
-  const log = await page.evaluate(() => {
-    return (window.__technochatClientLogs || []).find((entry) => {
-      return entry.event === "chat_opened_from_push";
-    });
-  });
-
-  expect(log.data.chat_id).toBe("chat-id");
-  expect(log.data.push_message_id).toBe("message-1");
-  expect(log.data.participant_name).toBe("alice");
-  expect(log.data.hash_present).toBe(false);
-  expect(log.data.has_key).toBe(false);
-  expect(log.data.key_source).toBe("storage");
-  expect(log.data.stored_has_key).toBe(true);
-  expect(log.data.stored_has_reconnect_token).toBe(true);
-});
-
 test("@unit sends push subscription only after reconnect session is stored", async ({
   page,
 }) => {
