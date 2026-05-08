@@ -128,58 +128,6 @@ export function storeReconnectSession(chatID, reconnectToken, name, roomKey) {
     }
 }
 
-export function storeReconnectRoomKey(chatID, roomKey) {
-    if (!chatID || !roomKey) {
-        return {
-            ok: false,
-            errorName: 'InvalidReconnectRoomKey',
-            errorMessage: 'chat id or room key is missing',
-            inspection: inspectReconnectSession(chatID),
-        };
-    }
-
-    try {
-        var session = loadReconnectSession(chatID);
-        var expected = {
-            chatId: chatID,
-            reconnectToken: session.reconnectToken || '',
-            name: session.name || '',
-            roomKey: roomKey,
-            updatedAt: new Date().toISOString(),
-        };
-        window.localStorage.setItem(reconnectStorageKey(chatID), JSON.stringify(expected));
-
-        var stored = loadReconnectSession(chatID);
-        if (
-            stored.chatId !== expected.chatId ||
-            stored.reconnectToken !== expected.reconnectToken ||
-            stored.name !== expected.name ||
-            stored.roomKey !== expected.roomKey
-        ) {
-            return {
-                ok: false,
-                errorName: 'StorageVerificationError',
-                errorMessage: 'stored reconnect room key did not match expected values',
-                inspection: inspectReconnectSession(chatID),
-            };
-        }
-
-        return {
-            ok: true,
-            session: stored,
-            inspection: inspectReconnectSession(chatID),
-        };
-    } catch (e) {
-        console.warn('could not store chat room key', e);
-        return {
-            ok: false,
-            errorName: e.name || '',
-            errorMessage: e.message || String(e),
-            inspection: inspectReconnectSession(chatID),
-        };
-    }
-}
-
 export function clearReconnectToken(chatID, roomKey) {
     if (!chatID) {
         return;

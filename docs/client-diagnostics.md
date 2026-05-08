@@ -57,8 +57,6 @@ Reconnect storage diagnostics may additionally include:
 
 ### Reconnect Storage
 
-- `chat_reconnect_room_key_store_failed` - failed to save `roomKey` from the URL
-  fragment into reconnect storage.
 - `chat_join_reconnect_token_missing` - `roomKey` was restored from storage, but
   `reconnectToken` was absent, so automatic reconnect is blocked.
 - `chat_reconnect_session_store_ok` - reconnect session was stored and verified

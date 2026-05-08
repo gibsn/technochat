@@ -9,7 +9,6 @@ import {
     clearReconnectSession,
     inspectReconnectSession,
     loadReconnectSession,
-    storeReconnectRoomKey,
     storeReconnectSession
 } from "/js/chat/reconnect-session.js";
 import {
@@ -278,21 +277,7 @@ new Vue({
                 setDiagnosticParticipantName(session.name);
             }
             if (key) {
-                var roomKeyStoreResult = storeReconnectRoomKey(id, key);
-                sessionInspection = roomKeyStoreResult && roomKeyStoreResult.inspection ?
-                    roomKeyStoreResult.inspection :
-                    inspectReconnectSession(id);
-                session = sessionInspection.session;
-                if (session.name) {
-                    setDiagnosticParticipantName(session.name);
-                }
-                if (!roomKeyStoreResult || !roomKeyStoreResult.ok) {
-                    reportChatDiagnostic('chat_reconnect_room_key_store_failed', Object.assign({
-                        chat_id: id,
-                        error_name: roomKeyStoreResult ? roomKeyStoreResult.errorName : '',
-                        error_message: roomKeyStoreResult ? roomKeyStoreResult.errorMessage : '',
-                    }, reconnectSessionInspectionDiagnostic(sessionInspection)));
-                }
+                keySource = 'hash';
             } else {
                 key = session.roomKey;
                 keySource = key ? 'storage' : 'missing';

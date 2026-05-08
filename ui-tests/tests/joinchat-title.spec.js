@@ -828,25 +828,19 @@ test("@unit retries reconnect session storage before push subscribe", async ({
   });
 });
 
-test("@unit stores room key before reconnect token is issued", async ({
+test("@unit does not store partial reconnect session before token is issued", async ({
   page,
 }) => {
   await openJoinChat(page);
 
   const storedSession = await page.evaluate(() => {
-    return JSON.parse(localStorage.getItem("technochat:chat:chat-id"));
+    return localStorage.getItem("technochat:chat:chat-id");
   });
 
-  expect(storedSession).toEqual({
-    chatId: "chat-id",
-    reconnectToken: "",
-    name: "",
-    roomKey: chatKeyBase64,
-    updatedAt: expect.any(String),
-  });
+  expect(storedSession).toBeNull();
 });
 
-test("@unit preserves stored reconnect token when refreshing room key", async ({
+test("@unit does not rewrite stored reconnect session when invite hash is opened", async ({
   page,
 }) => {
   await openJoinChatWithStoredReconnectToken(page, "stored-token", "Tiny");
