@@ -1,23 +1,32 @@
 #!/bin/bash
 
-BRANCH="master"
-DEPLOY_SCRIPT="./deploy.sh"
+BRANCH="${AUTODEPLOY_BRANCH:-master}"
+DEPLOY_SCRIPT="${AUTODEPLOY_SCRIPT:-./deploy.sh}"
+DEPLOY_ARGS=()
+
+if [ -n "${AUTODEPLOY_ARGS:-}" ]; then
+    read -r -a DEPLOY_ARGS <<< "$AUTODEPLOY_ARGS"
+fi
 
 git -c safe.directory=$(pwd) remote set-url origin https://${GITHUB_TOKEN}@github.com/gibsn/technochat.git
 
-git -c safe.directory=$(pwd) checkout "$BRANCH"
-git -c safe.directory=$(pwd) fetch origin "$BRANCH"
+git -c safe.directory=$(pwd) fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 
-LOCAL_HASH=$(git -c safe.directory=$(pwd) rev-parse "$BRANCH")
+if git -c safe.directory=$(pwd) show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    LOCAL_HASH=$(git -c safe.directory=$(pwd) rev-parse "$BRANCH")
+else
+    LOCAL_HASH=""
+fi
 REMOTE_HASH=$(git -c safe.directory=$(pwd) rev-parse "origin/$BRANCH")
 
 if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+    git -c safe.directory=$(pwd) checkout -B "$BRANCH" "origin/$BRANCH"
     git -c safe.directory=$(pwd) reset --hard "origin/$BRANCH"
     chmod +x ./dist/autodeploy.sh
 
     COMMIT_MSG=$(git -c safe.directory=$(pwd) log -1 --pretty=%s "$REMOTE_HASH")
 
-    if bash "$DEPLOY_SCRIPT"; then
+    if bash "$DEPLOY_SCRIPT" "${DEPLOY_ARGS[@]}"; then
         STATUS="✅ Deploy successful"
     else
         STATUS="❌ Deploy failed"

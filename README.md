@@ -167,6 +167,15 @@ VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=admin@example.com
 ```
 
+By default, automatic deploy tracks the `master` branch and runs `./deploy.sh`.
+For RC, configure it once to track the force-updated `rc` branch and run the RC
+deploy mode:
+
+```bash
+AUTODEPLOY_BRANCH=rc
+AUTODEPLOY_ARGS=--rc
+```
+
 Then run:
 
 ```bash

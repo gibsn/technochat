@@ -1,5 +1,5 @@
 [Unit]
-Description=Auto-deploy technochat from master branch
+Description=Auto-deploy technochat
 Wants=network-online.target
 After=network-online.target
 
