@@ -61,6 +61,15 @@ install_autodeploy:
 	systemctl daemon-reload
 	systemctl enable --now autodeploy_technochat.timer
 
+install_autodeploy_rc:
+	mkdir -p /opt/technochat
+	cp -pr . /opt/technochat
+	chmod +x /opt/technochat/dist/autodeploy.sh
+	cp ./dist/autodeploy_technochat_rc.service /etc/systemd/system/autodeploy_technochat.service
+	cp ./dist/autodeploy_technochat.timer /etc/systemd/system/
+	systemctl daemon-reload
+	systemctl enable --now autodeploy_technochat.timer
+
 vet:
 	go vet $(VET_PACKAGES)
 
@@ -69,4 +78,4 @@ clean:
 	rm -rf ui-tests/node_modules
 
 
-.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat vapid-keys lint install_autodeploy
+.PHONY: all clean test go-tests ui-unit-tests ui-e2e-tests ui-tests integration-tests install vet technochat vapid-keys lint install_autodeploy install_autodeploy_rc

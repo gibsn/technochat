@@ -2,22 +2,50 @@
 
 BRANCH="master"
 DEPLOY_SCRIPT="./deploy.sh"
+DEPLOY_ARGS=()
+
+print_help() {
+    echo "$0 checks a branch for updates and runs deploy when it changes"
+    echo -e "\tdefault:\ttrack master and run production deploy"
+    echo -e "\t--rc:\ttrack rc and run RC deploy"
+    echo -e "\t--help:\tprints this text and exits"
+}
+
+while [ "$1" != "" ]; do
+    case $1 in
+        "--rc")
+            BRANCH="rc"
+            DEPLOY_ARGS=(--rc)
+            ;;
+        "--help") print_help; exit 0;;
+        *)
+            echo "error: unknown option $1"
+            print_help
+            exit 1
+            ;;
+    esac
+    shift
+done
 
 git -c safe.directory=$(pwd) remote set-url origin https://${GITHUB_TOKEN}@github.com/gibsn/technochat.git
 
-git -c safe.directory=$(pwd) checkout "$BRANCH"
-git -c safe.directory=$(pwd) fetch origin "$BRANCH"
+git -c safe.directory=$(pwd) fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 
-LOCAL_HASH=$(git -c safe.directory=$(pwd) rev-parse "$BRANCH")
+if git -c safe.directory=$(pwd) show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    LOCAL_HASH=$(git -c safe.directory=$(pwd) rev-parse "$BRANCH")
+else
+    LOCAL_HASH=""
+fi
 REMOTE_HASH=$(git -c safe.directory=$(pwd) rev-parse "origin/$BRANCH")
 
 if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
+    git -c safe.directory=$(pwd) checkout -B "$BRANCH" "origin/$BRANCH"
     git -c safe.directory=$(pwd) reset --hard "origin/$BRANCH"
     chmod +x ./dist/autodeploy.sh
 
     COMMIT_MSG=$(git -c safe.directory=$(pwd) log -1 --pretty=%s "$REMOTE_HASH")
 
-    if bash "$DEPLOY_SCRIPT"; then
+    if bash "$DEPLOY_SCRIPT" "${DEPLOY_ARGS[@]}"; then
         STATUS="✅ Deploy successful"
     else
         STATUS="❌ Deploy failed"

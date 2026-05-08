@@ -1,10 +1,10 @@
 [Unit]
-Description=Auto-deploy technochat
+Description=Auto-deploy technochat RC
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/technochat
-ExecStart=/opt/technochat/dist/autodeploy.sh
+ExecStart=/opt/technochat/dist/autodeploy.sh --rc
 EnvironmentFile=/etc/default/autodeploy_technochat
