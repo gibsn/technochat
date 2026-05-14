@@ -215,6 +215,18 @@ button {
   background: rgba(0, 0, 0, 0.28);
 }
 
+.leave_confirm_modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.36);
+}
+
 .presence_panel {
   width: min(360px, 100%);
   max-height: min(430px, 72vh);
@@ -225,6 +237,15 @@ button {
   background: #ffffff;
   color: #111111;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.leave_confirm_panel {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
 }
 
 .presence_header {
@@ -239,9 +260,26 @@ button {
   flex-shrink: 0;
 }
 
+.leave_confirm_header {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
 .presence_header h2 {
   margin: 0;
   font-size: 22px;
+  line-height: 1.2;
+}
+
+.leave_confirm_header h2 {
+  margin: 0;
+  font-size: 20px;
   line-height: 1.2;
 }
 
@@ -266,6 +304,60 @@ button {
 .presence_close:focus {
   outline: 2px solid #111111;
   outline-offset: 2px;
+}
+
+.leave_confirm_body {
+  padding: 18px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.leave_confirm_body p {
+  margin: 0 0 12px;
+}
+
+.leave_confirm_body ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.leave_confirm_body li + li {
+  margin-top: 8px;
+}
+
+.leave_confirm_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px 18px;
+}
+
+.leave_confirm_cancel,
+.leave_confirm_leave {
+  min-height: 42px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.leave_confirm_cancel {
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: #ffffff;
+  color: #111111;
+}
+
+.leave_confirm_leave {
+  border: 0;
+  background: #b42318;
+  color: #ffffff;
+}
+
+.leave_confirm_cancel:focus-visible,
+.leave_confirm_leave:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 3px;
 }
 
 .presence_list {

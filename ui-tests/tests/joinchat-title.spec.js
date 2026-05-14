@@ -724,6 +724,22 @@ test("@unit sends push subscription only after reconnect session is stored", asy
   });
 });
 
+test("@unit includes participant name field in early client diagnostics", async ({
+  page,
+}) => {
+  const clientLogs = [];
+  await routeClientLogs(page, clientLogs);
+  await openJoinChat(page);
+
+  await waitForClientLog(page, () => {
+    return (window.__technochatClientLogs || []).some((log) => {
+      return log.event === "chat_join_page_start" &&
+        Object.prototype.hasOwnProperty.call(log.data, "participant_name") &&
+        log.data.participant_name === "";
+    });
+  });
+});
+
 test("@unit retries reconnect session storage before push subscribe", async ({
   page,
 }) => {
@@ -901,6 +917,27 @@ test("@unit local leave clears reconnect token without returning chat quota", as
 
   await expect(page.locator(".leave_button")).toBeVisible();
   await page.locator(".leave_button").click();
+
+  await expect(page.locator(".leave_confirm_modal")).toBeVisible();
+  await expect(page.locator(".leave_confirm_body")).toContainText(
+    "The local chat key and reconnect token will be deleted."
+  );
+  await expect
+    .poll(async () =>
+      page.evaluate(() => localStorage.getItem("technochat:chat:chat-id"))
+    )
+    .not.toBeNull();
+  await page.locator(".leave_confirm_cancel").click();
+  await expect(page.locator(".leave_confirm_modal")).toBeHidden();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => localStorage.getItem("technochat:chat:chat-id"))
+    )
+    .not.toBeNull();
+
+  await page.locator(".leave_button").click();
+  await expect(page.locator(".leave_confirm_modal")).toBeVisible();
+  await page.locator(".leave_confirm_leave").click();
 
   await expect
     .poll(async () =>

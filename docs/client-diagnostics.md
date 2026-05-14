@@ -22,7 +22,7 @@ Most events include these fields automatically:
 - `data.standalone` - whether the app is running in standalone display mode.
 - `data.online` - current `navigator.onLine` value.
 - `data.visibility_state` - current `document.visibilityState`.
-- `data.participant_name` - participant name, included after the client knows it.
+- `data.participant_name` - participant name. Empty until the client knows it.
 
 Reconnect storage diagnostics may additionally include:
 
