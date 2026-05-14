@@ -74,7 +74,7 @@
                     <button
                         class="presence_icon_button leave_button"
                         type="button"
-                        @click="leaveChat"
+                        @click="requestLeaveChat"
                         aria-label="Leave chat"
                         title="Leave chat"
                     >
@@ -160,6 +160,39 @@
                                 >
                                 <span>{{ user.name }}</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    v-if="leaveConfirmOpen"
+                    class="leave_confirm_modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="leave_confirm_title"
+                    @click.self="cancelLeaveChat"
+                >
+                    <div class="leave_confirm_panel">
+                        <div class="leave_confirm_header">
+                            <h2 id="leave_confirm_title">Leave this chat?</h2>
+                            <button class="presence_close" type="button" @click="cancelLeaveChat" aria-label="Cancel">
+                                <i class="material-icons">close</i>
+                            </button>
+                        </div>
+                        <div class="leave_confirm_body">
+                            <p>Leaving removes this chat from this device.</p>
+                            <ul>
+                                <li>You will not be able to reconnect to this chat from this device.</li>
+                                <li>Notifications for this chat will be disabled.</li>
+                                <li>Old push notifications may no longer be able to open this chat.</li>
+                            </ul>
+                        </div>
+                        <div class="leave_confirm_actions">
+                            <button class="leave_confirm_cancel" type="button" @click="cancelLeaveChat">
+                                Stay
+                            </button>
+                            <button class="leave_confirm_leave" type="button" @click="leaveChat">
+                                Leave chat
+                            </button>
                         </div>
                     </div>
                 </div>

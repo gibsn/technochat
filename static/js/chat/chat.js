@@ -80,10 +80,8 @@ function diagnosticContext(extra) {
         standalone: isStandalonePWA(),
         online: window.navigator.onLine,
         visibility_state: document.visibilityState,
+        participant_name: diagnosticParticipantName,
     };
-    if (diagnosticParticipantName) {
-        context.participant_name = diagnosticParticipantName;
-    }
 
     Object.keys(extra || {}).forEach(function(key) {
         context[key] = extra[key];
@@ -236,6 +234,7 @@ new Vue({
         reconnectSessionPersisted: false,
         reconnectSessionPersistAttempts: 0,
         iosHomePromptVisible: false,
+        leaveConfirmOpen: false,
     },
     computed: {
         presenceLabel: function() {
@@ -810,12 +809,19 @@ new Vue({
             this.reconnectToken = '';
             this.stopConnecting(status);
         },
+        requestLeaveChat: function() {
+            this.leaveConfirmOpen = true;
+        },
+        cancelLeaveChat: function() {
+            this.leaveConfirmOpen = false;
+        },
         leaveChat: function() {
             if (this.reconnectTimer) {
                 window.clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
             }
 
+            this.leaveConfirmOpen = false;
             reportChatDiagnostic('chat_leave_local', {
                 chat_id: this.chatID,
                 has_reconnect_token: Boolean(this.reconnectToken),
