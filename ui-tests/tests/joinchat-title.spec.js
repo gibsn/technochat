@@ -920,7 +920,7 @@ test("@unit local leave clears reconnect token without returning chat quota", as
 
   await expect(page.locator(".leave_confirm_modal")).toBeVisible();
   await expect(page.locator(".leave_confirm_body")).toContainText(
-    "The local chat key and reconnect token will be deleted."
+    "You will not be able to reconnect to this chat from this device."
   );
   await expect
     .poll(async () =>
