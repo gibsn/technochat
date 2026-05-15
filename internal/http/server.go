@@ -125,6 +125,7 @@ func (s *Server) Init() {
 	http.HandleFunc("/api/v1/chat/reconnect", s.chatReconnect)
 	http.HandleFunc(pushVAPIDPath, respondAPI(s.pushVAPIDPublicKey))
 	http.HandleFunc("/api/v1/client/log", respondAPI(s.clientLog))
+	http.HandleFunc("/api/v1/robohash/", s.roboHash)
 
 	log.Println("http: successfully initialised")
 }

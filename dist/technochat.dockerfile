@@ -7,7 +7,14 @@ WORKDIR /go/src/technochat
 COPY ./ ./
 
 RUN make technochat
-RUN find ./ ! -path "./bin*" ! -name "." ! -name ".." -delete
+RUN find ./ \
+    ! -path "./bin*" \
+    ! -path "./static" \
+    ! -path "./static/images" \
+    ! -path "./static/images/robohash*" \
+    ! -name "." \
+    ! -name ".." \
+    -delete
 
 RUN groupadd -r technochat
 RUN useradd -r -g technochat -s /bin/nologin technochat
