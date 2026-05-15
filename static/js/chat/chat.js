@@ -922,7 +922,7 @@ new Vue({
                 id: this.nextChatMessageID++,
                 username: username,
                 own: this.isOwnMessage(username),
-                bodyHtml: emojione.toImage(this.escapeHtml(body)),
+                body: body,
                 timeISO: this.messageTimeISO(msg.created_at),
                 timeLabel: this.messageTimeLabel(msg.created_at),
             });
@@ -1030,10 +1030,25 @@ new Vue({
                 + '" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">';
         },
         roboHash: function(username) {
-            return 'https://robohash.org/' + encodeURIComponent(username) + '.png?size=50x50';
+            var avatarCount = 64;
+            var avatarIndex = this.hashString(username || 'example') % avatarCount;
+            var avatarName = String(avatarIndex);
+            while (avatarName.length < 2) {
+                avatarName = '0' + avatarName;
+            }
+            return '/images/robohash/avatars/' + avatarName + '.svg';
+        },
+        hashString: function(value) {
+            var hash = 0;
+            var text = String(value);
+            for (var i = 0; i < text.length; i++) {
+                hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                hash = hash | 0;
+            }
+            return hash >>> 0;
         },
         fallbackAvatar: function(username) {
-            var letter = ((username || '?').trim().charAt(0) || '?').toUpperCase();
+            var letter = this.escapeHtml(((username || '?').trim().charAt(0) || '?').toUpperCase());
             var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">'
                 + '<rect width="50" height="50" rx="25" fill="#111111"/>'
                 + '<text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" '

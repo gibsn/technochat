@@ -20,7 +20,6 @@
     <link rel="apple-touch-icon" sizes="120x120" href="/images/apple-touch-icon-120x120.png">
 
     <link rel="stylesheet" href="/css/lib/material_icons.css">
-    <link rel="stylesheet" href="/css/lib/emojione.min.css">
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/chat.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -107,7 +106,7 @@
                                         {{ message.timeLabel }}
                                     </time>
                                 </div>
-                                <div class="chat-message_body" v-html="message.bodyHtml"></div>
+                                <div class="chat-message_body">{{ message.body }}</div>
                             </div>
                         </div>
                         <div v-if="typingText" class="typing_indicator" aria-live="polite">
@@ -211,7 +210,6 @@
         </div>
     </div>
     <script src="/js/lib/vue.min.js"></script>
-    <script src="/js/lib/emojione.min.js"></script>
     <script src="/js/lib/jquery-3.6.0.min.js"></script>
     <script src="/js/network-loader.js"></script>
     <script src="/js/lib/md5.js"></script>

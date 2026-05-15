@@ -499,11 +499,6 @@ button {
   background: #111111;
   color: #ffffff;
 }
-.chat-message_body .emojione {
-  width: 1.2em;
-  height: 1.2em;
-  vertical-align: -0.2em;
-}
 
 .message_input {
   z-index: 5;
