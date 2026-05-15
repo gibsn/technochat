@@ -172,17 +172,20 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
 
-  const chatId = event.notification && event.notification.data ?
-    event.notification.data.chatId :
-    '';
-  const messageId = event.notification && event.notification.data ?
-    event.notification.data.messageId :
-    '';
+  const notificationData = event.notification && event.notification.data ?
+    event.notification.data :
+    {};
+  const chatId = notificationData.chatId || '';
+  const messageId = notificationData.messageId || '';
   const url = chatId ?
     pushChatURL(chatId, messageId) :
     '/html/messageadd.html';
 
-  event.waitUntil(openClientURL(url));
+  event.waitUntil(
+    closeChatNotifications(notificationData).then(function () {
+      return openClientURL(url);
+    })
+  );
 });
 
 self.addEventListener('pushsubscriptionchange', function (event) {
@@ -204,7 +207,9 @@ function handlePush(event) {
       renotify: true,
       data: {
         chatId: payload.chatId,
-        messageId: payload.messageId
+        messageId: payload.messageId,
+        messageSeq: payload.messageSeq,
+        timestamp: payload.timestamp
       }
     });
   });
@@ -335,6 +340,27 @@ function openClientURL(url) {
 
     return self.clients.openWindow(url);
   });
+}
+
+function closeChatNotifications(openedData) {
+  if (!self.registration || !self.registration.getNotifications) {
+    return Promise.resolve();
+  }
+
+  return self.registration.getNotifications().then(function (notifications) {
+    notifications.forEach(function (notification) {
+      if (shouldCloseChatNotification(openedData, notification.data || {})) {
+        notification.close();
+      }
+    });
+  });
+}
+
+function shouldCloseChatNotification(openedData, candidateData) {
+  if (!openedData || !candidateData || !openedData.chatId) {
+    return false;
+  }
+  return candidateData.chatId === openedData.chatId;
 }
 
 function savePushMessage(payload) {
