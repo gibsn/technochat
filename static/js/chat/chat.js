@@ -922,7 +922,7 @@ new Vue({
                 id: this.nextChatMessageID++,
                 username: username,
                 own: this.isOwnMessage(username),
-                bodyHtml: emojione.toImage(this.escapeHtml(body)),
+                body: body,
                 timeISO: this.messageTimeISO(msg.created_at),
                 timeLabel: this.messageTimeLabel(msg.created_at),
             });

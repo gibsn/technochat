@@ -107,7 +107,7 @@
                                         {{ message.timeLabel }}
                                     </time>
                                 </div>
-                                <div class="chat-message_body" v-html="message.bodyHtml"></div>
+                                <div class="chat-message_body">{{ message.body }}</div>
                             </div>
                         </div>
                         <div v-if="typingText" class="typing_indicator" aria-live="polite">
