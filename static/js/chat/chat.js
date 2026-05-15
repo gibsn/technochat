@@ -1030,16 +1030,41 @@ new Vue({
                 + '" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">';
         },
         roboHash: function(username) {
-            return 'https://robohash.org/' + encodeURIComponent(username) + '.png?size=50x50';
+            return this.robotAvatar(username);
         },
         fallbackAvatar: function(username) {
-            var letter = ((username || '?').trim().charAt(0) || '?').toUpperCase();
+            return this.robotAvatar(username);
+        },
+        robotAvatar: function(username) {
+            var name = String(username || '');
+            var hash = this.hashString(name);
+            var palette = ['#f97316', '#14b8a6', '#3b82f6', '#a855f7', '#22c55e', '#ef4444'];
+            var accent = palette[hash % palette.length];
+            var eyeOffset = hash % 3;
+            var mouthOffset = (hash >> 3) % 5;
+            var antennaTilt = (hash % 2) === 0 ? -3 : 3;
+            var label = this.escapeHtml((name.trim().charAt(0) || '?').toUpperCase());
             var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">'
                 + '<rect width="50" height="50" rx="25" fill="#111111"/>'
-                + '<text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" '
-                + 'font-family="Ubuntu Mono, monospace" font-size="22" fill="#ffffff">' + letter + '</text>'
+                + '<path d="M25 9v6" stroke="' + accent + '" stroke-width="3" stroke-linecap="round"/>'
+                + '<circle cx="' + (25 + antennaTilt) + '" cy="8" r="3" fill="' + accent + '"/>'
+                + '<rect x="12" y="15" width="26" height="24" rx="8" fill="#f8fafc"/>'
+                + '<rect x="10" y="23" width="4" height="10" rx="2" fill="' + accent + '"/>'
+                + '<rect x="36" y="23" width="4" height="10" rx="2" fill="' + accent + '"/>'
+                + '<circle cx="' + (20 - eyeOffset) + '" cy="25" r="3" fill="#111111"/>'
+                + '<circle cx="' + (30 + eyeOffset) + '" cy="25" r="3" fill="#111111"/>'
+                + '<path d="M20 ' + (33 - mouthOffset) + 'h10" stroke="#111111" stroke-width="2" stroke-linecap="round"/>'
+                + '<text x="25" y="47" text-anchor="middle" font-family="Ubuntu Mono, monospace" '
+                + 'font-size="8" font-weight="700" fill="#ffffff">' + label + '</text>'
                 + '</svg>';
             return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+        },
+        hashString: function(value) {
+            var hash = 0;
+            for (var i = 0; i < value.length; i++) {
+                hash = ((hash << 5) - hash + value.charCodeAt(i)) >>> 0;
+            }
+            return hash;
         },
         useFallbackAvatar: function(event, username) {
             event.target.onerror = null;

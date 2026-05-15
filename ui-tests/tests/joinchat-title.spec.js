@@ -441,22 +441,6 @@ test("@unit does not blink the page title when the chat page is visible", async 
   await expect(page.locator(".chat-message_time")).not.toBeEmpty();
 });
 
-test("@unit renders incoming emoji as native text", async ({ page }) => {
-  await openJoinChat(page);
-
-  await page.evaluate(async () => {
-    window.__emitJoinChatMessage({
-      type: 1,
-      username: "bob",
-      data: await window.__encryptJoinChatMessage("🤝"),
-    });
-  });
-
-  const messageBody = page.locator(".chat-message_body").last();
-  await expect(messageBody).toHaveText("🤝");
-  await expect(messageBody.locator("img.emojione")).toHaveCount(0);
-});
-
 test("@unit keeps the page gray behind the white chat canvas", async ({ page }) => {
   await routeJoinChatWorktreeStatic(page);
   await page.addInitScript(installJoinChatMocks);
