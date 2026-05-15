@@ -9,9 +9,6 @@ COPY ./ ./
 RUN make technochat
 RUN find ./ \
     ! -path "./bin*" \
-    ! -path "./static" \
-    ! -path "./static/images" \
-    ! -path "./static/images/robohash*" \
     ! -name "." \
     ! -name ".." \
     -delete

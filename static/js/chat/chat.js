@@ -1030,7 +1030,22 @@ new Vue({
                 + '" loading="lazy" onerror="this.onerror=null;this.src=\'' + fallback + '\'">';
         },
         roboHash: function(username) {
-            return '/api/v1/robohash/' + encodeURIComponent(username || 'example') + '.svg?size=50x50';
+            var avatarCount = 64;
+            var avatarIndex = this.hashString(username || 'example') % avatarCount;
+            var avatarName = String(avatarIndex);
+            while (avatarName.length < 2) {
+                avatarName = '0' + avatarName;
+            }
+            return '/images/robohash/avatars/' + avatarName + '.svg';
+        },
+        hashString: function(value) {
+            var hash = 0;
+            var text = String(value);
+            for (var i = 0; i < text.length; i++) {
+                hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                hash = hash | 0;
+            }
+            return hash >>> 0;
         },
         fallbackAvatar: function(username) {
             var letter = this.escapeHtml(((username || '?').trim().charAt(0) || '?').toUpperCase());
