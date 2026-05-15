@@ -174,17 +174,20 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
 
-  const chatId = event.notification && event.notification.data ?
-    event.notification.data.chatId :
-    '';
-  const messageId = event.notification && event.notification.data ?
-    event.notification.data.messageId :
-    '';
+  const notificationData = event.notification && event.notification.data ?
+    event.notification.data :
+    {};
+  const chatId = notificationData.chatId || '';
+  const messageId = notificationData.messageId || '';
   const url = chatId ?
     pushChatURL(chatId, messageId) :
     '/html/messageadd.html';
 
-  event.waitUntil(openClientURL(url));
+  event.waitUntil(
+    closeOlderChatNotifications(notificationData).then(function () {
+      return openClientURL(url);
+    })
+  );
 });
 
 self.addEventListener('pushsubscriptionchange', function (event) {
@@ -206,7 +209,9 @@ function handlePush(event) {
       renotify: true,
       data: {
         chatId: payload.chatId,
-        messageId: payload.messageId
+        messageId: payload.messageId,
+        messageSeq: payload.messageSeq,
+        timestamp: payload.timestamp
       }
     });
   });
@@ -337,6 +342,62 @@ function openClientURL(url) {
 
     return self.clients.openWindow(url);
   });
+}
+
+function closeOlderChatNotifications(openedData) {
+  if (!self.registration || !self.registration.getNotifications) {
+    return Promise.resolve();
+  }
+
+  return self.registration.getNotifications().then(function (notifications) {
+    notifications.forEach(function (notification) {
+      if (shouldCloseOlderChatNotification(openedData, notification.data || {})) {
+        notification.close();
+      }
+    });
+  });
+}
+
+function shouldCloseOlderChatNotification(openedData, candidateData) {
+  if (!openedData || !candidateData || !openedData.chatId) {
+    return false;
+  }
+  if (candidateData.chatId !== openedData.chatId) {
+    return false;
+  }
+  if (candidateData.messageId && candidateData.messageId === openedData.messageId) {
+    return false;
+  }
+
+  const openedSeq = normalizedMessageSeq(openedData.messageSeq);
+  const candidateSeq = normalizedMessageSeq(candidateData.messageSeq);
+  if (openedSeq && candidateSeq) {
+    return candidateSeq < openedSeq;
+  }
+  if (openedSeq && !candidateSeq) {
+    return true;
+  }
+  if (!openedSeq && candidateSeq) {
+    return false;
+  }
+
+  const openedTimestamp = normalizedTimestamp(openedData.timestamp);
+  const candidateTimestamp = normalizedTimestamp(candidateData.timestamp);
+  if (openedTimestamp && candidateTimestamp) {
+    return candidateTimestamp < openedTimestamp;
+  }
+
+  return Boolean(openedData.messageId && candidateData.messageId);
+}
+
+function normalizedMessageSeq(value) {
+  const seq = Number(value);
+  return Number.isFinite(seq) && seq > 0 ? seq : 0;
+}
+
+function normalizedTimestamp(value) {
+  const timestamp = Date.parse(value || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function savePushMessage(payload) {
