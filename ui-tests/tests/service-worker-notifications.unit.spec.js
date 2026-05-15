@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("@unit closes only older notifications for the opened chat", async ({ page }) => {
+test("@unit closes all notifications for the opened chat", async ({ page }) => {
   await page.goto("/service-worker-notifications-test.html");
 
   const decisions = await page.evaluate(() => {
@@ -29,27 +29,27 @@ test("@unit closes only older notifications for the opened chat", async ({ page 
     };
 
     return {
-      olderSameChat: shouldCloseOlderChatNotification(opened, {
+      olderSameChat: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "older",
         messageSeq: 2,
       }),
-      openedMessage: shouldCloseOlderChatNotification(opened, {
+      openedMessage: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "opened",
         messageSeq: 3,
       }),
-      newerSameChat: shouldCloseOlderChatNotification(opened, {
+      newerSameChat: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "newer",
         messageSeq: 4,
       }),
-      otherChat: shouldCloseOlderChatNotification(opened, {
+      otherChat: shouldCloseChatNotification(opened, {
         chatId: "other-chat",
         messageId: "older",
         messageSeq: 1,
       }),
-      legacySameChat: shouldCloseOlderChatNotification(opened, {
+      legacySameChat: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "legacy",
       }),
@@ -58,14 +58,14 @@ test("@unit closes only older notifications for the opened chat", async ({ page 
 
   await expect(decisions).toEqual({
     olderSameChat: true,
-    openedMessage: false,
-    newerSameChat: false,
+    openedMessage: true,
+    newerSameChat: true,
     otherChat: false,
     legacySameChat: true,
   });
 });
 
-test("@unit falls back to timestamps when notification sequence is absent", async ({ page }) => {
+test("@unit ignores notification ordering when closing opened chat notifications", async ({ page }) => {
   await page.goto("/service-worker-notifications-test.html");
 
   const decisions = await page.evaluate(() => {
@@ -76,12 +76,12 @@ test("@unit falls back to timestamps when notification sequence is absent", asyn
     };
 
     return {
-      olderSameChat: shouldCloseOlderChatNotification(opened, {
+      olderSameChat: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "older",
         timestamp: "2026-05-14T02:00:00Z",
       }),
-      newerSameChat: shouldCloseOlderChatNotification(opened, {
+      newerSameChat: shouldCloseChatNotification(opened, {
         chatId: "chat-id",
         messageId: "newer",
         timestamp: "2026-05-14T04:00:00Z",
@@ -91,6 +91,6 @@ test("@unit falls back to timestamps when notification sequence is absent", asyn
 
   await expect(decisions).toEqual({
     olderSameChat: true,
-    newerSameChat: false,
+    newerSameChat: true,
   });
 });

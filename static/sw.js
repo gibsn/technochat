@@ -184,7 +184,7 @@ self.addEventListener('notificationclick', function (event) {
     '/html/messageadd.html';
 
   event.waitUntil(
-    closeOlderChatNotifications(notificationData).then(function () {
+    closeChatNotifications(notificationData).then(function () {
       return openClientURL(url);
     })
   );
@@ -344,60 +344,25 @@ function openClientURL(url) {
   });
 }
 
-function closeOlderChatNotifications(openedData) {
+function closeChatNotifications(openedData) {
   if (!self.registration || !self.registration.getNotifications) {
     return Promise.resolve();
   }
 
   return self.registration.getNotifications().then(function (notifications) {
     notifications.forEach(function (notification) {
-      if (shouldCloseOlderChatNotification(openedData, notification.data || {})) {
+      if (shouldCloseChatNotification(openedData, notification.data || {})) {
         notification.close();
       }
     });
   });
 }
 
-function shouldCloseOlderChatNotification(openedData, candidateData) {
+function shouldCloseChatNotification(openedData, candidateData) {
   if (!openedData || !candidateData || !openedData.chatId) {
     return false;
   }
-  if (candidateData.chatId !== openedData.chatId) {
-    return false;
-  }
-  if (candidateData.messageId && candidateData.messageId === openedData.messageId) {
-    return false;
-  }
-
-  const openedSeq = normalizedMessageSeq(openedData.messageSeq);
-  const candidateSeq = normalizedMessageSeq(candidateData.messageSeq);
-  if (openedSeq && candidateSeq) {
-    return candidateSeq < openedSeq;
-  }
-  if (openedSeq && !candidateSeq) {
-    return true;
-  }
-  if (!openedSeq && candidateSeq) {
-    return false;
-  }
-
-  const openedTimestamp = normalizedTimestamp(openedData.timestamp);
-  const candidateTimestamp = normalizedTimestamp(candidateData.timestamp);
-  if (openedTimestamp && candidateTimestamp) {
-    return candidateTimestamp < openedTimestamp;
-  }
-
-  return Boolean(openedData.messageId && candidateData.messageId);
-}
-
-function normalizedMessageSeq(value) {
-  const seq = Number(value);
-  return Number.isFinite(seq) && seq > 0 ? seq : 0;
-}
-
-function normalizedTimestamp(value) {
-  const timestamp = Date.parse(value || '');
-  return Number.isFinite(timestamp) ? timestamp : 0;
+  return candidateData.chatId === openedData.chatId;
 }
 
 function savePushMessage(payload) {
