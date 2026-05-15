@@ -36,12 +36,17 @@ export async function currentPushSubscription(requestPermission) {
         }
     }
 
+    const applicationServerKey = urlBase64ToUint8Array(publicKey);
     const registration = await navigator.serviceWorker.register('/sw.js');
     let subscription = await registration.pushManager.getSubscription();
+    if (subscription && !subscriptionMatchesApplicationServerKey(subscription, applicationServerKey)) {
+        await subscription.unsubscribe();
+        subscription = null;
+    }
     if (!subscription) {
         subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
+            applicationServerKey: applicationServerKey,
         });
     }
 
@@ -114,6 +119,33 @@ function normalizeSubscription(subscription) {
             p256dh: String(json && json.keys && json.keys.p256dh || ''),
         },
     };
+}
+
+export function subscriptionMatchesApplicationServerKey(subscription, applicationServerKey) {
+    const subscriptionKey = subscription && subscription.options ?
+        subscription.options.applicationServerKey :
+        null;
+    if (!subscriptionKey) {
+        return true;
+    }
+
+    return arrayBufferEquals(subscriptionKey, applicationServerKey);
+}
+
+function arrayBufferEquals(left, right) {
+    const leftBytes = new Uint8Array(left);
+    const rightBytes = new Uint8Array(right);
+    if (leftBytes.length !== rightBytes.length) {
+        return false;
+    }
+
+    for (let i = 0; i < leftBytes.length; i++) {
+        if (leftBytes[i] !== rightBytes[i]) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function urlBase64ToUint8Array(base64String) {
