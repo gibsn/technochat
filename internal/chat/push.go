@@ -15,6 +15,7 @@ import (
 )
 
 const PushTTLSeconds = 24 * 60 * 60
+const pushProviderErrorBodyLimit = 4096
 
 var ErrPushSubscriptionGone = errors.New("push subscription expired or invalid")
 
@@ -118,22 +119,49 @@ func handlePushResponse(response *http.Response) error {
 	if response == nil {
 		return nil
 	}
-	if _, err := io.Copy(io.Discard, response.Body); err != nil {
-		_ = response.Body.Close()
-		return err
-	}
-	if err := response.Body.Close(); err != nil {
-		return err
+	var body []byte
+	if response.Body != nil {
+		limitedBody := io.LimitReader(response.Body, pushProviderErrorBodyLimit+1)
+		var err error
+		body, err = io.ReadAll(limitedBody)
+		if err != nil {
+			_ = response.Body.Close()
+			return err
+		}
+		if err := response.Body.Close(); err != nil {
+			return err
+		}
 	}
 
 	if response.StatusCode == http.StatusGone || response.StatusCode == http.StatusNotFound {
 		return ErrPushSubscriptionGone
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("push provider returned %s", response.Status)
+		return fmt.Errorf(
+			"push provider returned %s: %s",
+			response.Status,
+			formatPushProviderErrorBody(body),
+		)
 	}
 
 	return nil
+}
+
+func formatPushProviderErrorBody(body []byte) string {
+	if len(body) == 0 {
+		return "empty response body"
+	}
+
+	truncated := len(body) > pushProviderErrorBodyLimit
+	if truncated {
+		body = body[:pushProviderErrorBodyLimit]
+	}
+
+	if truncated {
+		return fmt.Sprintf("%q (truncated)", string(body))
+	}
+
+	return fmt.Sprintf("%q", string(body))
 }
 
 func (c *Chat) UpsertPushSubscription(participantID int, subscription PushSubscription) bool {
