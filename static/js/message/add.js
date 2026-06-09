@@ -90,6 +90,69 @@ function setUploadStatus(message, isError = false) {
     uploadStatus.style.color = 'red';
 }
 
+async function postFormDataJson(url, formData) {
+    const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const error = new Error(`http status is ${response.status}`);
+        error.status = response.status;
+        throw error;
+    }
+
+    return await response.json();
+}
+
+function setElementHtml(elementId, html) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.innerHTML = html;
+    }
+}
+
+function setElementText(elementId, text) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = text;
+    }
+}
+
+function renderResultText(text) {
+    const resultText = document.getElementById('result_text');
+    if (!resultText) {
+        return;
+    }
+
+    resultText.textContent = '';
+
+    const lines = text.split(/\r\n|\r|\n/);
+    lines.forEach((line, index) => {
+        if (index > 0) {
+            resultText.appendChild(document.createElement('br'));
+        }
+
+        resultText.appendChild(document.createTextNode(line));
+    });
+}
+
+function renderResultLink(link) {
+    const resultLink = document.getElementById('result_link');
+    if (!resultLink) {
+        return;
+    }
+
+    resultLink.textContent = '';
+
+    const linkInput = document.createElement('input');
+    linkInput.id = 'to_copy';
+    linkInput.value = link;
+
+    resultLink.appendChild(linkInput);
+    resultLink.appendChild(document.createTextNode(link));
+}
+
 function renderReconnectModal() {
     const sessions = loadReconnectSessions();
     if (sessions.length === 0 || document.querySelector('.reconnect_modal')) {
@@ -475,7 +538,7 @@ async function previewImages() {
 }
 
 async function uploadImages(images, ttl, encrypter) {
-    let ids = [];
+    const ids = [];
     const uploadProgressStart = 22;
     const uploadProgressEnd = 78;
 
@@ -493,19 +556,13 @@ async function uploadImages(images, ttl, encrypter) {
             imageBytes = await encrypter.encryptBytes(imageBytes);
         }
 
-        let formData = new FormData();
+        const formData = new FormData();
         formData.append("image", new Blob([imageBytes], { type: "application/octet-stream" }));
         formData.append("ttl", ttl);
 
         let resp;
         try {
-            resp = await $.ajax({
-                type: 'POST',
-                url: imageUploadAPI,
-                data: formData,
-                contentType: false,
-                processData: false
-            });
+            resp = await postFormDataJson(imageUploadAPI, formData);
         } catch (errorResp) {
             if (errorResp.status !== 200) {
                 console.error("could not upload image: http status is", errorResp.status);
@@ -552,12 +609,13 @@ async function onMessageSubmit(e) {
     }
 
     setLoadingProgress(14, 'Encrypting message...');
-    let encrypter = new Encrypter(new AESGCM128());
+    const encrypter = new Encrypter(new AESGCM128());
     await encrypter.setup();
 
     const ttl = getCurrentTTL();
 
-    const text = $('#text').val();
+    const textInput = document.getElementById('text');
+    const text = textInput ? textInput.value : '';
     const encryptedText = await encrypter.encryptString(text);
 
     if (selectedImages.length > 0) {
@@ -576,36 +634,40 @@ async function onMessageSubmit(e) {
 
     setLoadingProgress(88, 'Creating one-time link...');
 
-    $.ajax({
-        type: 'POST',
-        url: $('#text_form').attr('action'),
-        data: formData,
-        contentType: false,
-        processData: false,
-        success: onMessageSubmitSuccess,
-        error: onMessageSubmitError,
-        key: ArrayBufferToBase64(encrypter.exportKey),
-        iv: ArrayBufferToBase64(encrypter.iv),
-    });
+    try {
+        const form = document.getElementById(textInputId);
+        const addResponse = await postFormDataJson(form.action, formData);
+
+        onMessageSubmitSuccess(addResponse, {
+            key: ArrayBufferToBase64(encrypter.exportKey),
+            iv: ArrayBufferToBase64(encrypter.iv),
+        });
+    } catch (error) {
+        onMessageSubmitError(error);
+    }
 }
 
-function onMessageSubmitSuccess(addResponse) {
-    var userText = $('#text').val();
-    $('#result_text').html(userText.replace(/(?:\r\n|\r|\n)/g, '<br>'));
+function onMessageSubmitSuccess(addResponse, encryptionParams) {
+    const textInput = document.getElementById('text');
+    const userText = textInput ? textInput.value : '';
+    renderResultText(userText);
 
     setUploadStatus('');
 
     if (addResponse.code === 200) {
         setLoadingProgress(100, 'Link is ready');
         let link = addResponse.body.link;
-        link += '#key=' + encodeURIComponent(this.key);
-        link += '&iv=' + encodeURIComponent(this.iv);
+        link += '#key=' + encodeURIComponent(encryptionParams.key);
+        link += '&iv=' + encodeURIComponent(encryptionParams.iv);
 
-        $('#text').val('');
-        $('#result_link').html('<input id="to_copy" value="' + link + '">' + link + '</input>');
+        if (textInput) {
+            textInput.value = '';
+        }
+
+        renderResultLink(link);
     } else {
         setLoadingProgress(100, 'Could not create link');
-        $('#result_link').html("error: " + addResponse.body);
+        setElementText('result_link', "error: " + addResponse.body);
     }
 
     setTimeout(() => {
@@ -617,7 +679,7 @@ function onMessageSubmitSuccess(addResponse) {
 
 function onMessageSubmitError(e) {
     setLoadingVisible(false);
-    $('#result_text').html('Internal Server Error');
+    setElementText('result_text', 'Internal Server Error');
 
     util.scrollToCopyButton();
 }
@@ -628,8 +690,8 @@ function initPage() {
 
     setLoadingVisible(false);
     setLoadingProgress(0, 'Generating link...');
-    $('#result_text').html('');
-    $('#result_link').html('');
+    setElementHtml('result_text', '');
+    setElementHtml('result_link', '');
 
     const fileInput = document.getElementById(fileInputId);
     if (isMobileSafari() && fileInput) {
@@ -642,7 +704,7 @@ function initPage() {
     const generateButton = document.getElementById('generate_button');
     const messageBox = document.getElementById('message_box');
 
-    if (generateButton) {
+    if (generateButton && messageBox) {
         generateButton.addEventListener('click', () => {
             messageBox.style.display = "block";
         });
@@ -652,9 +714,9 @@ function initPage() {
 }
 
 function initSymbolsCounter() {
-    var textarea = document.querySelector('.js__textarea');
-    var counter = document.querySelector('.js__counter');
-    var counterMax = document.querySelector('.js__counter-max');
+    const textarea = document.querySelector('.js__textarea');
+    const counter = document.querySelector('.js__counter');
+    const counterMax = document.querySelector('.js__counter-max');
 
     // set defaults
     counter.innerHTML = initialTextAreaLength;
@@ -663,7 +725,7 @@ function initSymbolsCounter() {
 
     // change colour to red in case symbols limit is reached
     textarea.addEventListener('input', function () {
-        var currentLength = textarea.value.length;
+        const currentLength = textarea.value.length;
         counter.innerHTML = currentLength;
 
         if (currentLength < maxTextAreaLength) {
@@ -681,7 +743,7 @@ function initSymbolsCounter() {
     });
 
     // clear counter after the message has been submitted
-    var textform = document.getElementById(textInputId);
+    const textform = document.getElementById(textInputId);
     textform.addEventListener('submit', function() {
         counter.innerHTML = initialTextAreaLength;
         counter.parentElement.style.color = '#6d6d6d';

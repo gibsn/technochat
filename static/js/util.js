@@ -41,7 +41,8 @@ export function resetCopyButton(button, text = 'Copy link') {
 }
 
 export function scrollToCopyButton() {
-    $('html, body').animate({
-        scrollTop: $('#copy_button').offset().top
-    }, 1000);
+    document.getElementById('copy_button')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+    });
 }
